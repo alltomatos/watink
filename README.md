@@ -73,7 +73,7 @@ O Watink vive e cresce através da sua comunidade.
 
 O Watink e um ecosistema em microserviços entao um bom servidor vai garantir a sua paz nos indicamos e apoioamos a hosteg. 
 
-💬 **[Participe do nosso Grupo no WhatsApp](https://painelcliente.com.br/aff.php?aff=87&gid=32)**
+💬 **[Visite a Hosteg e contrate seu VPS/Servidor com watink](https://painelcliente.com.br/aff.php?aff=87&gid=32)**
 
 ---
 
