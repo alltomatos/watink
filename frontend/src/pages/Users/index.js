@@ -1,0 +1,288 @@
+import React, { useState, useEffect, useReducer } from "react";
+import { toast } from "react-toastify";
+import openSocket from "../../services/socket-io";
+
+import { makeStyles } from "@material-ui/core/styles";
+import {
+  Box,
+  Button,
+  TextField,
+  InputAdornment,
+  Grid,
+  CircularProgress,
+  IconButton,
+} from "@material-ui/core";
+import { useHistory } from "react-router-dom";
+import SearchIcon from "@material-ui/icons/Search";
+import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
+import EditIcon from "@material-ui/icons/Edit";
+
+import MainContainer from "../../components/MainContainer";
+import MainHeader from "../../components/MainHeader";
+import MainHeaderButtonsWrapper from "../../components/MainHeaderButtonsWrapper";
+import Title from "../../components/Title";
+import ListItemCard from "../../components/ListItemCard";
+
+import api from "../../services/api";
+import { i18n } from "../../translate/i18n";
+import UserModal from "../../components/UserModal";
+import ConfirmationModal from "../../components/ConfirmationModal";
+import toastError from "../../errors/toastError";
+
+const reducer = (state, action) => {
+  if (action.type === "LOAD_USERS") {
+    const users = action.payload;
+    const newUsers = [];
+
+    users.forEach((user) => {
+      const userIndex = state.findIndex((u) => u.id === user.id);
+      if (userIndex !== -1) {
+        state[userIndex] = user;
+      } else {
+        newUsers.push(user);
+      }
+    });
+
+    return [...state, ...newUsers];
+  }
+
+  if (action.type === "UPDATE_USERS") {
+    const user = action.payload;
+    const userIndex = state.findIndex((u) => u.id === user.id);
+
+    if (userIndex !== -1) {
+      state[userIndex] = user;
+      return [...state];
+    } else {
+      return [user, ...state];
+    }
+  }
+
+  if (action.type === "DELETE_USER") {
+    const userId = action.payload;
+
+    const userIndex = state.findIndex((u) => u.id === userId);
+    if (userIndex !== -1) {
+      state.splice(userIndex, 1);
+    }
+    return [...state];
+  }
+
+  if (action.type === "RESET") {
+    return [];
+  }
+};
+
+const useStyles = makeStyles((theme) => ({
+  mainPaper: {
+    flex: 1,
+    padding: theme.spacing(2),
+    overflowY: "auto",
+    ...theme.scrollbarStyles,
+  },
+}));
+
+// Mapeia perfis para cores de status
+const getProfileStatus = (profile) => {
+  switch (profile) {
+    case "admin":
+      return { label: "Admin", color: "error" };
+    case "supervisor":
+      return { label: "Supervisor", color: "warning" };
+    case "user":
+      return { label: "Usuário", color: "info" };
+    default:
+      return { label: profile || "N/A", color: "default" };
+  }
+};
+
+const Users = () => {
+  const classes = useStyles();
+  const history = useHistory();
+
+  const [loading, setLoading] = useState(false);
+  const [pageNumber, setPageNumber] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [deletingUser, setDeletingUser] = useState(null);
+  const [userModalOpen, setUserModalOpen] = useState(false);
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [searchParam, setSearchParam] = useState("");
+  const [users, dispatch] = useReducer(reducer, []);
+
+  useEffect(() => {
+    dispatch({ type: "RESET" });
+    setPageNumber(1);
+  }, [searchParam]);
+
+  useEffect(() => {
+    setLoading(true);
+    const delayDebounceFn = setTimeout(() => {
+      const fetchUsers = async () => {
+        try {
+          const { data } = await api.get("/users/", {
+            params: { searchParam, pageNumber },
+          });
+          dispatch({ type: "LOAD_USERS", payload: data.users || [] });
+          setHasMore(data.hasMore);
+          setLoading(false);
+        } catch (err) {
+          toastError(err);
+        }
+      };
+      fetchUsers();
+    }, 500);
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchParam, pageNumber]);
+
+  useEffect(() => {
+    const socket = openSocket();
+
+    if (!socket) return;
+
+    socket.on("user", (data) => {
+      if (data.action === "update" || data.action === "create") {
+        dispatch({ type: "UPDATE_USERS", payload: data.user });
+      }
+
+      if (data.action === "delete") {
+        dispatch({ type: "DELETE_USER", payload: +data.userId });
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+
+  const handleOpenUserModal = () => {
+    setSelectedUser(null);
+    setUserModalOpen(true);
+  };
+
+  const handleCloseUserModal = () => {
+    setSelectedUser(null);
+    setUserModalOpen(false);
+  };
+
+  const handleSearch = (event) => {
+    setSearchParam(event.target.value.toLowerCase());
+  };
+
+  const handleEditUser = (user) => {
+    history.push(`/users/${user.id}`);
+  };
+
+  const handleDeleteUser = async (userId) => {
+    try {
+      await api.delete(`/users/${userId}`);
+      toast.success(i18n.t("users.toasts.deleted"));
+    } catch (err) {
+      toastError(err);
+    }
+    setDeletingUser(null);
+    setSearchParam("");
+    setPageNumber(1);
+  };
+
+  const loadMore = () => {
+    setPageNumber((prevState) => prevState + 1);
+  };
+
+  const handleScroll = (e) => {
+    if (!hasMore || loading) return;
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    if (scrollHeight - (scrollTop + 100) < clientHeight) {
+      loadMore();
+    }
+  };
+
+  return (
+    <MainContainer>
+      <ConfirmationModal
+        title={
+          deletingUser &&
+          `${i18n.t("users.confirmationModal.deleteTitle")} ${deletingUser.name
+          }?`
+        }
+        open={confirmModalOpen}
+        onClose={setConfirmModalOpen}
+        onConfirm={() => handleDeleteUser(deletingUser.id)}
+      >
+        {i18n.t("users.confirmationModal.deleteMessage")}
+      </ConfirmationModal>
+      <UserModal
+        open={userModalOpen}
+        onClose={handleCloseUserModal}
+        aria-labelledby="form-dialog-title"
+        userId={selectedUser && selectedUser.id}
+      />
+      <MainHeader>
+        <Title>{i18n.t("users.title")}</Title>
+        <MainHeaderButtonsWrapper>
+          <TextField
+            placeholder={i18n.t("contacts.searchPlaceholder")}
+            type="search"
+            value={searchParam}
+            onChange={handleSearch}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon style={{ color: "gray" }} />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleOpenUserModal}
+          >
+            {i18n.t("users.buttons.add")}
+          </Button>
+        </MainHeaderButtonsWrapper>
+      </MainHeader>
+
+      <Box className={classes.mainPaper} onScroll={handleScroll}>
+        <Grid container spacing={2}>
+          {users.map((user) => (
+            <Grid item xs={12} sm={6} md={4} key={user.id}>
+              <ListItemCard
+                title={user.name}
+                subtitle={user.email}
+                status={getProfileStatus(user.profile)}
+                actions={
+                  <>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleEditUser(user)}
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      onClick={() => {
+                        setConfirmModalOpen(true);
+                        setDeletingUser(user);
+                      }}
+                    >
+                      <DeleteOutlineIcon fontSize="small" />
+                    </IconButton>
+                  </>
+                }
+              />
+            </Grid>
+          ))}
+        </Grid>
+
+        {loading && (
+          <Box display="flex" justifyContent="center" mt={3}>
+            <CircularProgress />
+          </Box>
+        )}
+      </Box>
+    </MainContainer>
+  );
+};
+
+export default Users;

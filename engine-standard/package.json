@@ -1,0 +1,32 @@
+{
+  "name": "whaileys-engine",
+  "version": "1.0.116",
+  "description": "WhatsApp Engine for Whaticket (Node.js/Whaileys)",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "AGPL-3.0",
+  "dependencies": {
+    "whaileys": "git+https://github.com/alltomatos/whaileys.git",
+    "@hapi/boom": "^10.0.1",
+    "amqplib": "^0.10.3",
+    "dotenv": "^16.3.1",
+    "pino": "^8.16.1",
+    "pino-pretty": "^10.2.3",
+    "ioredis": "^5.3.2",
+    "qrcode-terminal": "^0.12.0",
+    "uuid": "^8.3.2"
+  },
+  "devDependencies": {
+    "@types/amqplib": "^0.10.4",
+    "@types/node": "^20.8.10",
+    "@types/uuid": "^8.3.4",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.2.2"
+  }
+}

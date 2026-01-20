@@ -1,0 +1,8 @@
+.react-flow__node-input,
+.react-flow__node-output {
+    border: none !important;
+    background: none !important;
+    padding: 0 !important;
+    width: auto !important;
+    box-shadow: none !important;
+}

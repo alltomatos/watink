@@ -1,0 +1,166 @@
+version: '3.8'
+
+services:
+  backend:
+    image: watink/backend:1.3.258
+    environment:
+      - DB_DIALECT=postgres
+      - DB_HOST=watink_postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASS=postgres
+      - DB_NAME=watink
+      - AMQP_URL=amqp://guest:guest@rabbitmq:5672
+      - JWT_SECRET=3123123213123
+      - JWT_REFRESH_SECRET=75756756756
+      - FRONTEND_URL=http://app.meudominio.com
+      - URL_BACKEND=http://api.meudominio.com
+      - PORT=8080
+      - NODE_OPTIONS=--max-old-space-size=800
+      - DEFAULT_TENANT_UUID=550e8400-e29b-41d4-a716-446655440000
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - backend_public_data:/app/public
+    networks:
+      - proxy
+      - watink_private
+    deploy:
+      mode: replicated
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 10s
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 1024M
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.backend-api.rule=Host(`api.meudominio.com`) && PathPrefix(`/api`)"
+        - "traefik.http.routers.backend-api.entrypoints=websecure"
+        - "traefik.http.routers.backend-api.tls.certresolver=myresolver"
+        - "traefik.http.routers.backend-api.middlewares=backend-strip"
+        - "traefik.http.middlewares.backend-strip.stripprefix.prefixes=/api"
+        - "traefik.http.routers.backend-api.service=backend"
+        - "traefik.http.routers.backend-root.rule=Host(`api.meudominio.com`)"
+        - "traefik.http.routers.backend-root.entrypoints=websecure"
+        - "traefik.http.routers.backend-root.tls.certresolver=myresolver"
+        - "traefik.http.routers.backend-root.service=backend"
+        - "traefik.http.services.backend.loadbalancer.server.port=8080"
+        - "traefik.docker.network=proxy"
+
+  frontend:
+    image: watink/frontend:0.7.212
+    environment:
+      - URL_BACKEND=backend:8080
+      - VITE_BACKEND_URL=http://api.meudominio.com/
+      - VITE_PLUGIN_MANAGER_URL=/plugins/
+      - VITE_HOURS_CLOSE_TICKETS_AUTO=24
+    networks:
+      - proxy
+      - watink_private
+    deploy:
+      mode: replicated
+      replicas: 1
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.frontend.rule=Host(`app.meudominio.com`)"
+        - "traefik.http.routers.frontend.entrypoints=websecure"
+        - "traefik.http.routers.frontend.tls.certresolver=myresolver"
+        - "traefik.http.routers.frontend.service=frontend"
+        - "traefik.http.services.frontend.loadbalancer.server.port=80"
+        - "traefik.docker.network=proxy"
+
+  whaileys-engine:
+    image: watink/engine:1.0.116
+    environment:
+      - AMQP_URL=amqp://guest:guest@rabbitmq:5672
+      - REDIS_URL=redis://redis:6379
+    networks:
+      - watink_private
+      - proxy
+    volumes:
+      - sessions_auth_data:/usr/src/app/.sessions_auth/
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 2048M
+
+  flow-worker:
+    image: watink/backend:1.3.258
+    command: [ "node", "dist/flow-worker.js" ]
+    environment:
+      - DB_DIALECT=postgres
+      - DB_HOST=watink_postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASS=postgres
+      - DB_NAME=watink
+      - AMQP_URL=amqp://guest:guest@rabbitmq:5672
+      - REDIS_URL=redis://redis:6379
+      - DEFAULT_TENANT_UUID=550e8400-e29b-41d4-a716-446655440000
+    networks:
+      - watink_private
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    networks:
+      - watink_private
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+        limits:
+          memory: 1024M
+
+  redis:
+    image: redis:alpine
+    command: [ "redis-server", "--appendonly", "yes" ]
+    networks:
+      - watink_private
+    volumes:
+      - redis_data:/data
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+        limits:
+          memory: 512M
+
+  watink_postgres:
+    image: ronaldodavi/pgvectorgis:latest
+    environment:
+      - POSTGRES_DB=watink
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - watink_private
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+
+networks:
+  proxy:
+    external: true
+  watink_private:
+    external: true
+
+volumes:
+  db_data:
+  redis_data:
+  sessions_auth_data:
+  backend_public_data:

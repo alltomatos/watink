@@ -1,0 +1,27 @@
+.docker/
+#dist_plugins/
+logs.txt
+ssl/
+.env
+.wwebjs_auth
+node_modules
+backend/node_modules/
+frontend/node_modules//
+dist/
+sssbuild
+engine-go
+
+# Global ignores
+**/build/
+**/.DS_Store
+**/*.log
+**/.vscode/
+**/.idea/
+**/coverage/
+
+# Legacy & Obsolete
+#docs/
+#plugin-manager/
+#dist_plugins/
+#rule/
+#plugins/

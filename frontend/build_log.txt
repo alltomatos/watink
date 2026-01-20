@@ -1,0 +1,15 @@
+
+> frontend@0.3.0 build
+> vite build
+
+[36mvite v4.5.14 [32mbuilding for production...[36m[39m
+transforming...
+[32m✓[39m 5930 modules transformed.
+[32m✓ built in 23.51s[39m
+[31mCould not resolve "../services/api" from "src/components/VersionFooter/index.js"[39m
+file: [36mC:/dev/whaticket-community/frontend/src/components/VersionFooter/index.js[39m
+[31merror during build:
+RollupError: Could not resolve "../services/api" from "src/components/VersionFooter/index.js"
+    at error (file:///C:/dev/whaticket-community/frontend/node_modules/rollup/dist/es/shared/node-entry.js:2287:30)
+    at ModuleLoader.handleInvalidResolvedId (file:///C:/dev/whaticket-community/frontend/node_modules/rollup/dist/es/shared/node-entry.js:24860:24)
+    at file:///C:/dev/whaticket-community/frontend/node_modules/rollup/dist/es/shared/node-entry.js:24822:26[39m
