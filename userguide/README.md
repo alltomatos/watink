@@ -1,24 +1,28 @@
-# 📘 Manual do Usuário - Watink
+# 📘 Manual do Usuário - Watink OpenCore
 
-Bem-vindo ao manual oficial de uso do **Watink**. Este guia foi desenhado para ajudar você, usuário final, a extrair o máximo da plataforma de atendimento.
+Bem-vindo ao manual oficial de uso do **Watink**. Este guia foi projetado para ajudar você a configurar e operar a plataforma de forma eficiente, garantindo um atendimento de excelência.
 
 ## 🚀 Primeiros Passos
 
-1.  **[Conectando seu WhatsApp](./connections/CONNECTING.md)**: Aprenda a escanear o QR Code e verificar seus status.
-2.  **[Visão Geral do Painel](./dashboard/OVERVIEW.md)**: Entenda as métricas e indicadores iniciais.
+1.  **[Conectando seu WhatsApp](./connections/CONNECTING.md)**: Aprenda a escanear o QR Code e gerenciar suas sessões.
+2.  **[Visão Geral do Painel](./dashboard/OVERVIEW.md)**: Entenda as métricas de desempenho e indicadores em tempo real.
 
-## 💬 Atendimento Diário
+## 💬 Atendimento e Gestão
 
-*   **[Gerenciando Conversas (Tickets)](./chats/USING_CHATS.md)**: Como aceitar, transferir, responder e finalizar atendimentos.
-*   **[Gestão de Contatos](./contacts/MANAGING_CONTACTS.md)**: Criar, editar e importar contatos.
-*   **[Organização com Kanban (Pipelines)](./pipelines/USING_KANBAN.md)**: Movendo cards e organizando fluxos de venda/atendimento.
+*   **[Gerenciando Atendimentos (Tickets)](./chats/USING_CHATS.md)**: Como aceitar, transferir e resolver conversas.
+*   **[Gestão de Contatos](./contacts/MANAGING_CONTACTS.md)**: Organização de clientes e uso de etiquetas (tags).
+*   **[Pipelines e Kanban](./pipelines/USING_KANBAN.md)**: Gestão visual de processos e funis de venda.
 
-## ⚙️ Configurações Avançadas
+## ⚙️ Configurações e Automação
 
-*   **[Filas e Departamentos](./queues/MANAGING_QUEUES.md)**: Como distribuir atendimentos.
-*   **[Criando Fluxos (Flow Builder)](./flowbuilder/CREATING_FLOWS.md)**: Guia para criar seus próprios chatbots e automações.
-*   **[Configurações Gerais](./settings/GENERAL_SETTINGS.md)**: Preferências e ajustes da conta.
+*   **[Filas e Departamentos](./queues/MANAGING_QUEUES.md)**: Estruturação dos setores da sua empresa.
+*   **[Flow Builder (Chatbots)](./flowbuilder/CREATING_FLOWS.md)**: Guia completo para criar automações inteligentes.
+*   **[Configurações e Whitelabel](./settings/GENERAL_SETTINGS.md)**: Customização de marca, login e Base de Conhecimento (IA).
 
 ---
+
 > [!TIP]
-> Use a busca do seu navegador (Ctrl+F) ou navegue pelos links acima para encontrar o que precisa.
+> **Dica**: Utilize a barra de buscas do seu navegador (Ctrl+F) para localizar termos específicos dentro dos guias.
+
+> [!IMPORTANT]
+> Se você for administrador, certifique-se de configurar as permissões de cada usuário na aba **Usuários** para manter a segurança dos seus dados.

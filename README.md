@@ -2,77 +2,73 @@
   <img src="images/logo.png" alt="Watink Logo" width="200" />
 </p>
 
-# 👋 Bem-vindo ao Watink OpenCore
+# 🚀 Watink OpenCore
 
-**A plataforma open-source definitiva para atendimento e automação no WhatsApp.**
+**A plataforma open-source definitiva para escalabilidade, atendimento premium e automação inteligente no WhatsApp.**
 
-O Watink é um sistema robusto e gratuito para centralizar seu atendimento. Organize filas, distribua conversas e crie automações poderosas com a versão Core, pronta para usar.
+O **Watink** é uma solução completa e robusta projetada para transformar a comunicação da sua empresa. Centralize atendimentos, automatize processos complexos e eleve a experiência do seu cliente com uma plataforma modular, rápida e extremamente estável.
 
 ---
 
-## 🚀 Funcionalidades do Core (Nativas)
+## 🔥 Diferenciais Técnicos e Funcionalidades
 
-Tudo o que você precisa para operar, já incluído no núcleo do sistema:
+O Watink OpenCore entrega nativamente tudo o que é essencial para uma operação de alto nível:
 
 ### 📱 **Central de Atendimento Multi-Agente**
-- **Um Número, Vários Atendentes**: Sua equipe inteira atendendo pelo mesmo WhatsApp.
-- **Filas e Setores**: Organize atendimentos por departamentos (Supore, Vendas, Financeiro).
-- **Transferências**: Mova conversas entre atendentes mantendo o histórico completo.
+*   **Número Único, Equipes Múltiplas**: Gerencie dezenas de atendentes em um único número oficial ou não-oficial.
+*   **Filas e Departamentos Inteligentes**: Distribua a carga de trabalho de forma organizada (Suporte, Comercial, Financeiro).
+*   **Transferência Dinâmica**: Mova conversas entre especialistas mantendo o histórico total e contexto do cliente.
 
-### 🤖 **Flow Builder Visual (Nativo)**
-Construa chatbots ilimitados diretamente no Core.
-- **Editor Arraste e Solte**: Interface visual intuitiva.
-- **Simulador Integrado**: Teste seus fluxos em tempo real antes de publicar.
-- **Gatilhos Diversos**: Inicie fluxos por palavra-chave, tempo, mensagem ou Webhook.
-- **Nós Essenciais**: Envie áudios, vídeos, menus, faça perguntas e validações.
+### 🤖 **Flow Builder Visual de Alto Impacto**
+Construa jornadas de cliente automatizadas com nosso editor avançado:
+*   **Interface Drag & Drop**: Desenhe fluxos complexos sem escrever uma linha de código.
+*   **Simulador em Tempo Real**: Teste o comportamento do seu bot instantaneamente antes de ir ao ar.
+*   **Integrações via Webhook/API**: Conecte o Core com qualquer sistema externo (CRMs, ERPs, Gateways).
+*   **Inteligência de Dados**: Utilize nós de base de conhecimento para respostas automáticas baseadas em IA.
 
-### 💰 **CRM Kanban**
-Gestão visual de vendas integrada ao chat.
-- **Pipelines Personalizáveis**: Crie funis de vendas ilimitados.
-- **Agendamento de Tarefas**: Defina lembretes em cada cartão.
-- **Tags e Etiquetas**: Classificação rápida de contatos.
+### 💼 **CRM Kanban & Pipelines**
+*   **Gestão de Funis**: Crie múltiplos pipelines para vendas, onboarding ou suporte.
+*   **Automação de Etapas**: Mova cards automaticamente conforme a interação do cliente no fluxo.
+*   **Agendamentos e Lembretes**: Nunca perca uma oportunidade de follow-up.
 
-### ⚙️ **Ferramentas de Produtividade**
-- **Respostas Rápidas**: Bibliotecas de mensagens prontas (`/atalho`).
-- **Agendamento de Mensagens**: Programe envios para o futuro.
-- **Notas Internas**: Comentários privados na conversa para a equipe.
-- **API Aberta**: Conecte o Core com qualquer sistema externo.
+### 🎨 **Experiência Whitelabel**
+*   **Personalização Total**: Altere logotipos, cores e fundos da tela de login diretamente pelo painel administrativo.
+*   **Modo Dark Nativo**: Interface otimizada para produtividade em qualquer ambiente.
 
 ---
 
-## 🧩 Marketplace & Extensões (Opcional)
+## 🏗️ Stack Tecnológica
 
-O Watink é construído para crescer com você. Funcionalidades avançadas podem ser adicionadas através do nosso sistema de plugins (instalados à parte):
-
-- **Helpdesk**: Sistema completo de tickets e SLAs.
-- **Integrações Oficiais**: Conexões nativas com CRMs e ERPs de mercado.
-- **Campanhas**: Disparos em massa.
-
-> *O foco do projeto é manter um Core leve, rápido e extremamente estável, enquanto permite extensibilidade total via plugins.*
-
----
-
-## 📚 Documentação
-
-Comece agora com nossos guias oficiais:
-
-1.  **[Instalação e Conexão](userguide/connections/CONNECTING.md)**
-2.  **[Guia do Atendente](userguide/chats/USING_CHATS.md)**
-3.  **[Criando Automações no Flow Builder](userguide/flowbuilder/CREATING_FLOWS.md)**
-4.  **[Gerenciando Filas](userguide/queues/MANAGING_QUEUES.md)**
-
-👉 **[Acesse a Documentação Completa](userguide/README.md)**
+Construído com as tecnologias mais modernas e escaláveis do mercado:
+*   **Backend**: Node.js com TypeScript e Sequelize.
+*   **Frontend**: React.js com Material UI e Vite.
+*   **Engine**: Whaileys (Performance otimizada para WhatsApp).
+*   **Banco de Dados**: PostgreSQL e Redis (Cache).
+*   **Mensageria**: RabbitMQ (Filas robustas).
+*   **Infraestrutura**: Totalmente Dockerizado para deploy rápido (Swarm/Compose).
 
 ---
 
-## 🤝 Comunidade
+## 📚 Central de Ajuda
 
-O Watink é um projeto OpenCore. Contribuições são bem-vindas!
+Aprenda a configurar e operar o Watink com nossa documentação detalhada:
 
-💬 **[Grupo da Comunidade no WhatsApp](https://chat.whatsapp.com/J7HDHaTvVDr5JUOd0HE1Bj)**
+1.  📖 **[Manual do Usuário](userguide/README.md)**
+2.  🔌 **[Conectando o WhatsApp](userguide/connections/CONNECTING.md)**
+3.  ⚙️ **[Configurações e Whitelabel](userguide/settings/GENERAL_SETTINGS.md)**
+4.  🤖 **[Guia do Flow Builder](userguide/flowbuilder/CREATING_FLOWS.md)**
+5.  📊 **[Gestão de Pipelines](userguide/pipelines/USING_KANBAN.md)**
+
+---
+
+## 🤝 Comunidade e Suporte
+
+O Watink vive e cresce através da sua comunidade. 
+
+💬 **[Participe do nosso Grupo no WhatsApp](https://chat.whatsapp.com/J7HDHaTvVDr5JUOd0HE1Bj)**
 
 ---
 
 <p align="center">
-  <sub>Watink OpenCore. Simples, Poderoso e Livre.</sub>
+  <sub>Watink OpenCore • Simples • Poderoso • Livre</sub>
 </p>

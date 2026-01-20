@@ -1,18 +1,29 @@
 # 🏢 Filas e Departamentos
 
-As **Filas** organizam sua empresa em setores (ex: Financeiro, Comercial, Suporte).
+As **Filas** organizam sua empresa em setores lógicos (ex: Financeiro, Comercial, Suporte), garantindo que cada mensagem seja direcionada ao especialista correto.
 
 ## Como Funcionam?
-Quando um cliente entra em contato, ele pode cair em uma fila específica (via Chatbot ou escolha manual). Apenas usuários que pertencem àquela fila verão o atendimento.
+Quando um cliente entra em contato, ele é direcionado a uma fila. Apenas os atendentes vinculados àquela fila específica poderão visualizar e interagir com o atendimento, mantendo a privacidade e organização dos setores.
 
-## Criando uma Fila
-1.  Vá em **Filas & Chatbot**.
-2.  Adicionar Fila.
-3.  **Cor**: Escolha uma cor para identificar visualmente os tickets desse setor.
-4.  **Mensagem de Saudação**: Opcional. Será enviada assim que o cliente cair nesta fila.
+## Configuração de Fila
+Ao criar ou editar uma fila em **Filas & Chatbot**, você pode definir:
+*   **Nome e Cor**: Para identificação visual na lista de tickets.
+*   **Mensagem de Saudação**: Uma mensagem automática específica para quem escolhe este setor.
+*   **Horário de Atendimento**: Configure os períodos em que a fila está ativa.
+*   **Fora de Horário**: Mensagem enviada automaticamente quando o cliente entra em contato fora do expediente.
 
-## Associando Usuários
-Para que um atendente veja os chamados do "Financeiro", você precisa ir em **Usuários**, editar o perfil dele e marcar a fila "Financeiro".
+## 🚀 Etapas de Atendimento (Novo)
+Agora, dentro de cada fila, você pode definir **Etapas** (Passos):
+1.  Acesse a aba **Etapas** ao editar uma fila.
+2.  Crie estágios como "Triagem", "Em Análise", "Aguardando Cliente".
+3.  Essas etapas permitem que você tenha um controle granular do progresso de cada ticket sem precisar movê-lo de setor.
+4.  **Integração com Kanban**: As etapas definidas aqui refletem automaticamente nas colunas do seu Pipeline visual.
+
+## Associando a Equipe
+Para que um atendente receba chamados de um setor:
+1.  Vá em **Usuários**.
+2.  Edite o usuário desejado.
+3.  Selecione todas as **Filas** que ele deve monitorar.
 
 > [!TIP]
-> Um usuário pode participar de várias filas ao mesmo tempo.
+> **Dica**: Use as etapas para organizar o fluxo de trabalho interno (workflow) e o Kanban para uma visão macro de vendas.
