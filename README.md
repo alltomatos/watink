@@ -69,6 +69,14 @@ O Watink vive e cresce através da sua comunidade.
 
 ---
 
+## 🤝 Hospedagem Indicada
+
+O Watink e um ecosistema em microserviços entao um bom servidor vai garantir a sua paz nos indicamos e apoioamos a hosteg. 
+
+💬 **[Participe do nosso Grupo no WhatsApp](https://painelcliente.com.br/aff.php?aff=87&gid=32)**
+
+---
+
 <p align="center">
   <sub>Watink OpenCore • Simples • Poderoso • Livre</sub>
 </p>
