@@ -27,6 +27,7 @@ class Setting extends Model<Setting> {
   updatedAt: Date;
 
   @ForeignKey(() => Tenant)
+  @PrimaryKey
   @Column(DataType.UUID)
   tenantId: number | string;
 

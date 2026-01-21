@@ -36,6 +36,7 @@ import Plugin from "../models/Plugin";
 import PluginInstallation from "../models/PluginInstallation";
 import TenantSmtpSettings from "../models/TenantSmtpSettings";
 import Step from "../models/Step";
+import EmailTemplate from "../models/EmailTemplate";
 
 // eslint-disable-next-line
 const dbConfig = require("../config/database");
@@ -79,7 +80,8 @@ const models = [
   TenantSmtpSettings,
   Plugin,
   PluginInstallation,
-  Step
+  Step,
+  EmailTemplate
 ];
 
 sequelize.addModels(models);

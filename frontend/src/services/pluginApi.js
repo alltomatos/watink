@@ -10,8 +10,9 @@ const getPluginApiBaseUrl = () => {
   if (backendUrl) {
     try {
       const url = new URL(backendUrl);
-      // Use same protocol and host, but path is /plugins
-      const baseUrl = `${url.protocol}//${url.host}/plugins`;
+      // Append /plugins to the backend URL path
+      const cleanPath = url.pathname.endsWith('/') ? url.pathname.slice(0, -1) : url.pathname;
+      const baseUrl = `${url.protocol}//${url.host}${cleanPath}/plugins`;
       return baseUrl;
     } catch (e) {
       console.error("[pluginApi] Error parsing backendUrl:", e);

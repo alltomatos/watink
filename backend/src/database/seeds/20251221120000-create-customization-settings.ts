@@ -2,80 +2,63 @@ import { QueryInterface } from "sequelize";
 
 module.exports = {
     up: async (queryInterface: QueryInterface) => {
-        // Check if systemTitle exists
-        const titleExists = await queryInterface.sequelize.query(
-            `SELECT * FROM "Settings" WHERE key = 'systemTitle'`
-        );
-        if ((titleExists[0] as any[]).length === 0) {
-            await queryInterface.bulkInsert(
-                "Settings",
-                [
-                    {
-                        key: "systemTitle",
-                        value: "Watink",
-                        createdAt: new Date(),
-                        updatedAt: new Date()
-                    }
-                ],
-                {}
-            );
+        let tenants: any[] = [];
+        try {
+            tenants = await queryInterface.sequelize.query('SELECT id FROM "Tenants"', {
+                type: "SELECT" as any
+            }) as any[];
+        } catch (e) {
+            console.warn("Table Tenants query failed");
         }
 
-        // Check if systemLogo exists
-        const logoExists = await queryInterface.sequelize.query(
-            `SELECT * FROM "Settings" WHERE key = 'systemLogo'`
-        );
-        if ((logoExists[0] as any[]).length === 0) {
-            await queryInterface.bulkInsert(
-                "Settings",
-                [
-                    {
-                        key: "systemLogo",
-                        value: "",
-                        createdAt: new Date(),
-                        updatedAt: new Date()
-                    }
-                ],
-                {}
-            );
+        if (tenants.length === 0) {
+            // Fallback for clean install if previous seed worked but return format differs?
+            // Or maybe running standalone?
+            // Let's try raw query result inspection if type is issue
+            const rawTenants = await queryInterface.sequelize.query('SELECT id FROM "Tenants"');
+            if (rawTenants[0] && (rawTenants[0] as any[]).length > 0) {
+                tenants = rawTenants[0] as any[];
+            }
         }
 
-        // Check if systemLogoEnabled exists
-        const logoEnabledExists = await queryInterface.sequelize.query(
-            `SELECT * FROM "Settings" WHERE key = 'systemLogoEnabled'`
-        );
-        if ((logoEnabledExists[0] as any[]).length === 0) {
-            await queryInterface.bulkInsert(
-                "Settings",
-                [
-                    {
-                        key: "systemLogoEnabled",
-                        value: "true",
-                        createdAt: new Date(),
-                        updatedAt: new Date()
-                    }
-                ],
-                {}
-            );
+        if (tenants.length === 0) {
+            console.warn("Skipping Customization Settings seed: No tenants found.");
+            return;
         }
 
-        // Check if systemFavicon exists
-        const faviconExists = await queryInterface.sequelize.query(
-            `SELECT * FROM "Settings" WHERE key = 'systemFavicon'`
-        );
-        if ((faviconExists[0] as any[]).length === 0) {
-            await queryInterface.bulkInsert(
-                "Settings",
-                [
-                    {
-                        key: "systemFavicon",
-                        value: "",
+        const settingsKeys = ["systemTitle", "systemLogo", "systemLogoEnabled", "systemFavicon"];
+        const defaults = {
+            "systemTitle": "Watink",
+            "systemLogo": "",
+            "systemLogoEnabled": "true",
+            "systemFavicon": ""
+        };
+
+        const settingsToInsert = [];
+
+        for (const tenant of tenants) {
+            const tenantId = tenant.id;
+
+            for (const key of settingsKeys) {
+                // Check existence for THIS tenant
+                const existing = await queryInterface.sequelize.query(
+                    `SELECT * FROM "Settings" WHERE key = '${key}' AND "tenantId" = '${tenantId}'`
+                );
+
+                if ((existing[0] as any[]).length === 0) {
+                    settingsToInsert.push({
+                        key,
+                        value: defaults[key as keyof typeof defaults],
                         createdAt: new Date(),
-                        updatedAt: new Date()
-                    }
-                ],
-                {}
-            );
+                        updatedAt: new Date(),
+                        tenantId
+                    });
+                }
+            }
+        }
+
+        if (settingsToInsert.length > 0) {
+            await queryInterface.bulkInsert("Settings", settingsToInsert, {});
         }
     },
 

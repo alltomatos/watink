@@ -1,33 +1,44 @@
-import React, { useState, useEffect, useReducer } from "react";
+import React, { useState, useEffect, useReducer, useContext } from "react";
 import { toast } from "react-toastify";
 import openSocket from "../../services/socket-io";
-
-import { makeStyles } from "@material-ui/core/styles";
-import {
-  Box,
-  Button,
-  TextField,
-  InputAdornment,
-  Grid,
-  CircularProgress,
-  IconButton,
-} from "@material-ui/core";
 import { useHistory } from "react-router-dom";
-import SearchIcon from "@material-ui/icons/Search";
-import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
-import EditIcon from "@material-ui/icons/Edit";
+
+import {
+  makeStyles,
+  Paper,
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  IconButton,
+  InputAdornment,
+  TextField,
+  Avatar,
+  Chip,
+  Tooltip,
+  Typography,
+} from "@material-ui/core";
+
+import {
+  Search,
+  DeleteOutline,
+  Edit,
+  PersonAdd,
+} from "@material-ui/icons";
 
 import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
 import MainHeaderButtonsWrapper from "../../components/MainHeaderButtonsWrapper";
 import Title from "../../components/Title";
-import ListItemCard from "../../components/ListItemCard";
-
 import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
-import UserModal from "../../components/UserModal";
+import TableRowSkeleton from "../../components/TableRowSkeleton";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import toastError from "../../errors/toastError";
+import { AuthContext } from "../../context/Auth/AuthContext";
+import { Can } from "../../components/Can";
 
 const reducer = (state, action) => {
   if (action.type === "LOAD_USERS") {
@@ -77,37 +88,58 @@ const useStyles = makeStyles((theme) => ({
   mainPaper: {
     flex: 1,
     padding: theme.spacing(2),
+    margin: theme.spacing(1),
     overflowY: "auto",
     ...theme.scrollbarStyles,
+    borderRadius: 16,
+    boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
+    background: theme.palette.background.paper,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+    fontSize: "1rem",
+    fontWeight: 600,
+  },
+  userName: {
+    fontWeight: 500,
+    color: theme.palette.text.primary,
+  },
+  userEmail: {
+    fontSize: "0.85rem",
+    color: theme.palette.text.secondary,
+  },
+  actionButton: {
+    background: theme.palette.action.hover,
+    marginLeft: theme.spacing(1),
+    "&:hover": {
+      background: theme.palette.action.selected,
+    },
+  },
+  searchField: {
+    "& .MuiOutlinedInput-root": {
+      borderRadius: 12,
+    },
+  },
+  addButton: {
+    borderRadius: 12,
+    textTransform: "none",
+    fontWeight: 600,
   },
 }));
-
-// Mapeia perfis para cores de status
-const getProfileStatus = (profile) => {
-  switch (profile) {
-    case "admin":
-      return { label: "Admin", color: "error" };
-    case "supervisor":
-      return { label: "Supervisor", color: "warning" };
-    case "user":
-      return { label: "Usuário", color: "info" };
-    default:
-      return { label: profile || "N/A", color: "default" };
-  }
-};
 
 const Users = () => {
   const classes = useStyles();
   const history = useHistory();
+  const { user: loggedInUser } = useContext(AuthContext);
 
   const [loading, setLoading] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
   const [hasMore, setHasMore] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [deletingUser, setDeletingUser] = useState(null);
-  const [userModalOpen, setUserModalOpen] = useState(false);
-  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [searchParam, setSearchParam] = useState("");
+  const [deletingUser, setDeletingUser] = useState(null);
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [users, dispatch] = useReducer(reducer, []);
 
   useEffect(() => {
@@ -155,16 +187,6 @@ const Users = () => {
     };
   }, []);
 
-  const handleOpenUserModal = () => {
-    setSelectedUser(null);
-    setUserModalOpen(true);
-  };
-
-  const handleCloseUserModal = () => {
-    setSelectedUser(null);
-    setUserModalOpen(false);
-  };
-
   const handleSearch = (event) => {
     setSearchParam(event.target.value.toLowerCase());
   };
@@ -197,13 +219,33 @@ const Users = () => {
     }
   };
 
+  const getInitials = (name) => {
+    if (!name) return "";
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase();
+  };
+
+  const getProfileStyle = (profile) => {
+    switch (profile) {
+      case "admin":
+        return { color: "primary", label: "Admin" };
+      case "supervisor":
+        return { color: "secondary", label: "Supervisor" };
+      default:
+        return { color: "default", label: "Usuário" };
+    }
+  };
+
   return (
     <MainContainer>
       <ConfirmationModal
         title={
           deletingUser &&
-          `${i18n.t("users.confirmationModal.deleteTitle")} ${deletingUser.name
-          }?`
+          `${i18n.t("users.confirmationModal.deleteTitle")} ${deletingUser.name}?`
         }
         open={confirmModalOpen}
         onClose={setConfirmModalOpen}
@@ -211,12 +253,7 @@ const Users = () => {
       >
         {i18n.t("users.confirmationModal.deleteMessage")}
       </ConfirmationModal>
-      <UserModal
-        open={userModalOpen}
-        onClose={handleCloseUserModal}
-        aria-labelledby="form-dialog-title"
-        userId={selectedUser && selectedUser.id}
-      />
+
       <MainHeader>
         <Title>{i18n.t("users.title")}</Title>
         <MainHeaderButtonsWrapper>
@@ -225,10 +262,11 @@ const Users = () => {
             type="search"
             value={searchParam}
             onChange={handleSearch}
+            className={classes.searchField}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <SearchIcon style={{ color: "gray" }} />
+                  <Search color="action" />
                 </InputAdornment>
               ),
             }}
@@ -236,51 +274,88 @@ const Users = () => {
           <Button
             variant="contained"
             color="primary"
-            onClick={handleOpenUserModal}
+            className={classes.addButton}
+            onClick={() => history.push("/users/new")}
+            startIcon={<PersonAdd />}
           >
             {i18n.t("users.buttons.add")}
           </Button>
         </MainHeaderButtonsWrapper>
       </MainHeader>
 
-      <Box className={classes.mainPaper} onScroll={handleScroll}>
-        <Grid container spacing={2}>
-          {users.map((user) => (
-            <Grid item xs={12} sm={6} md={4} key={user.id}>
-              <ListItemCard
-                title={user.name}
-                subtitle={user.email}
-                status={getProfileStatus(user.profile)}
-                actions={
-                  <>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleEditUser(user)}
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => {
-                        setConfirmModalOpen(true);
-                        setDeletingUser(user);
-                      }}
-                    >
-                      <DeleteOutlineIcon fontSize="small" />
-                    </IconButton>
-                  </>
-                }
-              />
-            </Grid>
-          ))}
-        </Grid>
+      <Paper className={classes.mainPaper} onScroll={handleScroll}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell align="center" style={{ width: 60 }}>
+                Avatar
+              </TableCell>
+              <TableCell>{i18n.t("users.table.name")}</TableCell>
+              <TableCell align="center">{i18n.t("users.table.email")}</TableCell>
+              <TableCell align="center">{i18n.t("users.table.profile")}</TableCell>
+              <TableCell align="center">{i18n.t("users.table.actions")}</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            <>
+              {users.map((user) => {
+                const profileInfo = getProfileStyle(user.profile);
+                return (
+                  <TableRow key={user.id}>
+                    <TableCell align="center">
+                      <Avatar className={classes.avatar}>
+                        {getInitials(user.name)}
+                      </Avatar>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <Typography className={classes.userName}>
+                          {user.name}
+                        </Typography>
+                      </div>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Typography className={classes.userEmail}>
+                        {user.email}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Chip
+                        label={profileInfo.label}
+                        color={profileInfo.color}
+                        size="small"
+                        variant="outlined"
+                        style={{ fontWeight: 500 }}
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleEditUser(user)}
+                        className={classes.actionButton}
+                      >
+                        <Edit color="secondary" fontSize="small" />
+                      </IconButton>
 
-        {loading && (
-          <Box display="flex" justifyContent="center" mt={3}>
-            <CircularProgress />
-          </Box>
-        )}
-      </Box>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          setConfirmModalOpen(true);
+                          setDeletingUser(user);
+                        }}
+                        className={classes.actionButton}
+                      >
+                        <DeleteOutline color="secondary" fontSize="small" />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {loading && <TableRowSkeleton columns={5} />}
+            </>
+          </TableBody>
+        </Table>
+      </Paper>
     </MainContainer>
   );
 };

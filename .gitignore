@@ -1,15 +1,6 @@
-.docker/
-#dist_plugins/
-logs.txt
-ssl/
-.env
-.wwebjs_auth
-node_modules
+engine-standard/node_modules
 backend/node_modules/
-frontend/node_modules//
-dist/
-sssbuild
-engine-go
+frontend/node_modules/
 
 # Global ignores
 **/build/
@@ -19,9 +10,3 @@ engine-go
 **/.idea/
 **/coverage/
 
-# Legacy & Obsolete
-#docs/
-#plugin-manager/
-#dist_plugins/
-#rule/
-#plugins/

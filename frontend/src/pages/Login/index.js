@@ -95,11 +95,13 @@ const Login = () => {
         const layoutSetting = settingsData.find(s => s.key === "login_layout");
         const bgSetting = settingsData.find(s => s.key === "login_backgroundImage");
         const logoSetting = settingsData.find(s => s.key === "systemLogo");
+        const userCreationSetting = settingsData.find(s => s.key === "userCreation");
 
         setSettings({
           loginLayout: layoutSetting?.value || "split_left",
           loginBackground: bgSetting?.value ? `${getBackendUrl()}${bgSetting.value.startsWith('/') ? bgSetting.value.slice(1) : bgSetting.value}` : "/login-background.png",
           systemLogo: logoSetting?.value ? `${getBackendUrl()}${logoSetting.value.startsWith('/') ? logoSetting.value.slice(1) : logoSetting.value}` : "/logo.png",
+          userCreation: userCreationSetting?.value || "enabled",
         });
       } catch (err) {
         console.error("Error fetching settings for login", err);
@@ -211,14 +213,18 @@ const Login = () => {
         </Button>
         <Grid container>
           <Grid item>
-            <Link
-              href="#"
-              variant="body2"
-              component={RouterLink}
-              to="/signup"
-            >
-              {i18n.t("login.buttons.register")}
-            </Link>
+            {settings.userCreation === "enabled" && (
+              <Grid item>
+                <Link
+                  href="#"
+                  variant="body2"
+                  component={RouterLink}
+                  to="/signup"
+                >
+                  {i18n.t("login.buttons.register")}
+                </Link>
+              </Grid>
+            )}
           </Grid>
         </Grid>
       </form>

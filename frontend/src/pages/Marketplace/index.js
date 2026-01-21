@@ -37,6 +37,7 @@ import pluginApi from "../../services/pluginApi";
 import { toast } from "react-toastify";
 import { ToggleButton, ToggleButtonGroup, Alert } from "@material-ui/lab";
 import { getBackendUrl } from "../../helpers/urlUtils";
+import { i18n } from "../../translate/i18n";
 
 const useStyles = makeStyles((theme) => ({
     root: {
@@ -178,7 +179,7 @@ const Marketplace = () => {
             setPlugins(normalized);
         } catch (err) {
             console.error("[Marketplace] Unexpected error:", err);
-            toast.error("Erro ao carregar plugins");
+            toast.error(i18n.t("marketplace.loadError"));
         } finally {
             setLoading(false);
         }
@@ -227,12 +228,12 @@ const Marketplace = () => {
                             </Box>
                             <Box mb={1}>
                                 <Chip
-                                    label={plugin.type === "free" ? "Gratuito" : `R$ ${plugin.price}`}
+                                    label={plugin.type === "free" ? i18n.t("marketplace.free") : `R$ ${plugin.price}`}
                                     size="small"
                                     className={plugin.type === "free" ? classes.chipFree : classes.chipPremium}
                                 />
                                 {plugin.installed && (
-                                    <Chip label="Instalado" size="small" className={classes.chipInstalled} />
+                                    <Chip label={i18n.t("marketplace.installed")} size="small" className={classes.chipInstalled} />
                                 )}
                             </Box>
                             <Typography variant="body2" color="textSecondary">
@@ -241,7 +242,7 @@ const Marketplace = () => {
                         </CardContent>
                         <CardActions>
                             <Button size="small" color="primary">
-                                Ver Detalhes
+                                {i18n.t("marketplace.viewDetails")}
                             </Button>
                         </CardActions>
                     </Card>
@@ -255,12 +256,12 @@ const Marketplace = () => {
             <Table>
                 <TableHead>
                     <TableRow>
-                        <TableCell>Plugin</TableCell>
-                        <TableCell>Categoria</TableCell>
-                        <TableCell>Tipo</TableCell>
-                        <TableCell>Versão</TableCell>
-                        <TableCell>Status</TableCell>
-                        <TableCell>Ações</TableCell>
+                        <TableCell>{i18n.t("marketplace.table.plugin")}</TableCell>
+                        <TableCell>{i18n.t("marketplace.table.category")}</TableCell>
+                        <TableCell>{i18n.t("marketplace.table.type")}</TableCell>
+                        <TableCell>{i18n.t("marketplace.table.version")}</TableCell>
+                        <TableCell>{i18n.t("marketplace.table.status")}</TableCell>
+                        <TableCell>{i18n.t("marketplace.table.actions")}</TableCell>
                     </TableRow>
                 </TableHead>
                 <TableBody>
@@ -289,7 +290,7 @@ const Marketplace = () => {
                             <TableCell>{plugin.category}</TableCell>
                             <TableCell>
                                 <Chip
-                                    label={plugin.type === "free" ? "Gratuito" : `R$ ${plugin.price}`}
+                                    label={plugin.type === "free" ? i18n.t("marketplace.free") : `R$ ${plugin.price}`}
                                     size="small"
                                     className={plugin.type === "free" ? classes.chipFree : classes.chipPremium}
                                 />
@@ -297,16 +298,16 @@ const Marketplace = () => {
                             <TableCell>{plugin.version}</TableCell>
                             <TableCell>
                                 {plugin.active ? (
-                                    <Chip label="Ativo" size="small" className={classes.chipFree} />
+                                    <Chip label={i18n.t("marketplace.active")} size="small" className={classes.chipFree} />
                                 ) : plugin.installed ? (
-                                    <Chip label="Instalado" size="small" />
+                                    <Chip label={i18n.t("marketplace.installed")} size="small" />
                                 ) : (
-                                    <Chip label="Não instalado" size="small" variant="outlined" />
+                                    <Chip label={i18n.t("marketplace.notInstalled")} size="small" variant="outlined" />
                                 )}
                             </TableCell>
                             <TableCell>
                                 <Button size="small" color="primary">
-                                    Detalhes
+                                    {i18n.t("marketplace.details")}
                                 </Button>
                             </TableCell>
                         </TableRow>
@@ -325,7 +326,7 @@ const Marketplace = () => {
                     <Paper elevation={0} style={{ padding: 24 }}>
                         <Box className={classes.header}>
                             <Typography variant="h4" className={classes.title}>
-                                🧩 Marketplace de Plugins
+                                🧩 {i18n.t("marketplace.title")}
                             </Typography>
                             <ToggleButtonGroup
                                 value={viewMode}
@@ -345,7 +346,7 @@ const Marketplace = () => {
                         {offline && (
                             <Box mb={2}>
                                 <Alert severity="warning">
-                                    Modo offline: exibindo catálogo local. Conexão com Marketplace remoto indisponível.
+                                    {i18n.t("marketplace.offlineWarning")}
                                 </Alert>
                             </Box>
                         )}
@@ -354,7 +355,7 @@ const Marketplace = () => {
                             className={classes.searchBox}
                             variant="outlined"
                             size="small"
-                            placeholder="Buscar plugins..."
+                            placeholder={i18n.t("marketplace.search")}
                             fullWidth
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
@@ -382,9 +383,9 @@ const Marketplace = () => {
             no={() => (
                 <Container maxWidth="lg" className={classes.root}>
                     <Paper elevation={0} style={{ padding: 24 }}>
-                        <Typography variant="h5">Sem permissão</Typography>
+                        <Typography variant="h5">{i18n.t("marketplace.noPermission")}</Typography>
                         <Typography variant="body2" color="textSecondary">
-                            Apenas o Admin pode acessar o Marketplace.
+                            {i18n.t("marketplace.adminOnly")}
                         </Typography>
                     </Paper>
                 </Container>

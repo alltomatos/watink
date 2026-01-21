@@ -16,6 +16,8 @@ import { logger } from "./utils/logger";
 
 Sentry.init({ dsn: process.env.SENTRY_DSN });
 
+
+
 const app = express();
 
 const protectedRoutesCors = cors({
@@ -62,6 +64,14 @@ app.use((req, res, next) => {
   }
   protectedRoutesCors(req, res, next);
 });
+import pluginRoutes from "./routes/pluginRoutes"; // Import plugin routes
+
+// ... imports ...
+
+// MOUNT PLUGIN ROUTES BEFORE BODY PARSER
+// This ensures http-proxy-middleware receives the raw request stream
+app.use(pluginRoutes);
+
 app.use(cookieParser());
 app.use(express.json());
 app.use(Sentry.Handlers.requestHandler());

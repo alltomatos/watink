@@ -232,7 +232,7 @@ const messages = {
         },
       },
       ticketsQueueSelect: {
-        placeholder: "Linhas",
+        placeholder: "Colas",
       },
       tickets: {
         toasts: {
@@ -288,15 +288,22 @@ const messages = {
       },
       mainDrawer: {
         listItems: {
-          dashboard: "Dashboard",
+          dashboard: "Estadísticas",
+          pipelines: "Pipelines",
           connections: "Conexiones",
           tickets: "Tickets",
           contacts: "Contactos",
           quickAnswers: "Respuestas rápidas",
-          queues: "Linhas",
+          flowBuilder: "Flow Builder",
+          clients: "Clientes",
+          helpdesk: "Helpdesk",
+          queues: "Colas",
           administration: "Administración",
+          groups: "Grupos",
           users: "Usuarios",
+          knowledgeBase: "Base de Conocimiento",
           settings: "Configuración",
+          swagger: "Swagger",
         },
         appBar: {
           user: {
@@ -309,12 +316,12 @@ const messages = {
         noTickets: "Sin notificaciones.",
       },
       queues: {
-        title: "Linhas",
+        title: "Colas",
         table: {
           name: "Nombre",
           color: "Color",
           greeting: "Mensaje de saludo",
-          actions: "Comportamiento",
+          actions: "Acciones",
         },
         buttons: {
           add: "Agregar cola",
@@ -326,7 +333,7 @@ const messages = {
         },
       },
       queueSelect: {
-        inputLabel: "Linhas",
+        inputLabel: "Colas",
       },
       quickAnswers: {
         title: "Respuestas rápidas",
@@ -374,10 +381,18 @@ const messages = {
         title: "Configuración",
         settings: {
           userCreation: {
-            name: "Creación de usuarios",
+            name: "Creación de tenant",
             options: {
               enabled: "Habilitado",
               disabled: "Deshabilitado",
+            },
+          },
+          language: {
+            name: "Idioma",
+            options: {
+              pt: "Português",
+              en: "English",
+              es: "Español",
             },
           },
         },
@@ -470,6 +485,115 @@ const messages = {
           "Este color ya está en uso, elija otro.",
         ERR_WAPP_GREETING_REQUIRED:
           "El mensaje de saludo es obligatorio cuando hay más de una cola.",
+      },
+      smtp: {
+        title: "Configuración del Servidor SMTP",
+        settingsTitle: "Configuración de Email (SMTP)",
+        form: {
+          host: "Host SMTP",
+          port: "Puerto",
+          user: "Usuario / Email",
+          password: "Contraseña",
+          passwordPlaceholder: "Dejar en blanco para mantener la actual",
+          emailFrom: "Email Remitente (From)",
+          secure: "Usar Conexión Segura (SSL/TLS)",
+        },
+        buttons: {
+          save: "Guardar Configuración",
+          saving: "Guardando...",
+          test: "Probar Conexión",
+          testing: "Enviando...",
+          sendTest: "Enviar Prueba",
+          cancel: "Cancelar",
+        },
+        modal: {
+          title: "Probar Conexión SMTP",
+          content: "Ingrese un email de destino para enviar un mensaje de prueba.",
+          emailLabel: "Email de Destino",
+        },
+        toasts: {
+          loadError: "Error al cargar configuración SMTP",
+          saveSuccess: "¡Configuración SMTP guardada con éxito!",
+          saveError: "Error al guardar configuración SMTP",
+          testSuccess: "¡Email de prueba enviado con éxito!",
+          testError: "Error al enviar email de prueba",
+          emailRequired: "Por favor, ingrese un email de destino.",
+        },
+      },
+      knowledgeBase: {
+        title: "Base de Conocimiento",
+        menu: "Base de Conocimiento",
+        table: {
+          name: "Nombre",
+          description: "Descripción",
+          actions: "Acciones",
+          noData: "No se encontró base de conocimiento",
+        },
+        buttons: {
+          add: "Agregar Base",
+          save: "Guardar",
+          cancel: "Cancelar",
+          edit: "Editar",
+          delete: "Eliminar",
+        },
+        modal: {
+          add: "Nueva Base de Conocimiento",
+          edit: "Editar Base de Conocimiento",
+        },
+        form: {
+          name: "Nombre",
+          description: "Descripción",
+        },
+        toasts: {
+          created: "¡Base de conocimiento creada con éxito!",
+          edited: "¡Base de conocimiento actualizada con éxito!",
+          deleted: "¡Base de conocimiento eliminada con éxito!",
+        },
+        confirmationModal: {
+          deleteTitle: "Eliminar Base de Conocimiento",
+          deleteMessage: "¿Está seguro? Todos los contenidos vinculados serán eliminados.",
+        },
+      },
+      marketplace: {
+        title: "Marketplace de Plugins",
+        search: "Buscar plugins...",
+        viewDetails: "Ver Detalles",
+        free: "Gratis",
+        installed: "Instalado",
+        active: "Activo",
+        notInstalled: "No instalado",
+        details: "Detalles",
+        noPermission: "Sin permiso",
+        adminOnly: "Solo el Admin puede acceder al Marketplace.",
+        offlineWarning: "Modo offline: mostrando catálogo local. Conexión con Marketplace remoto no disponible.",
+        loadError: "Error al cargar plugins",
+        table: {
+          plugin: "Plugin",
+          category: "Categoría",
+          type: "Tipo",
+          version: "Versión",
+          status: "Estado",
+          actions: "Acciones",
+        },
+        pluginDetail: {
+          backToMarketplace: "Volver al Marketplace",
+          aboutPlugin: "Sobre este plugin",
+          activatePlugin: "Activar Plugin",
+          deactivatePlugin: "Desactivar Plugin",
+          pluginNotFound: "Plugin no encontrado",
+          activatePremium: "Activar Plugin Premium",
+          premiumDescription: "Este es un plugin premium. Ingrese su clave de licencia para activar.",
+          licenseKey: "Clave de Licencia",
+          cancel: "Cancelar",
+          activate: "Activar",
+          loadError: "Error al cargar plugin",
+          activateSuccess: "¡Plugin activado con éxito!",
+          activateError: "Error al activar plugin",
+          deactivateSuccess: "Plugin desactivado.",
+          deactivateError: "Error al desactivar plugin",
+          invalidLicense: "Clave de licencia inválida",
+          enterLicense: "Ingrese la clave de licencia",
+        },
       },
     },
   },

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 import * as Yup from "yup";
 import { useHistory } from "react-router-dom";
@@ -17,7 +17,8 @@ import {
 	Container,
 	InputAdornment,
 	IconButton,
-	Link
+	Link,
+	CircularProgress
 } from '@material-ui/core';
 
 import { LockOutlined, Visibility, VisibilityOff } from '@material-ui/icons';
@@ -78,6 +79,29 @@ const SignUp = () => {
 	const initialState = { name: "", email: "", password: "" };
 	const [showPassword, setShowPassword] = useState(false);
 	const [user] = useState(initialState);
+	const [loading, setLoading] = useState(true);
+
+	useEffect(() => {
+		const fetchSettings = async () => {
+			try {
+				const { data } = await api.get("/public-settings");
+				const userCreationSetting = data.find((s) => s.key === "userCreation");
+				if (userCreationSetting && userCreationSetting.value === "disabled") {
+					toast.error(i18n.t("signup.toasts.creationDisabled") || "User creation disabled");
+					history.push("/login"); // Redirect to login or root, user asked for root but usually login is root for public
+				}
+			} catch (err) {
+				toastError(err);
+			} finally {
+				setLoading(false);
+			}
+		};
+		fetchSettings();
+	}, [history]);
+
+	if (loading) {
+		return <CircularProgress />;
+	}
 
 	const handleSignUp = async values => {
 		try {

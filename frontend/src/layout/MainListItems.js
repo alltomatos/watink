@@ -133,7 +133,7 @@ const MainListItems = (props) => {
         yes={() => (
           <ListItemLink
             to="/"
-            primary="Estatísticas"
+            primary={i18n.t("mainDrawer.listItems.dashboard")}
             icon={<DashboardOutlinedIcon />}
             iconColor={googleColors.blue}
             collapsed={collapsed}
@@ -146,7 +146,7 @@ const MainListItems = (props) => {
         yes={() => (
           <ListItemLink
             to="/pipelines"
-            primary="Pipelines"
+            primary={i18n.t("mainDrawer.listItems.pipelines")}
             icon={<ListAltIcon />}
             iconColor={googleColors.purple}
             collapsed={collapsed}
@@ -188,7 +188,7 @@ const MainListItems = (props) => {
         yes={() => (
           <ListItemLink
             to="/flowbuilder"
-            primary="Flow Builder"
+            primary={i18n.t("mainDrawer.listItems.flowBuilder")}
             icon={<DeviceHubIcon />}
             iconColor={googleColors.blue}
             collapsed={collapsed}
@@ -200,7 +200,7 @@ const MainListItems = (props) => {
       {activePlugins.includes("clientes") && (
         <ListItemLink
           to="/clients"
-          primary="Clientes"
+          primary={i18n.t("mainDrawer.listItems.clients")}
           icon={<PersonOutlineIcon />}
           iconColor={googleColors.blue}
           collapsed={collapsed}
@@ -210,7 +210,7 @@ const MainListItems = (props) => {
       {activePlugins.includes("helpdesk") && (
         <ListItemLink
           to="/helpdesk"
-          primary="Helpdesk"
+          primary={i18n.t("mainDrawer.listItems.helpdesk")}
           icon={<HeadsetMicIcon />}
           iconColor={googleColors.red}
           collapsed={collapsed}
@@ -292,7 +292,7 @@ const MainListItems = (props) => {
         yes={() => (
           <ListItemLink
             to="/knowledge-bases"
-            primary={i18n.t("knowledgeBase.menu")}
+            primary={i18n.t("mainDrawer.listItems.knowledgeBase")}
             icon={<LibraryBooksIcon />}
             iconColor={googleColors.orange}
             collapsed={collapsed}
@@ -320,7 +320,7 @@ const MainListItems = (props) => {
         yes={() => (
           <ListItemLink
             to="/swagger"
-            primary="Swagger"
+            primary={i18n.t("mainDrawer.listItems.swagger")}
             icon={<MenuBookIcon />}
             iconColor={googleColors.pink}
             collapsed={collapsed}

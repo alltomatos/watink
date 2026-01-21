@@ -28,6 +28,7 @@ import { Can } from "../../components/Can";
 import pluginApi from "../../services/pluginApi";
 import { toast } from "react-toastify";
 import { getBackendUrl } from "../../helpers/urlUtils";
+import { i18n } from "../../translate/i18n";
 
 
 const useStyles = makeStyles((theme) => ({
@@ -126,7 +127,7 @@ const PluginDetail = () => {
                 });
             }
         } catch (err) {
-            toast.error("Erro ao carregar plugin");
+            toast.error(i18n.t("marketplace.pluginDetail.loadError"));
         } finally {
             setLoading(false);
         }
@@ -144,13 +145,13 @@ const PluginDetail = () => {
             await pluginApi.post(`/api/v1/plugins/${plugin.slug}/activate`, {
                 licenseKey: licenseKey || undefined,
             });
-            toast.success(`Plugin ${plugin.name} ativado com sucesso!`);
+            toast.success(i18n.t("marketplace.pluginDetail.activateSuccess").replace("{name}", plugin.name));
             setPlugin({ ...plugin, installed: true, active: true });
             setTimeout(() => {
                 window.location.reload();
             }, 1000);
         } catch (err) {
-            toast.error("Erro ao ativar plugin");
+            toast.error(i18n.t("marketplace.pluginDetail.activateError"));
         } finally {
             setActivating(false);
         }
@@ -160,13 +161,13 @@ const PluginDetail = () => {
         try {
             setActivating(true);
             await pluginApi.post(`/api/v1/plugins/${plugin.slug}/deactivate`);
-            toast.success(`Plugin ${plugin.name} desativado.`);
+            toast.success(i18n.t("marketplace.pluginDetail.deactivateSuccess"));
             setPlugin({ ...plugin, active: false });
             setTimeout(() => {
                 window.location.reload();
             }, 1000);
         } catch (err) {
-            toast.error("Erro ao desativar plugin");
+            toast.error(i18n.t("marketplace.pluginDetail.deactivateError"));
         } finally {
             setActivating(false);
         }
@@ -174,7 +175,7 @@ const PluginDetail = () => {
 
     const handleLicenseSubmit = async () => {
         if (!licenseKey.trim()) {
-            toast.error("Informe a chave de licença");
+            toast.error(i18n.t("marketplace.pluginDetail.enterLicense"));
             return;
         }
 
@@ -182,7 +183,7 @@ const PluginDetail = () => {
             setActivating(true);
             await pluginApi.post(`/api/v1/plugins/${plugin.slug}/install`, { licenseKey });
             await pluginApi.post(`/api/v1/plugins/${plugin.slug}/activate`, { licenseKey });
-            toast.success(`Plugin ${plugin.name} ativado com sucesso!`);
+            toast.success(i18n.t("marketplace.pluginDetail.activateSuccess").replace("{name}", plugin.name));
             setPlugin({ ...plugin, installed: true, active: true });
             setTimeout(() => {
                 window.location.reload();
@@ -190,7 +191,7 @@ const PluginDetail = () => {
             setLicenseDialogOpen(false);
             setLicenseKey("");
         } catch (err) {
-            toast.error("Chave de licença inválida");
+            toast.error(i18n.t("marketplace.pluginDetail.invalidLicense"));
         } finally {
             setActivating(false);
         }
@@ -209,7 +210,7 @@ const PluginDetail = () => {
     if (!plugin) {
         return (
             <Container maxWidth="lg" className={classes.root}>
-                <Typography>Plugin não encontrado</Typography>
+                <Typography>{i18n.t("marketplace.pluginDetail.pluginNotFound")}</Typography>
             </Container>
         );
     }
@@ -225,7 +226,7 @@ const PluginDetail = () => {
                         className={classes.backButton}
                         onClick={() => history.push("/admin/settings/marketplace")}
                     >
-                        Voltar ao Marketplace
+                        {i18n.t("marketplace.pluginDetail.backToMarketplace")}
                     </Button>
 
                     <Paper elevation={0} style={{ padding: 24 }}>
@@ -246,7 +247,7 @@ const PluginDetail = () => {
                                 </Box>
                                 <Box mt={1} display="flex" gap={1}>
                                     <Chip
-                                        label={plugin.type === "free" ? "Gratuito" : `R$ ${plugin.price}`}
+                                        label={plugin.type === "free" ? i18n.t("marketplace.free") : `R$ ${plugin.price}`}
                                         className={plugin.type === "free" ? classes.chipFree : classes.chipPremium}
                                     />
                                     <Chip label={`v${plugin.version}`} variant="outlined" />
@@ -262,7 +263,7 @@ const PluginDetail = () => {
 
                         <Box className={classes.section}>
                             <Typography variant="h6" gutterBottom>
-                                Sobre este plugin
+                                {i18n.t("marketplace.pluginDetail.aboutPlugin")}
                             </Typography>
                             <Typography variant="body1" style={{ whiteSpace: "pre-line" }}>
                                 {plugin.longDescription}
@@ -278,7 +279,7 @@ const PluginDetail = () => {
                                     onClick={handleDeactivate}
                                     disabled={activating}
                                 >
-                                    {activating ? <CircularProgress size={20} /> : "Desativar Plugin"}
+                                    {activating ? <CircularProgress size={20} /> : i18n.t("marketplace.pluginDetail.deactivatePlugin")}
                                 </Button>
                             ) : (
                                 <Button
@@ -288,7 +289,7 @@ const PluginDetail = () => {
                                     onClick={handleActivate}
                                     disabled={activating}
                                 >
-                                    {activating ? <CircularProgress size={20} /> : "Ativar Plugin"}
+                                    {activating ? <CircularProgress size={20} /> : i18n.t("marketplace.pluginDetail.activatePlugin")}
                                 </Button>
                             )}
                         </Box>
@@ -296,15 +297,15 @@ const PluginDetail = () => {
                     </Paper>
 
                     <Dialog open={licenseDialogOpen} onClose={() => setLicenseDialogOpen(false)}>
-                        <DialogTitle>Ativar Plugin Premium</DialogTitle>
+                        <DialogTitle>{i18n.t("marketplace.pluginDetail.activatePremium")}</DialogTitle>
                         <DialogContent>
                             <Typography variant="body2" gutterBottom>
-                                Este é um plugin premium. Insira sua chave de licença para ativar.
+                                {i18n.t("marketplace.pluginDetail.premiumDescription")}
                             </Typography>
                             <TextField
                                 autoFocus
                                 margin="dense"
-                                label="Chave de Licença"
+                                label={i18n.t("marketplace.pluginDetail.licenseKey")}
                                 fullWidth
                                 variant="outlined"
                                 value={licenseKey}
@@ -313,14 +314,14 @@ const PluginDetail = () => {
                             />
                         </DialogContent>
                         <DialogActions>
-                            <Button onClick={() => setLicenseDialogOpen(false)}>Cancelar</Button>
+                            <Button onClick={() => setLicenseDialogOpen(false)}>{i18n.t("marketplace.pluginDetail.cancel")}</Button>
                             <Button
                                 onClick={handleLicenseSubmit}
                                 color="primary"
                                 variant="contained"
                                 disabled={activating}
                             >
-                                {activating ? <CircularProgress size={20} /> : "Ativar"}
+                                {activating ? <CircularProgress size={20} /> : i18n.t("marketplace.pluginDetail.activate")}
                             </Button>
                         </DialogActions>
                     </Dialog>
@@ -328,9 +329,9 @@ const PluginDetail = () => {
             )}
             no={() => (
                 <Container maxWidth="lg" className={classes.root}>
-                    <Typography variant="h5">Sem permissão</Typography>
+                    <Typography variant="h5">{i18n.t("marketplace.noPermission")}</Typography>
                     <Typography variant="body2" color="textSecondary">
-                        Apenas o Admin pode acessar o Marketplace.
+                        {i18n.t("marketplace.adminOnly")}
                     </Typography>
                 </Container>
             )}

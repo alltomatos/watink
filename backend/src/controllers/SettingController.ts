@@ -16,12 +16,25 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
   const { tenantId } = req.user;
   const settings = await ListSettingsService({ tenantId });
 
-  return res.status(200).json(settings);
+  // Convert to plain object to inject virtual settings
+  const settingsList: any[] = Array.isArray(settings) ? settings.map((s: any) => (s.toJSON ? s.toJSON() : s)) : [];
+
+  if (process.env.TENANTS === "True" || process.env.TENANTS === "true") {
+    settingsList.push({
+      key: "allowTenantControl",
+      value: "true",
+      tenantId: tenantId,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+  }
+
+  return res.status(200).json(settingsList);
 };
 
 export const getPublicSettings = async (req: Request, res: Response): Promise<Response> => {
   const settings = await ListSettingsService();
-  const publicKeys = ["systemLogo", "login_backgroundImage", "login_layout", "systemFavicon"];
+  const publicKeys = ["systemLogo", "login_backgroundImage", "login_layout", "systemFavicon", "userCreation"];
   const publicSettings = (settings || []).filter(s => publicKeys.includes(s.key));
   return res.status(200).json(publicSettings);
 };

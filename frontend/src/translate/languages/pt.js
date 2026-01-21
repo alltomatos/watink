@@ -354,16 +354,22 @@ const messages = {
       },
       mainDrawer: {
         listItems: {
-          dashboard: "Dashboard",
+          dashboard: "Estatísticas",
+          pipelines: "Pipelines",
           connections: "Conexões",
           tickets: "Chats",
           contacts: "Contatos",
           quickAnswers: "Respostas Rápidas",
+          flowBuilder: "Flow Builder",
+          clients: "Clientes",
+          helpdesk: "Helpdesk",
           queues: "Filas",
           administration: "Administração",
-          users: "Usuários",
           groups: "Grupos",
+          users: "Usuários",
+          knowledgeBase: "Base Conhecimento",
           settings: "Configurações",
+          swagger: "Swagger",
         },
         appBar: {
           user: {
@@ -475,10 +481,18 @@ const messages = {
         title: "Configurações",
         settings: {
           userCreation: {
-            name: "Criação de usuário",
+            name: "Criação de tenant",
             options: {
               enabled: "Ativado",
               disabled: "Desativado",
+            },
+          },
+          language: {
+            name: "Idioma",
+            options: {
+              pt: "Português",
+              en: "English",
+              es: "Español",
             },
           },
         },
@@ -566,6 +580,92 @@ const messages = {
         confirmationModal: {
           deleteTitle: "Excluir Base de Conhecimento",
           deleteMessage: "Tem certeza? Todos os conteúdos vinculados serão excluídos.",
+        },
+      },
+      marketplace: {
+        title: "Marketplace de Plugins",
+        search: "Buscar plugins...",
+        viewDetails: "Ver Detalhes",
+        free: "Gratuito",
+        installed: "Instalado",
+        active: "Ativo",
+        notInstalled: "Não instalado",
+        details: "Detalhes",
+        noPermission: "Sem permissão",
+        adminOnly: "Apenas o Admin pode acessar o Marketplace.",
+        offlineWarning: "Modo offline: exibindo catálogo local. Conexão com Marketplace remoto indisponível.",
+        loadError: "Erro ao carregar plugins",
+        table: {
+          plugin: "Plugin",
+          category: "Categoria",
+          type: "Tipo",
+          version: "Versão",
+          status: "Status",
+          actions: "Ações",
+        },
+        pluginDetail: {
+          backToMarketplace: "Voltar ao Marketplace",
+          aboutPlugin: "Sobre este plugin",
+          activatePlugin: "Ativar Plugin",
+          deactivatePlugin: "Desativar Plugin",
+          pluginNotFound: "Plugin não encontrado",
+          activatePremium: "Ativar Plugin Premium",
+          premiumDescription: "Este é um plugin premium. Insira sua chave de licença para ativar.",
+          licenseKey: "Chave de Licença",
+          cancel: "Cancelar",
+          activate: "Ativar",
+          loadError: "Erro ao carregar plugin",
+          activateSuccess: "Plugin ativado com sucesso!",
+          activateError: "Erro ao ativar plugin",
+          deactivateSuccess: "Plugin desativado.",
+          deactivateError: "Erro ao desativar plugin",
+          invalidLicense: "Chave de licença inválida",
+          enterLicense: "Informe a chave de licença",
+        },
+      },
+      emailTemplates: {
+        title: "Modelos de Email",
+        toasts: {
+          loadListError: "Erro ao carregar lista de modelos",
+          loadError: "Erro ao carregar modelo",
+          saveSuccess: "Modelo salvo com sucesso",
+          createSuccess: "Modelo criado com sucesso",
+          saveError: "Erro ao salvar modelo",
+          deleteSuccess: "Modelo excluído com sucesso",
+          deleteError: "Erro ao excluir modelo",
+        },
+        buttons: {
+          add: "Adicionar Modelo",
+          save: "Salvar",
+          cancel: "Cancelar",
+          close: "Fechar",
+        },
+        table: {
+          name: "Nome",
+          subject: "Assunto",
+          actions: "Ações",
+          noData: "Nenhum modelo encontrado",
+        },
+
+        modal: {
+          addTitle: "Novo Modelo de Email",
+          editTitle: "Editar Modelo de Email",
+        },
+        preview: {
+          title: "Visualizar Modelo",
+          subject: "Assunto",
+          variablesInfo: "Valores de exemplo utilizados para visualização. As variáveis reais serão substituídas no envio."
+        },
+        names: {
+          welcome_premium: "Boas-vindas Premium - (welcome_premium)",
+          custom: "Outro / Personalizado"
+        },
+        form: {
+          name: "Nome (Identificador)",
+          nameSelect: "Selecione o Modelo",
+          subject: "Assunto",
+          html: "Conteúdo HTML (Mustache)",
+          text: "Conteúdo Texto (Opcional)",
         },
       },
       backendErrors: {

@@ -47,7 +47,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     profile,
     queueIds,
     whatsappId,
-    groupIds
+    groupIds,
+    tenantId: req.user?.tenantId || undefined
   });
 
   const io = getIO();

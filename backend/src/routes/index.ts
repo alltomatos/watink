@@ -34,6 +34,7 @@ import pluginRoutes from "./pluginRoutes";
 import aiRoutes from "./aiRoutes";
 import webchatRoutes from "./WebchatRoutes";
 import stepRoutes from "./stepRoutes";
+import emailTemplateRoutes from "./emailTemplateRoutes";
 
 const routes = Router();
 
@@ -63,9 +64,10 @@ routes.use(flowRoutes);
 routes.use(knowledgeRoutes);
 routes.use(clientRoutes);
 routes.use(protocolRoutes);
-routes.use(pluginRoutes);
+// routes.use(pluginRoutes); // Moved to app.ts to bypass body parser
 routes.use(aiRoutes);
 routes.use(tenantSmtpSettingsRoutes);
+routes.use(emailTemplateRoutes);
 routes.use(webchatRoutes);
 routes.use(stepRoutes);
 routes.use("/users", userRoutes);

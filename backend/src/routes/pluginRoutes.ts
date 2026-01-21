@@ -25,20 +25,12 @@ pluginRoutes.use(
                 if (profile) {
                     proxyReq.setHeader("x-user-profile", profile.toString());
                 }
-
-                // FIX: Body Parser consumes stream, so we must restream for proxy
-                if (req.body && Object.keys(req.body).length > 0) {
-                    const bodyData = JSON.stringify(req.body);
-                    proxyReq.setHeader("Content-Type", "application/json");
-                    proxyReq.setHeader("Content-Length", Buffer.byteLength(bodyData));
-                    proxyReq.write(bodyData);
-                }
-            } catch (_) {
-                // no-op
+            } catch (err) {
+                console.error("Error in onProxyReq:", err);
             }
         },
         onError: (err: any, req: any, res: any) => {
-            console.error("Proxy Error:", err);
+            console.error("[PluginProxy] Proxy Error:", err);
             res.status(502).json({ error: "Plugin Manager Unavailable" });
         }
     } as any)
