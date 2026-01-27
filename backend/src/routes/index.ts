@@ -35,11 +35,16 @@ import aiRoutes from "./aiRoutes";
 import webchatRoutes from "./WebchatRoutes";
 import stepRoutes from "./stepRoutes";
 import emailTemplateRoutes from "./emailTemplateRoutes";
+import saasRoutes from "./saasRoutes";
+
+import mobileRoutes from "./mobileRoutes";
+import tagRoutes from "./tagRoutes";
 
 const routes = Router();
 
 // routes.use(userRoutes); // Moved to bottom
 routes.use("/auth", authRoutes);
+routes.use("/mobile/v1", mobileRoutes);
 routes.use(settingRoutes);
 routes.use(contactRoutes);
 routes.use(ticketRoutes);
@@ -70,6 +75,8 @@ routes.use(tenantSmtpSettingsRoutes);
 routes.use(emailTemplateRoutes);
 routes.use(webchatRoutes);
 routes.use(stepRoutes);
+routes.use(saasRoutes);
+routes.use(tagRoutes);
 routes.use("/users", userRoutes);
 
 export default routes;

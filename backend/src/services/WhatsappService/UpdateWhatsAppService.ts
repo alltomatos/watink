@@ -7,6 +7,7 @@ import ShowWhatsAppService from "./ShowWhatsAppService";
 import AssociateWhatsappQueue from "./AssociateWhatsappQueue";
 import StopWhatsAppSession from "../WbotServices/StopWhatsAppSession";
 import { logger } from "../../utils/logger";
+import EntityTagService from "../TagServices/EntityTagService";
 
 interface WhatsappData {
   name?: string;
@@ -21,6 +22,7 @@ interface WhatsappData {
   keepAlive?: boolean;   // [NEW]
   type?: string;
   chatConfig?: any;
+  tags?: number[];
 }
 
 interface Request {
@@ -55,7 +57,8 @@ const UpdateWhatsAppService = async ({
     syncPeriod,
     keepAlive,
     type,
-    chatConfig
+    chatConfig,
+    tags
   } = whatsappData;
 
   logger.info(`UpdateWhatsAppService - ID: ${whatsappId}, Data: ${JSON.stringify(whatsappData)} `); // [DEBUG]
@@ -106,6 +109,20 @@ const UpdateWhatsAppService = async ({
   }
 
   await AssociateWhatsappQueue(whatsapp, queueIds);
+
+  if (tags) {
+    await EntityTagService.SyncEntityTags({
+      tagIds: tags,
+      entityType: "whatsapp",
+      entityId: whatsapp.id,
+      tenantId: whatsapp.tenantId as string
+    });
+
+    // Reload to include tags in returned object if needed, or frontend will refetch/update
+    await whatsapp.reload({
+      include: ["queues", "tags"]
+    });
+  }
 
   // Checks if sync settings were updated and connection is active/opening
   if (syncHistory !== undefined || syncPeriod !== undefined || keepAlive !== undefined) {

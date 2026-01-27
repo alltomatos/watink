@@ -29,7 +29,7 @@ export const StartWhatsAppSession = async (
 
   try {
     await whatsapp.update({ status: "OPENING" });
-    logger.info(`StartWhatsAppSession called for session ${whatsapp.id}`);
+    logger.info(`StartWhatsAppSession called for session ${whatsapp.id} (Type: ${whatsapp.type})`);
 
     const io = getIO();
     io.emit("whatsappSession", {
@@ -37,25 +37,41 @@ export const StartWhatsAppSession = async (
       session: whatsapp
     });
 
+    const sessionInstanceId = Date.now(); // Unique ID for this session instance
+
+    let commandType = "session.start";
+    let exchange = "wbot.commands";
+    let routingKey = `wbot.${whatsapp.tenantId}.${whatsapp.id}.session.start`;
+
+    // WEBCHAT ROUTING LOGIC
+    if (whatsapp.type === "webchat") {
+      commandType = "webchat.session.start";
+      exchange = "webchat.commands";
+      routingKey = `webchat.${whatsapp.tenantId}.${whatsapp.id}.session.start`;
+      logger.info(`Routing session ${whatsapp.id} to Webchat Engine`);
+    }
+
     const command: Envelope = {
       id: uuidv4(),
       timestamp: Date.now(),
       tenantId: whatsapp.tenantId,
-      type: "session.start",
+      type: commandType,
       payload: {
-        sessionId: whatsapp.id, // Reverting to stable ID for persistence
+        sessionId: whatsapp.id,
+        sessionInstanceId, // [NEW] Unique ID
         usePairingCode,
         phoneNumber,
         name: whatsapp.name,
         syncHistory: whatsapp.syncHistory,
         syncPeriod: whatsapp.syncPeriod,
         keepAlive: whatsapp.keepAlive,
-        force // Pass force flag
+        webchatId: whatsapp.id, // For webchat handler compatibility
+        force
       }
     };
 
-    await RabbitMQService.publishCommand(`wbot.${whatsapp.tenantId}.${whatsapp.id}.session.start`, command);
-    logger.info(`Session start command published for session ${whatsapp.id}`);
+    await RabbitMQService.publishCommand(routingKey, command, exchange);
+    logger.info(`Session start command published for session ${whatsapp.id} (Instance: ${sessionInstanceId})`);
 
   } catch (err) {
     // Release lock on error

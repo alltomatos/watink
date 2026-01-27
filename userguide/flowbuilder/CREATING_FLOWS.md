@@ -13,10 +13,11 @@ O **Flow Builder** é o "cérebro" das suas automações, permitindo criar assis
 1.  **Mensagem (Message)**: Envia textos, áudios, imagens ou vídeos para o cliente.
 2.  **Menu**: Cria opções numéricas para o cliente escolher o caminho.
 3.  **Condicional (Switch)**: Verifica uma informação e decide qual caminho seguir.
-4.  **Transferência (Ticket/Queue)**: Manda o cliente para uma fila humana ou atendente específico.
+4.  **Transferência (Ticket/Queue)**: Manda o cliente para uma fila humana ou atendente específico. Se o contato tiver um "dono" definido e a fila estiver com **Priorização por Carteira** ativa, o sistema tentará enviar para ele primeiro.
 5.  **Kanban (Pipeline)**: Move o cliente automaticamente para uma etapa do seu funil de vendas.
 6.  **Integração (Webhook/API)**: Envia ou recebe dados de sistemas externos.
 7.  **Base de Conhecimento**: Consulta seus documentos de IA para responder dúvidas frequentes.
+8.  **Etiqueta (Tag)**: Adiciona ou remove etiquetas do contato automaticamente.
 
 ## Criando seu Primeiro Fluxo
 

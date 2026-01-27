@@ -17,6 +17,7 @@ interface Request {
   tenantId?: number | string;
 }
 
+import Tenant from "../../models/Tenant";
 import TenantSmtpSettings from "../../models/TenantSmtpSettings";
 import PluginInstallation from "../../models/PluginInstallation";
 import Plugin from "../../models/Plugin";
@@ -24,6 +25,7 @@ import EmailTemplate from "../../models/EmailTemplate";
 import RabbitMQService from "../RabbitMQService";
 import { getPremiumWelcomeEmail } from "../../helpers/EmailTemplates";
 import { Op } from "sequelize";
+import SendVerificationEmailService from "./SendVerificationEmailService";
 
 interface Response {
   email: string;
@@ -67,29 +69,85 @@ const CreateUserService = async ({
     throw new AppError(err.message);
   }
 
+  /*
+   * Check if SMTP Plugin is active.
+   * If NOT active, we simply create the user as verified and don't send the email.
+   * "if the smtp plugin is not active the system must behave as if they do not exist"
+   */
+  let emailVerified = false;
+
+  if (tenantId) {
+    const smtpPlugin = await Plugin.findOne({
+      where: {
+        slug: {
+          [Op.like]: "%smtp%"
+        }
+      }
+    });
+
+    if (smtpPlugin) {
+      const pluginInstallation = await PluginInstallation.findOne({
+        where: {
+          tenantId,
+          pluginId: smtpPlugin.id,
+          status: "active"
+        }
+      });
+
+      if (!pluginInstallation) {
+        emailVerified = true;
+      }
+    } else {
+      emailVerified = true;
+    }
+  } else {
+    // If no tenant (e.g. superadmin creation?), default behavior?
+    // Usually superadmin is created seeded.
+    // Use default false or true? If no SMTP context, maybe true?
+    // Let's assume true for safety if no tenant context exists for SMTP.
+    emailVerified = true;
+  }
+
+  if (process.env.TENANTS === "true" && tenantId) {
+    const tenant = await Tenant.findOne({ where: { id: tenantId } });
+    if (tenant) {
+      const userCount = await User.count({ where: { tenantId } });
+      if (userCount >= tenant.maxUsers) {
+        throw new AppError("ERR_MAX_USERS_REACHED", 403);
+      }
+    }
+  }
+
   const user = await User.create(
     {
       email,
       password,
       name,
       profile,
-      whatsappId: whatsappId ? whatsappId : null
+      whatsappId: whatsappId ? whatsappId : null,
+      tenantId,
+      emailVerified
     },
     { include: ["queues", "whatsapp"] }
   );
 
   if (profile === "superadmin") {
-    const allPermissions = await Permission.findAll();
-    await user.$set("permissions", allPermissions);
+    // Superadmin logic handled by Roles seeding or direct Role assignment
+    // const allPermissions = await Permission.findAll();
+    // await user.$set("permissions", allPermissions);
   } else {
     await user.$set("queues", queueIds);
     await user.$set("groups", groupIds);
   }
 
-  // Send Welcome Email (Async)
-  // Send Welcome Email (Async)
-  if (tenantId) {
-    sendWelcomeEmail(name, email, password, tenantId);
+  // Send Verification Email (Async)
+  if (tenantId && !emailVerified) {
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    try {
+      await SendVerificationEmailService(email, frontendUrl);
+    } catch (err) {
+      console.error("Failed to send verification email", err);
+    }
   }
 
   await user.reload();
@@ -97,83 +155,6 @@ const CreateUserService = async ({
   return SerializeUser(user);
 };
 
-const sendWelcomeEmail = async (name: string, email: string, password: string, tenantId: number | string) => {
-  try {
-    if (!tenantId) return;
-
-    // Check for Active SMTP Plugin
-    const smtpPlugin = await Plugin.findOne({
-      where: {
-        slug: {
-          [Op.like]: '%smtp%'
-        }
-      }
-    });
-
-    if (!smtpPlugin) return;
-
-    const pluginInstallation = await PluginInstallation.findOne({
-      where: {
-        tenantId,
-        pluginId: smtpPlugin.id,
-        status: 'active'
-      }
-    });
-
-    if (!pluginInstallation) return;
-
-    const smtpSettings = await TenantSmtpSettings.findOne({
-      where: { tenantId }
-    });
-
-    if (smtpSettings) {
-      // Check for Custom Template
-      let template = await EmailTemplate.findOne({
-        where: { name: 'welcome_premium', tenantId }
-      });
-
-      let subject = "";
-      let html = "";
-      let text = "";
-
-      if (template) {
-        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-        const view = { name, email, password, companyName: "Watink", frontendUrl }; // Simple view for custom template
-        const Mustache = require("mustache");
-        subject = Mustache.render(template.subject, view);
-        html = Mustache.render(template.html, view);
-        text = template.text ? Mustache.render(template.text, view) : "";
-      } else {
-        // Default Premium Template
-        const defaultTemplate = getPremiumWelcomeEmail(name, email, password);
-        subject = defaultTemplate.subject;
-        html = defaultTemplate.html;
-        text = defaultTemplate.text;
-      }
-
-      const payload = {
-        tenantId,
-        ...smtpSettings.toJSON(),
-        to: email,
-        subject,
-        text,
-        html
-      };
-
-      const envelope = {
-        id: uuidv4(),
-        timestamp: Date.now(),
-        type: "smtp.send",
-        tenantId,
-        payload
-      };
-
-      await RabbitMQService.publishCommand("smtp.send", envelope);
-    }
-  } catch (error) {
-    console.error("Failed to send welcome email:", error);
-  }
-};
 
 
 

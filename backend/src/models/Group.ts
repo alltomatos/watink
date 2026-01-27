@@ -13,8 +13,8 @@ import {
     BelongsTo
 } from "sequelize-typescript";
 import User from "./User";
-import Permission from "./Permission";
-import GroupPermission from "./GroupPermission";
+import Role from "./Role";
+import GroupRole from "./GroupRole";
 import Tenant from "./Tenant";
 import UserGroup from "./UserGroup";
 
@@ -39,8 +39,8 @@ class Group extends Model<Group> {
     @BelongsToMany(() => User, () => UserGroup)
     users: User[];
 
-    @BelongsToMany(() => Permission, () => GroupPermission)
-    permissions: Permission[];
+    @BelongsToMany(() => Role, () => GroupRole)
+    roles: Role[];
 
     @CreatedAt
     createdAt: Date;

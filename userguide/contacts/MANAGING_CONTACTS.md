@@ -12,9 +12,7 @@ Mantenha sua lista de clientes organizada para um atendimento eficiente.
 4.  Clique em Salvar.
 
 ## Etiquetas (Tags)
-Use etiquetas para categorizar clientes (ex: "VIP", "Inadimplente", "Novo Lead").
-1.  Ao editar um contato, procure o campo de etiquetas.
-2.  Crie novas cores e nomes para identificar rapidamente o perfil do cliente durante o chat.
+Use etiquetas para categorizar clientes (ex: "VIP", "Novo Lead"). Para um guia detalhado sobre como gerenciar e automatizar o uso de etiquetas, consulte o **[Guia de Etiquetas](./MANAGING_TAGS.md)**.
 
 ## Importação de Contatos
 (Se disponível no seu perfil)

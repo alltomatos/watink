@@ -2,7 +2,6 @@
 import {
     Table,
     Column,
-    CreatedAt,
     UpdatedAt,
     Model,
     DataType,
@@ -15,7 +14,8 @@ import Tenant from "./Tenant";
 import Plugin from "./Plugin";
 
 @Table({
-    tableName: "PluginInstallations"
+    tableName: "PluginInstallations",
+    createdAt: false
 })
 class PluginInstallation extends Model<PluginInstallation> {
     @PrimaryKey
@@ -55,9 +55,6 @@ class PluginInstallation extends Model<PluginInstallation> {
 
     @Column
     activatedAt: Date;
-
-    @CreatedAt
-    createdAt: Date;
 
     @UpdatedAt
     updatedAt: Date;

@@ -2,9 +2,12 @@ import { Sequelize } from "sequelize-typescript";
 import User from "../models/User";
 import Setting from "../models/Setting";
 import Contact from "../models/Contact";
+import ContactCustomField from "../models/ContactCustomField";
 import Ticket from "../models/Ticket";
 import Whatsapp from "../models/Whatsapp";
-import ContactCustomField from "../models/ContactCustomField";
+import TagGroup from "../models/TagGroup";
+import Tag from "../models/Tag";
+import EntityTag from "../models/EntityTag";
 import Message from "../models/Message";
 import Queue from "../models/Queue";
 import WhatsappQueue from "../models/WhatsappQueue";
@@ -22,9 +25,7 @@ import KnowledgeBase from "../models/KnowledgeBase";
 import KnowledgeSource from "../models/KnowledgeSource";
 import KnowledgeVector from "../models/KnowledgeVector";
 import Group from "../models/Group";
-import GroupPermission from "../models/GroupPermission";
 import Permission from "../models/Permission";
-import UserPermission from "../models/UserPermission";
 import Client from "../models/Client";
 import ClientAddress from "../models/ClientAddress";
 import ClientContact from "../models/ClientContact";
@@ -35,6 +36,10 @@ import ConversationEmbedding from "../models/ConversationEmbedding";
 import Plugin from "../models/Plugin";
 import PluginInstallation from "../models/PluginInstallation";
 import TenantSmtpSettings from "../models/TenantSmtpSettings";
+import Role from "../models/Role";
+import RolePermission from "../models/RolePermission";
+import UserRole from "../models/UserRole";
+import GroupRole from "../models/GroupRole";
 import Step from "../models/Step";
 import EmailTemplate from "../models/EmailTemplate";
 
@@ -46,10 +51,13 @@ const sequelize = new Sequelize(dbConfig);
 const models = [
   User,
   Contact,
+  ContactCustomField,
   Ticket,
   Message,
   Whatsapp,
-  ContactCustomField,
+  TagGroup,
+  Tag,
+  EntityTag,
   Setting,
   Queue,
   WhatsappQueue,
@@ -67,9 +75,7 @@ const models = [
   KnowledgeSource,
   KnowledgeVector,
   Group,
-  GroupPermission,
   Permission,
-  UserPermission,
   Client,
   ClientAddress,
   ClientContact,
@@ -80,10 +86,46 @@ const models = [
   TenantSmtpSettings,
   Plugin,
   PluginInstallation,
+  Role,
+  RolePermission,
+  UserRole,
+  GroupRole,
   Step,
   EmailTemplate
 ];
 
 sequelize.addModels(models);
+
+sequelize.addHook("beforeFind", async (options: any) => {
+  if (options.tenantId && options.transaction) {
+    await sequelize.query(`SET app.current_tenant = '${options.tenantId}'`, {
+      transaction: options.transaction
+    });
+  }
+});
+
+sequelize.addHook("beforeCreate", async (instance: any, options: any) => {
+  if (instance.tenantId && options.transaction) {
+    await sequelize.query(`SET app.current_tenant = '${instance.tenantId}'`, {
+      transaction: options.transaction
+    });
+  }
+});
+
+sequelize.addHook("beforeUpdate", async (instance: any, options: any) => {
+  if (instance.tenantId && options.transaction) {
+    await sequelize.query(`SET app.current_tenant = '${instance.tenantId}'`, {
+      transaction: options.transaction
+    });
+  }
+});
+
+sequelize.addHook("beforeDestroy", async (instance: any, options: any) => {
+  if (instance.tenantId && options.transaction) {
+    await sequelize.query(`SET app.current_tenant = '${instance.tenantId}'`, {
+      transaction: options.transaction
+    });
+  }
+});
 
 export default sequelize;

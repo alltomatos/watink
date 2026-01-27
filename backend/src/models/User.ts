@@ -23,8 +23,8 @@ import UserQueue from "./UserQueue";
 import Whatsapp from "./Whatsapp";
 import Tenant from "./Tenant";
 import Group from "./Group";
-import Permission from "./Permission";
-import UserPermission from "./UserPermission";
+import Role from "./Role";
+import UserRole from "./UserRole";
 import UserGroup from "./UserGroup";
 import Contact from "./Contact";
 
@@ -58,9 +58,29 @@ class User extends Model<User> {
   @Column
   profile: string;
 
+  @Default(true)
+  @Column
+  enabled: boolean;
+
+  @Default(false)
+  @Column
+  emailVerified: boolean;
+
   @AllowNull(true)
   @Column
   lastAssignmentAt: Date;
+
+  @AllowNull(true)
+  @Column
+  verificationToken: string;
+
+  @AllowNull(true)
+  @Column
+  passwordResetToken: string;
+
+  @AllowNull(true)
+  @Column
+  passwordResetExpires: Date;
 
   @ForeignKey(() => Whatsapp)
   @Column
@@ -94,8 +114,8 @@ class User extends Model<User> {
   @BelongsToMany(() => Group, () => UserGroup)
   groups: Group[];
 
-  @BelongsToMany(() => Permission, () => UserPermission)
-  permissions: Permission[];
+  @BelongsToMany(() => Role, () => UserRole)
+  roles: Role[];
 
   @BeforeUpdate
   @BeforeCreate

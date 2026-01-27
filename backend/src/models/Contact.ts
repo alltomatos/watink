@@ -21,6 +21,8 @@ import Tenant from "./Tenant";
 import Client from "./Client";
 import ClientContact from "./ClientContact";
 import User from "./User";
+import Tag from "./Tag";
+import EntityTag from "./EntityTag";
 
 @Table
 class Contact extends Model<Contact> {
@@ -84,6 +86,19 @@ class Contact extends Model<Contact> {
 
   @BelongsToMany(() => Client, () => ClientContact)
   clients: Client[];
+
+  @BelongsToMany(() => Tag, {
+    through: {
+      model: () => EntityTag,
+      scope: {
+        entityType: "contact"
+      }
+    },
+    foreignKey: "entityId",
+    otherKey: "tagId",
+    constraints: false
+  })
+  tags: Tag[];
 }
 
 export default Contact;

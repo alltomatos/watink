@@ -89,4 +89,7 @@ authRoutes.post("/refresh_token", SessionController.update);
 
 authRoutes.delete("/logout", isAuth, SessionController.remove);
 
+authRoutes.post("/forgot-password", UserController.forgotPassword);
+authRoutes.post("/reset-password", UserController.resetPassword);
+
 export default authRoutes;

@@ -3,6 +3,7 @@ import AppError from "../../errors/AppError";
 import Queue from "../../models/Queue";
 import Whatsapp from "../../models/Whatsapp";
 import Group from "../../models/Group";
+import Role from "../../models/Role";
 import Permission from "../../models/Permission";
 
 const ShowUserService = async (id: string | number): Promise<User> => {
@@ -24,9 +25,19 @@ const ShowUserService = async (id: string | number): Promise<User> => {
       {
         model: Group,
         as: "groups",
-        include: [{ model: Permission, as: "permissions", attributes: ["id", "name"] }]
+        include: [
+          {
+            model: Role,
+            as: "roles",
+            include: [{ model: Permission, as: "permissions", attributes: ["id", "resource", "action"] }]
+          }
+        ]
       },
-      { model: Permission, as: "permissions", attributes: ["id", "name"] }
+      {
+        model: Role,
+        as: "roles",
+        include: [{ model: Permission, as: "permissions", attributes: ["id", "resource", "action"] }]
+      }
     ],
     order: [[{ model: Queue, as: "queues" }, "name", "asc"]]
   });

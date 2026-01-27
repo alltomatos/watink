@@ -15,7 +15,21 @@ module.exports = {
         allowNull: false
       },
       lastMessage: {
-        type: DataTypes.STRING
+        type: DataTypes.TEXT
+      },
+      isGroup: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
+      },
+      unreadMessages: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+      },
+      uuid: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        allowNull: true
       },
       contactId: {
         type: DataTypes.INTEGER,

@@ -9,35 +9,35 @@ const quickAnswerRoutes = express.Router();
 quickAnswerRoutes.get(
   "/quickAnswers",
   isAuth,
-  checkPermission("view_quick_answers"),
+  checkPermission("quick_answers:read"),
   QuickAnswerController.index
 );
 
 quickAnswerRoutes.get(
   "/quickAnswers/:quickAnswerId",
   isAuth,
-  checkPermission("view_quick_answers"),
+  checkPermission("quick_answers:read"),
   QuickAnswerController.show
 );
 
 quickAnswerRoutes.post(
   "/quickAnswers",
   isAuth,
-  checkPermission("manage_quick_answers"),
+  checkPermission("quick_answers:write"),
   QuickAnswerController.store
 );
 
 quickAnswerRoutes.put(
   "/quickAnswers/:quickAnswerId",
   isAuth,
-  checkPermission("manage_quick_answers"),
+  checkPermission("quick_answers:write"),
   QuickAnswerController.update
 );
 
 quickAnswerRoutes.delete(
   "/quickAnswers/:quickAnswerId",
   isAuth,
-  checkPermission("manage_quick_answers"),
+  checkPermission("quick_answers:write"),
   QuickAnswerController.remove
 );
 

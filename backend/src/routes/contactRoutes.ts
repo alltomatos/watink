@@ -33,7 +33,7 @@ const csvUpload = multer({
 contactRoutes.post(
   "/contacts/import",
   isAuth,
-  checkPermission("create_contacts"),
+  checkPermission("contacts:write"),
   ImportPhoneContactsController.store
 );
 
@@ -41,7 +41,7 @@ contactRoutes.post(
 contactRoutes.post(
   "/contacts/import-csv",
   isAuth,
-  checkPermission("create_contacts"),
+  checkPermission("contacts:write"),
   csvUpload.single("file"),
   ContactController.importCsv
 );
@@ -50,47 +50,63 @@ contactRoutes.post(
 contactRoutes.get(
   "/contacts/import-csv/sample",
   isAuth,
+  checkPermission("contacts:write"),
   ContactController.getSampleCsv
 );
 
-contactRoutes.get("/contacts", isAuth, ContactController.index);
+contactRoutes.get(
+  "/contacts",
+  isAuth,
+  checkPermission("contacts:read"),
+  ContactController.index
+);
 
-contactRoutes.get("/contacts/:contactId", isAuth, ContactController.show);
+contactRoutes.get(
+  "/contacts/:contactId",
+  isAuth,
+  checkPermission("contacts:read"),
+  ContactController.show
+);
 
 contactRoutes.post(
   "/contacts",
   isAuth,
-  checkPermission("create_contacts"),
+  checkPermission("contacts:write"),
   ContactController.store
 );
 
-contactRoutes.post("/contact", isAuth, ContactController.getContact);
+contactRoutes.post(
+  "/contact",
+  isAuth,
+  checkPermission("contacts:read"),
+  ContactController.getContact
+);
 
 contactRoutes.put(
   "/contacts/:contactId",
   isAuth,
-  checkPermission("edit_contacts"),
+  checkPermission("contacts:write"),
   ContactController.update
 );
 
 contactRoutes.delete(
   "/contacts/:contactId",
   isAuth,
-  checkPermission("delete_contacts"),
+  checkPermission("contacts:delete"),
   ContactController.remove
 );
 
 contactRoutes.post(
   "/contacts/:contactId/sync",
   isAuth,
-  checkPermission("edit_contacts"),
+  checkPermission("contacts:write"),
   ContactController.sync
 );
 
 contactRoutes.post(
   "/contacts/enrich",
   isAuth,
-  checkPermission("create_contacts"),
+  checkPermission("contacts:write"),
   ContactController.batchEnrich
 );
 

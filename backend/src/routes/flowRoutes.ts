@@ -10,49 +10,49 @@ const flowRoutes = Router();
 flowRoutes.get(
     "/flows",
     isAuth,
-    checkPermission("view_flows"),
+    checkPermission("flows:read"),
     FlowController.index
 );
 
 flowRoutes.get(
     "/flows/:flowId",
     isAuth,
-    checkPermission("view_flows"),
+    checkPermission("flows:read"),
     FlowController.show
 );
 
 flowRoutes.post(
     "/flows",
     isAuth,
-    checkPermission("manage_flows"),
+    checkPermission("flows:write"),
     FlowController.store
 );
 
 flowRoutes.put(
     "/flows/:flowId",
     isAuth,
-    checkPermission("manage_flows"),
+    checkPermission("flows:write"),
     FlowController.update
 );
 
 flowRoutes.post(
     "/flows/:flowId/toggle",
     isAuth,
-    checkPermission("manage_flows"),
+    checkPermission("flows:write"),
     FlowController.toggle
 );
 
 flowRoutes.post(
     "/flows/:flowId/simulate",
     isAuth,
-    checkPermission("view_flows"),
+    checkPermission("flows:read"),
     FlowController.simulate
 );
 
 flowRoutes.post(
     "/flows/ai",
     isAuth,
-    checkPermission("manage_flows"),
+    checkPermission("flows:write"),
     FlowController.generateFlowAI
 );
 

@@ -9,10 +9,8 @@ import {
     AutoIncrement,
     BelongsToMany
 } from "sequelize-typescript";
-import Group from "./Group";
-import GroupPermission from "./GroupPermission";
-import User from "./User";
-import UserPermission from "./UserPermission";
+import Role from "./Role";
+import RolePermission from "./RolePermission";
 
 @Table
 class Permission extends Model<Permission> {
@@ -22,16 +20,19 @@ class Permission extends Model<Permission> {
     id: number;
 
     @Column(DataType.STRING)
-    name: string;
+    resource: string;
+
+    @Column(DataType.STRING)
+    action: string;
 
     @Column(DataType.STRING)
     description: string;
 
-    @BelongsToMany(() => Group, () => GroupPermission)
-    groups: Group[];
+    @Column({ defaultValue: true })
+    isSystem: boolean;
 
-    @BelongsToMany(() => User, () => UserPermission)
-    users: User[];
+    @BelongsToMany(() => Role, () => RolePermission)
+    roles: Role[];
 
     @CreatedAt
     createdAt: Date;

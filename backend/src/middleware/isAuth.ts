@@ -9,7 +9,7 @@ interface TokenPayload {
   id: string;
   username: string;
   profile: string;
-  tenantId: string | number;
+  tenantId: string;
   iat: number;
   exp: number;
 }
@@ -35,7 +35,7 @@ const isAuth = async (req: Request, res: Response, next: NextFunction): Promise<
     req.user = {
       id,
       profile,
-      tenantId: user.tenantId
+      tenantId: user.tenantId.toString()
     };
   } catch (err) {
     console.log("DEBUG: isAuth failed for token:", token.slice(-6), "Error:", err.message);

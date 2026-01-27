@@ -84,7 +84,8 @@ const CreateOrUpdateContactService = async ({
   if (!tenantId) {
     throw new Error("Tenant ID is required for CreateOrUpdateContactService");
   }
-  const number = isGroup ? rawNumber : rawNumber?.replace(/[^0-9]/g, "");
+  const isWebchat = rawNumber?.startsWith("webchat-");
+  const number = isGroup || isWebchat ? rawNumber : rawNumber?.replace(/[^0-9]/g, "");
   const io = getIO();
   let contact: Contact | null = null;
   const backendUrl = process.env.URL_BACKEND || process.env.BACKEND_URL || "http://localhost:8080";

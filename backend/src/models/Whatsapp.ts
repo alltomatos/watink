@@ -19,6 +19,8 @@ import Tenant from "./Tenant";
 import Queue from "./Queue";
 import Ticket from "./Ticket";
 import WhatsappQueue from "./WhatsappQueue";
+import Tag from "./Tag";
+import EntityTag from "./EntityTag";
 
 @Table
 class Whatsapp extends Model<Whatsapp> {
@@ -98,6 +100,19 @@ class Whatsapp extends Model<Whatsapp> {
 
   @HasMany(() => WhatsappQueue)
   whatsappQueues: WhatsappQueue[];
+
+  @BelongsToMany(() => Tag, {
+    through: {
+      model: () => EntityTag,
+      scope: {
+        entityType: "whatsapp"
+      }
+    },
+    foreignKey: "entityId",
+    otherKey: "tagId",
+    constraints: false
+  })
+  tags: Tag[];
 
   @ForeignKey(() => Tenant)
   @Column(DataType.UUID)

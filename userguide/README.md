@@ -12,6 +12,8 @@ Bem-vindo ao manual oficial de uso do **Watink**. Este guia foi projetado para a
 *   **[Gerenciando Atendimentos (Tickets)](./chats/USING_CHATS.md)**: Como aceitar, transferir e resolver conversas.
 *   **[Gestão de Contatos](./contacts/MANAGING_CONTACTS.md)**: Organização de clientes e uso de etiquetas (tags).
 *   **[Pipelines e Kanban](./pipelines/USING_KANBAN.md)**: Gestão visual de processos e funis de venda.
+*   **[Guia de Etiquetas (Tags)](./contacts/MANAGING_TAGS.md)**: Organização completa e automação com etiquetas.
+*   **[Priorização por Carteira](./wallet/USING_WALLET.md)**: Vincule clientes a atendentes específicos.
 
 ## ⚙️ Configurações e Automação
 

@@ -18,4 +18,11 @@ userRoutes.get("/:userId", isAuth, UserController.show);
 
 userRoutes.delete("/:userId", isAuth, UserController.remove);
 
+userRoutes.post("/:userId/toggle-status", isAuth, UserController.toggleStatus);
+
+userRoutes.post("/:userId/resend-welcome", isAuth, UserController.resendWelcomeEmail);
+
+userRoutes.post("/:userId/manual-verify", isAuth, UserController.manualVerify);
+
+
 export default userRoutes;

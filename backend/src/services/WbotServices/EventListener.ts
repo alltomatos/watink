@@ -348,7 +348,8 @@ const handleMessageReceived = async (payload: MessageReceivedPayload, tenantId: 
   } else {
     // Individual Contact
     const isLid = message.from.includes("@lid");
-    const number = message.from.replace(/\D/g, "");
+    const isWebchat = message.from.startsWith("webchat-");
+    const number = isWebchat ? message.from : message.from.replace(/\D/g, "");
     const providedLid = message.senderLid;
 
     const contactData: any = {

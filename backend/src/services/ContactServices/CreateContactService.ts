@@ -4,6 +4,7 @@ import RabbitMQService from "../../services/RabbitMQService";
 import { v4 as uuidv4 } from "uuid";
 import Whatsapp from "../../models/Whatsapp";
 import { logger } from "../../utils/logger";
+import EntityTagService from "../TagServices/EntityTagService";
 
 import { waitForContactEnrichment } from "./CreateOrUpdateContactService";
 
@@ -17,18 +18,22 @@ interface Request {
   number: string;
   email?: string;
   profilePicUrl?: string;
+  walletUserId?: number | null;
   extraInfo?: ExtraInfo[];
-  tenantId?: number | string;
-  waitEnrichment?: boolean; // NEW
+  tenantId?: string;
+  waitEnrichment?: boolean;
+  tags?: number[];
 }
 
 const CreateContactService = async ({
   name,
   number,
   email = "",
+  walletUserId,
   extraInfo = [],
   tenantId,
-  waitEnrichment = false // Default false to maintain backward compat unless requested
+  waitEnrichment = false, // Default false to maintain backward compat unless requested
+  tags
 }: Request): Promise<Contact> => {
   if (!tenantId) {
     throw new AppError("Tenant ID is required for creating a contact.", 403);
@@ -47,6 +52,7 @@ const CreateContactService = async ({
       name,
       number,
       email,
+      walletUserId,
       extraInfo,
       tenantId
     },
@@ -54,6 +60,15 @@ const CreateContactService = async ({
       include: ["extraInfo"]
     }
   );
+
+  if (tags && tags.length > 0) {
+    await EntityTagService.BulkApplyTags({
+      tagIds: tags,
+      entityType: "contact",
+      entityId: contact.id,
+      tenantId
+    });
+  }
 
   try {
     const whatsapp = await Whatsapp.findOne({

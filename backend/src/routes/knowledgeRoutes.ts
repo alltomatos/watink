@@ -14,49 +14,49 @@ const knowledgeRoutes = express.Router();
 knowledgeRoutes.get(
     "/knowledge-bases",
     isAuth,
-    checkPermission("view_knowledge_bases"),
+    checkPermission("knowledge_bases:read"),
     KnowledgeController.index
 );
 
 knowledgeRoutes.get(
     "/knowledge-bases/:knowledgeBaseId",
     isAuth,
-    checkPermission("view_knowledge_bases"),
+    checkPermission("knowledge_bases:read"),
     KnowledgeController.show
 );
 
 knowledgeRoutes.post(
     "/knowledge-bases",
     isAuth,
-    checkPermission("manage_knowledge_bases"),
+    checkPermission("knowledge_bases:write"),
     KnowledgeController.store
 );
 
 knowledgeRoutes.put(
     "/knowledge-bases/:knowledgeBaseId",
     isAuth,
-    checkPermission("manage_knowledge_bases"),
+    checkPermission("knowledge_bases:write"),
     KnowledgeController.update
 );
 
 knowledgeRoutes.delete(
     "/knowledge-bases/:knowledgeBaseId",
     isAuth,
-    checkPermission("manage_knowledge_bases"),
+    checkPermission("knowledge_bases:write"),
     KnowledgeController.remove
 );
 
 knowledgeRoutes.get(
     "/knowledge-bases/:knowledgeBaseId/sources",
     isAuth,
-    checkPermission("view_knowledge_bases"),
+    checkPermission("knowledge_bases:read"),
     KnowledgeController.listSources
 );
 
 knowledgeRoutes.post(
     "/knowledge-bases/:knowledgeBaseId/sources",
     isAuth,
-    checkPermission("manage_knowledge_bases"),
+    checkPermission("knowledge_bases:write"),
     upload.single("file"),
     KnowledgeController.createSource
 );
@@ -64,14 +64,14 @@ knowledgeRoutes.post(
 knowledgeRoutes.delete(
     "/knowledge-bases/sources/:sourceId",
     isAuth,
-    checkPermission("manage_knowledge_bases"),
+    checkPermission("knowledge_bases:write"),
     KnowledgeController.removeSource
 );
 
 knowledgeRoutes.post(
     "/knowledge-bases/sources/:sourceId/retry",
     isAuth,
-    checkPermission("manage_knowledge_bases"),
+    checkPermission("knowledge_bases:write"),
     KnowledgeController.retrySource
 );
 

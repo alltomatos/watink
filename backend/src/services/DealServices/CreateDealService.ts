@@ -3,6 +3,7 @@ import AppError from "../../errors/AppError";
 import Deal from "../../models/Deal";
 import Contact from "../../models/Contact";
 import Ticket from "../../models/Ticket";
+import EntityTagService from "../TagServices/EntityTagService";
 
 interface DealData {
     title: string;
@@ -13,10 +14,11 @@ interface DealData {
     pipelineId: number;
     stageId?: number;
     tenantId: number | string;
+    tags?: number[];
 }
 
 const CreateDealService = async (dealData: DealData): Promise<Deal> => {
-    const { title, value, priority, contactId, ticketId, pipelineId, stageId, tenantId } = dealData;
+    const { title, value, priority, contactId, ticketId, pipelineId, stageId, tenantId, tags } = dealData;
 
     const schema = Yup.object().shape({
         title: Yup.string().required(),
@@ -53,6 +55,19 @@ const CreateDealService = async (dealData: DealData): Promise<Deal> => {
         pipelineId,
         stageId,
         tenantId
+    });
+
+    if (tags && tags.length > 0) {
+        await EntityTagService.SyncEntityTags({
+            tagIds: tags,
+            entityType: 'deal',
+            entityId: deal.id,
+            tenantId: tenantId as string
+        });
+    }
+
+    await deal.reload({
+        include: ["contact", "ticket", "pipeline", "stage", "tags"]
     });
 
     return deal;

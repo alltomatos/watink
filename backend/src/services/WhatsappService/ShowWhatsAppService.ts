@@ -1,6 +1,7 @@
 import Whatsapp from "../../models/Whatsapp";
 import AppError from "../../errors/AppError";
 import Queue from "../../models/Queue";
+import Tag from "../../models/Tag";
 
 const ShowWhatsAppService = async (id: string | number): Promise<Whatsapp> => {
   const whatsapp = await Whatsapp.findByPk(id, {
@@ -9,6 +10,11 @@ const ShowWhatsAppService = async (id: string | number): Promise<Whatsapp> => {
         model: Queue,
         as: "queues",
         attributes: ["id", "name", "color", "greetingMessage"]
+      },
+      {
+        model: Tag,
+        as: "tags",
+        attributes: ["id", "name", "color"]
       }
     ],
     order: [["queues", "name", "ASC"]]

@@ -43,15 +43,15 @@ class RabbitMQService {
     await this.channel.assertExchange("wbot.events", "topic", { durable: true });
   }
 
-  async publishCommand(routingKey: string, message: Envelope): Promise<void> {
+  async publishCommand(routingKey: string, message: Envelope, exchange: string = "wbot.commands"): Promise<void> {
     if (!this.channel) {
       logger.warn("Cannot publish command, channel is closed");
       return;
     }
 
-    logger.info(`[RabbitMQ] Publishing command to ${routingKey}`);
+    logger.info(`[RabbitMQ] Publishing command to ${routingKey} on exchange ${exchange}`);
     this.channel.publish(
-      "wbot.commands",
+      exchange,
       routingKey,
       Buffer.from(JSON.stringify(message))
     );
@@ -111,6 +111,25 @@ class RabbitMQService {
           this.channel?.ack(msg);
         } catch (error) {
           logger.error("Error processing command", error);
+          this.channel?.nack(msg, false, false);
+        }
+      }
+    });
+  }
+
+  async consumeQueue(queueName: string, handler: (msg: any) => Promise<void>): Promise<void> {
+    if (!this.channel) return;
+
+    await this.channel.assertQueue(queueName, { durable: true });
+
+    this.channel.consume(queueName, async (msg: ConsumeMessage | null) => {
+      if (msg) {
+        try {
+          const content = JSON.parse(msg.content.toString());
+          await handler(content);
+          this.channel?.ack(msg);
+        } catch (error) {
+          logger.error(`Error processing queue message: ${(error as Error).message}`);
           this.channel?.nack(msg, false, false);
         }
       }

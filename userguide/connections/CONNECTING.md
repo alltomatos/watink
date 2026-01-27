@@ -37,5 +37,12 @@ Se você não conseguir usar a câmera, pode usar o Código de Pareamento:
 *   🔴 **Vermelho (Desconectado)**: A conexão caiu. Clique em "Tentar Novamente" ou verifique se o celular tem internet.
 *   🟡 **Amarelo (Abrindo...)**: O sistema está tentando conectar. Aguarde.
 
+## Gestão de Conexões com Etiquetas (Tags)
+
+Agora você pode organizar sua lista de conexões utilizando etiquetas. Isso é útil se você gerencia muitos números.
+1.  Na listagem de **Conexões**, você verá um ícone de etiqueta em cada linha.
+2.  Clique para selecionar etiquetas existentes ou criar novas (ex: "Oficial", "Suporte", "Vendas").
+3.  As etiquetas ajudam a identificar rapidamente o propósito de cada número na sua dashboard.
+
 > [!WARNING]
 > Mantenha seu celular com bateria e conectado à internet para garantir o funcionamento.

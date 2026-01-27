@@ -5,6 +5,7 @@ import RabbitMQService from "../../services/RabbitMQService";
 import { v4 as uuidv4 } from "uuid";
 import Whatsapp from "../../models/Whatsapp";
 import { logger } from "../../utils/logger";
+import EntityTagService from "../TagServices/EntityTagService";
 
 interface ExtraInfo {
   id?: number;
@@ -15,8 +16,10 @@ interface ContactData {
   email?: string;
   number?: string;
   name?: string;
+  walletUserId?: number | null;
   extraInfo?: ExtraInfo[];
   lid?: string;
+  tags?: number[];
 }
 
 interface Request {
@@ -58,24 +61,34 @@ const UpdateContactService = async ({
     );
   }
 
-  const { email: newEmail, name: newName, number: newNumber, extraInfo: newExtraInfo, lid } = contactData;
+  const { email: newEmail, name: newName, number: newNumber, walletUserId: newWalletUserId, extraInfo: newExtraInfo, lid } = contactData;
 
   await contact.update({
     name: newName,
     number: newNumber,
     email: newEmail,
+    walletUserId: newWalletUserId,
     lid
   });
 
+  if (contactData.tags) {
+    await EntityTagService.SyncEntityTags({
+      tagIds: contactData.tags,
+      entityType: "contact",
+      entityId: contact.id,
+      tenantId: contact.tenantId as string
+    });
+  }
+
   await contact.reload({
     attributes: ["id", "name", "number", "email", "profilePicUrl", "tenantId"],
-    include: ["extraInfo"]
+    include: ["extraInfo", "tags"]
   });
 
   try {
     const tenantId = contact.tenantId || 1;
     const whatsapp = await Whatsapp.findOne({
-      where: { status: "CONNECTED", tenantId }
+      where: { status: "CONNECTED", tenantId: tenantId.toString() }
     });
 
     if (whatsapp) {

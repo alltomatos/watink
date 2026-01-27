@@ -7,6 +7,7 @@ import Message from "../../models/Message";
 import Queue from "../../models/Queue";
 import ShowUserService from "../UserServices/ShowUserService";
 import Whatsapp from "../../models/Whatsapp";
+import Tag from "../../models/Tag";
 
 interface Request {
   searchParam?: string;
@@ -18,6 +19,8 @@ interface Request {
   withUnreadMessages?: string;
   queueIds: number[];
   isGroup?: string;
+  tenantId: string | number;
+  tags?: number[];
 }
 
 interface Response {
@@ -35,11 +38,15 @@ const ListTicketsService = async ({
   showAll,
   userId,
   withUnreadMessages,
-  isGroup
+  isGroup,
+
+  tags,
+  tenantId
 }: Request): Promise<Response> => {
   let whereCondition: Filterable["where"] = {
     [Op.or]: [{ userId }, { status: "pending" }],
-    queueId: { [Op.or]: [queueIds, null] }
+    queueId: { [Op.or]: [queueIds, null] },
+    tenantId
   };
 
   let includeCondition: Includeable[];
@@ -59,8 +66,32 @@ const ListTicketsService = async ({
       model: Whatsapp,
       as: "whatsapp",
       attributes: ["name"]
+    },
+    {
+      model: Tag,
+      as: "tags",
+      attributes: ["id", "name", "color", "icon"],
+      required: false
     }
   ];
+
+  if (tags && tags.length > 0) {
+    includeCondition.push({
+      model: Tag,
+      as: "tags",
+      attributes: ["id", "name", "color", "icon"],
+      required: true,
+      where: {
+        id: {
+          [Op.in]: tags
+        }
+      }
+    });
+    // Remove o include duplicado de tags (o default required: false) se houver filtro
+    includeCondition = includeCondition.filter(
+      i => !(i as any).model || (i as any).model.name !== "Tag" || (i as any).required === true
+    );
+  }
 
   if (showAll === "true") {
     whereCondition = { queueId: { [Op.or]: [queueIds, null] } };
@@ -106,8 +137,8 @@ const ListTicketsService = async ({
         },
         { "$contact.number$": { [Op.iLike]: `%${sanitizedSearchParam}%` } },
         {
-          "$message.body$": where(
-            fn("LOWER", col("body")),
+          "$messages.body$": where(
+            fn("LOWER", col("messages.body")),
             "LIKE",
             `%${sanitizedSearchParam}%`
           )
@@ -164,7 +195,8 @@ const ListTicketsService = async ({
     distinct: true,
     limit,
     offset,
-    order: [["updatedAt", "DESC"]]
+    order: [["updatedAt", "DESC"]],
+    subQuery: false
   });
 
   const hasMore = count > offset + tickets.length;

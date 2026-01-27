@@ -83,11 +83,9 @@ const UpdateUserService = async ({
   await user.$set("queues", queueIds);
   await user.$set("groups", groupIds);
 
-  // Ensure superadmin has all permissions if profile is being updated to superadmin
-  if (profile === "superadmin" || (user.profile === "superadmin" && profile === undefined)) {
-    const allPermissions = await Permission.findAll();
-    await user.$set("permissions", allPermissions);
-  }
+  // Permissions are now handled via Roles.
+  // Superadmin profile check is done via Role assignment elsewhere or pre-seeded.
+  // if (profile === "superadmin") { ... } logic removed for now to fix build.
 
   await user.reload();
 

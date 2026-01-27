@@ -19,6 +19,11 @@ const RestartWhatsAppSession = async (whatsapp: Whatsapp): Promise<void> => {
         session: whatsapp
     });
 
+    if (whatsapp.type === "webchat") {
+        logger.info(`RestartWhatsAppSession: Skipping engine command for Webchat session ${whatsapp.id}`);
+        return;
+    }
+
     try {
         const command: Envelope = {
             id: uuidv4(),

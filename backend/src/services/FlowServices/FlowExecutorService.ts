@@ -406,6 +406,51 @@ class FlowExecutorService {
     }
   }
 
+  private async processTagNode(session: FlowSession, nodeData: any) {
+    const context = session.context as FlowContext;
+    if (!context.ticketId) return;
+
+    const { tagAction, tagId } = nodeData;
+
+    if (!tagId) {
+      logger.warn("FlowExecutor: Tag Node missing tagId");
+      return;
+    }
+
+    try {
+      const ticket = await ShowTicketService(context.ticketId);
+      if (!ticket) return;
+
+      // Import dinâmico ou estático do EntityTagService?
+      // Como estou no arquivo, vou adicionar import no topo se não tiver, ou usar require se necessário pra evitar circular?
+      // Vou assumir que EntityTagService pode ser importado.
+      const EntityTagService = require("../TagServices/EntityTagService").default;
+
+      if (tagAction === 'remove') {
+        await EntityTagService.RemoveTagFromEntity({
+          tagId: parseInt(tagId),
+          entityType: 'ticket', // Por padrão aplica no ticket. Opcional: permitir selecionar 'contact'
+          entityId: ticket.id,
+          tenantId: ticket.tenantId
+        });
+        // Opcional: remover do contato também? Por enquanto manter só ticket.
+        // Se fosse para o contato:
+        // await EntityTagService.RemoveTagFromEntity({ tagId, entityType: 'contact', ...});
+      } else {
+        await EntityTagService.ApplyTagToEntity({
+          tagId: parseInt(tagId),
+          entityType: 'ticket',
+          entityId: ticket.id,
+          tenantId: ticket.tenantId
+        });
+      }
+      logger.info(`FlowExecutor: Tag ${tagAction} tagId:${tagId} on ticket:${ticket.id}`);
+
+    } catch (err) {
+      logger.error(`FlowExecutor: Error processing Tag Node: ${err}`);
+    }
+  }
+
   private async processAPINode(session: FlowSession, nodeData: any) {
     const context = session.context as FlowContext;
     let { url, method, headers, body, resultVariable } = nodeData;

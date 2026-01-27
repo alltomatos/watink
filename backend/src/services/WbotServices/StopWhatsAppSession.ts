@@ -17,6 +17,12 @@ const StopWhatsAppSession = async (whatsappId: number): Promise<void> => {
                 action: "update",
                 session: whatsapp
             });
+
+            // SKIP IF WEBCHAT - No need to tell Engine Standard
+            if (whatsapp.type === "webchat") {
+                logger.info(`StopWhatsAppSession: Skipping engine command for Webchat session ${whatsappId}`);
+                return;
+            }
         }
 
         const envelope: Envelope = {

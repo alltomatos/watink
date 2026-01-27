@@ -9,6 +9,7 @@ import SendWhatsAppMessage from "../WbotServices/SendWhatsAppMessage";
 import ShowWhatsAppService from "../WhatsappService/ShowWhatsAppService";
 import ShowTicketService from "./ShowTicketService";
 import EmbeddingService from "../AIServices/EmbeddingService";
+import EntityTagService from "../TagServices/EntityTagService";
 import { logger } from "../../utils/logger";
 
 interface TicketData {
@@ -17,6 +18,7 @@ interface TicketData {
   queueId?: number;
   whatsappId?: number;
   stepId?: number;
+  tags?: number[];
 }
 
 interface Request {
@@ -59,6 +61,15 @@ const UpdateTicketService = async ({
   if (stepId !== undefined) updateData.stepId = stepId;
 
   await ticket.update(updateData);
+
+  if (ticketData.tags) {
+    await EntityTagService.SyncEntityTags({
+      tagIds: ticketData.tags,
+      entityType: "ticket",
+      entityId: ticket.id,
+      tenantId: ticket.tenantId as string
+    });
+  }
 
   if (whatsappId) {
     await ticket.update({
