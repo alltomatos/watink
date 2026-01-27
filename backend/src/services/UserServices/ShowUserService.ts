@@ -51,7 +51,12 @@ const ShowUserService = async (id: string | number): Promise<User> => {
     throw new AppError("ERR_NO_USER_FOUND", 404);
   }
 
-  return user;
+  const userJson = user.toJSON();
+  if (user.groups && user.groups.length > 0) {
+    (userJson as any).groupId = user.groups[0].id;
+  }
+
+  return userJson as User;
 };
 
 export default ShowUserService;

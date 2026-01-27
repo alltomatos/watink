@@ -103,7 +103,17 @@ class Ticket extends Model<Ticket> {
   @BelongsTo(() => Tenant)
   tenant: Tenant;
 
-  @BelongsToMany(() => Tag, () => EntityTag, "entityId", "tagId")
+  @BelongsToMany(() => Tag, {
+    through: {
+      model: () => EntityTag,
+      scope: {
+        entityType: "ticket"
+      }
+    },
+    foreignKey: "entityId",
+    otherKey: "tagId",
+    constraints: false
+  })
   tags: Tag[];
 }
 

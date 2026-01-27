@@ -113,22 +113,35 @@ const useStyles = makeStyles(theme => ({
 		left: "0%",
 	},
 
-	userTag: {
-		position: "absolute",
-		marginRight: 5,
-		right: 5,
-		bottom: 5,
+	ticketInfoWrapper: {
+		display: "flex",
+		justifyContent: "flex-end",
+		marginTop: 2,
+		alignItems: "center",
+		gap: 4,
+		flexWrap: "wrap",
+	},
+
+	connectionTag: {
 		background: "linear-gradient(to right, #6366f1, #4f46e5)",
 		color: "#ffffff",
 		border: "none",
 		boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-		padding: 1,
-		paddingLeft: 5,
-		paddingRight: 5,
-		borderRadius: 12,
-		fontSize: "0.8em",
-		fontWeight: "600"
+		padding: "1px 6px",
+		borderRadius: 10,
+		fontSize: "0.7em",
+		fontWeight: "600",
+		whiteSpace: "nowrap"
 	},
+
+	tagChip: {
+		padding: "1px 6px",
+		borderRadius: 10,
+		fontSize: "0.7em",
+		fontWeight: "600",
+		color: "#fff",
+		whiteSpace: "nowrap"
+	}
 }));
 
 const TicketListItem = ({ ticket }) => {
@@ -146,7 +159,7 @@ const TicketListItem = ({ ticket }) => {
 		};
 	}, []);
 
-	const handleAcepptTicket = async id => {
+	const handleAcceptTicket = async id => {
 		setLoading(true);
 		try {
 			await api.put(`/tickets/${id}`, {
@@ -230,43 +243,53 @@ const TicketListItem = ({ ticket }) => {
 									)}
 								</Typography>
 							)}
-							{ticket.whatsappId && (
-								<div className={classes.userTag} title={i18n.t("ticketsList.connectionTitle")}>{ticket.whatsapp?.name}</div>
-							)}
-							{ticket.tags && ticket.tags.length > 0 && (
-								<span className={classes.userTag} style={{ marginRight: 5, display: "flex", gap: 4, background: "none", boxShadow: "none", right: 60 }}>
-									{ticket.tags.map(tag => (
-										<Tooltip title={tag.name} key={tag.id}>
-											<span style={{ backgroundColor: tag.color, width: 10, height: 10, borderRadius: "50%", display: "inline-block" }} />
-										</Tooltip>
-									))}
-								</span>
-							)}
 						</span>
 					}
 					secondary={
-						<span className={classes.contactNameWrapper}>
-							<Typography
-								className={classes.contactLastMessage}
-								noWrap
-								component="span"
-								variant="body2"
-								color="textSecondary"
-							>
-								{ticket.lastMessage ? (
-									<MarkdownWrapper>{ticket.lastMessage}</MarkdownWrapper>
-								) : (
-									<br />
-								)}
-							</Typography>
+						<span>
+							<span className={classes.contactNameWrapper}>
+								<Typography
+									className={classes.contactLastMessage}
+									noWrap
+									component="span"
+									variant="body2"
+									color="textSecondary"
+								>
+									{ticket.lastMessage ? (
+										<MarkdownWrapper>{ticket.lastMessage}</MarkdownWrapper>
+									) : (
+										<br />
+									)}
+								</Typography>
 
-							<Badge
-								className={classes.newMessagesCount}
-								badgeContent={ticket.unreadMessages}
-								classes={{
-									badge: classes.badgeStyle,
-								}}
-							/>
+								<Badge
+									className={classes.newMessagesCount}
+									badgeContent={ticket.unreadMessages}
+									classes={{
+										badge: classes.badgeStyle,
+									}}
+								/>
+							</span>
+							<span className={classes.ticketInfoWrapper}>
+								{ticket.tags && ticket.tags.length > 0 && (
+									<>
+										{ticket.tags.map(tag => (
+											<span
+												key={tag.id}
+												className={classes.tagChip}
+												style={{ backgroundColor: tag.color }}
+											>
+												{tag.name}
+											</span>
+										))}
+									</>
+								)}
+								{ticket.whatsappId && (
+									<div className={classes.connectionTag} title={i18n.t("ticketsList.connectionTitle")}>
+										{ticket.whatsapp?.name}
+									</div>
+								)}
+							</span>
 						</span>
 					}
 				/>
@@ -278,7 +301,7 @@ const TicketListItem = ({ ticket }) => {
 						className={classes.acceptButton}
 						size="small"
 						loading={loading}
-						onClick={e => handleAcepptTicket(ticket.id)}
+						onClick={e => handleAcceptTicket(ticket.id)}
 					>
 						{i18n.t("ticketsList.buttons.accept")}
 					</ButtonWithSpinner>

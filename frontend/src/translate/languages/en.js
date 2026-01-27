@@ -194,6 +194,8 @@ const messages = {
           name: "Name",
           color: "Color",
           greetingMessage: "Greeting Message",
+          connection: "Connections",
+          selectConnection: "Select a connection",
         },
         buttons: {
           okAdd: "Add",

@@ -78,7 +78,9 @@ const SendVerificationEmailService = async (email: string, appUrl: string): Prom
         companyName: "Watink", // Should ideally come from tenant settings
         token,
         frontendUrl,
-        verifyUrl: `${frontendUrl}/verify-email/${token}`
+        verifyUrl: `${frontendUrl}/verify-email/${token}`,
+        verificationUrl: `${frontendUrl}/verify-email/${token}`,
+        year: new Date().getFullYear()
     };
 
     if (template) {

@@ -77,7 +77,7 @@ const UpdateTicketService = async ({
     });
   }
 
-  await ticket.reload();
+  const ticketUpdated = await ShowTicketService(ticket.id);
 
   const io = getIO();
 
@@ -93,7 +93,7 @@ const UpdateTicketService = async ({
     .to(ticketId.toString())
     .emit("ticket", {
       action: "update",
-      ticket
+      ticket: ticketUpdated
     });
 
   // TRIGGER: Wallet binding when moving to a binding step

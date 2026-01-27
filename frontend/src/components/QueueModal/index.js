@@ -30,7 +30,7 @@ import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
 import ColorPicker from "../ColorPicker";
-import { IconButton, InputAdornment, Fade } from "@material-ui/core";
+import { IconButton, InputAdornment, Fade, Checkbox, ListItemText } from "@material-ui/core";
 import {
 	Colorize,
 	HelpOutline,
@@ -245,6 +245,7 @@ const QueueSchema = Yup.object().shape({
 	greetingMessage: Yup.string(),
 	distributionStrategy: Yup.string().oneOf(["MANUAL", "AUTO_ROUND_ROBIN", "AUTO_BALANCED"]),
 	prioritizeWallet: Yup.boolean(),
+	whatsappIds: Yup.array(),
 });
 
 // Strategy options with descriptions
@@ -278,19 +279,36 @@ const QueueModal = ({ open, onClose, queueId }) => {
 		greetingMessage: "",
 		distributionStrategy: "MANUAL",
 		prioritizeWallet: false,
+		whatsappIds: [],
 	};
 
 	const [colorPickerModalOpen, setColorPickerModalOpen] = useState(false);
 	const [queue, setQueue] = useState(initialState);
+	const [whatsapps, setWhatsapps] = useState([]);
 	const greetingRef = useRef();
+
+	useEffect(() => {
+		(async () => {
+			try {
+				const { data } = await api.get("/whatsapp");
+				setWhatsapps(data);
+			} catch (err) {
+				toastError(err);
+			}
+		})();
+	}, []);
 
 	useEffect(() => {
 		(async () => {
 			if (!queueId) return;
 			try {
 				const { data } = await api.get(`/queue/${queueId}`);
+				const whatsappIds = data.whatsapps
+					? data.whatsapps.map((whatsapp) => whatsapp.id)
+					: [];
+
 				setQueue(prevState => {
-					return { ...prevState, ...data };
+					return { ...prevState, ...data, whatsappIds };
 				});
 			} catch (err) {
 				toastError(err);
@@ -427,6 +445,60 @@ const QueueModal = ({ open, onClose, queueId }) => {
 									margin="dense"
 									className={classes.textField}
 								/>
+
+								{/* Connections Section */}
+								<Typography className={classes.sectionTitle}>
+									<AccountTreeOutlined className={classes.sectionIcon} />
+									{i18n.t("queueModal.form.connection") || "Conexões"}
+								</Typography>
+
+								<Paper elevation={0} className={classes.configCard}>
+									<FormControl
+										variant="outlined"
+										margin="dense"
+										fullWidth
+										className={classes.formControl}
+									>
+										<InputLabel id="whatsapp-selection-label">
+											{i18n.t("queueModal.form.selectConnection") || "Selecione as Conexões"}
+										</InputLabel>
+										<Field
+											as={Select}
+											multiple
+											labelId="whatsapp-selection-label"
+											name="whatsappIds"
+											label={i18n.t("queueModal.form.selectConnection") || "Selecione as Conexões"}
+											renderValue={(selected) => {
+												const selectedWhatsapps = whatsapps.filter((w) =>
+													selected.includes(w.id)
+												);
+												return selectedWhatsapps.map((w) => w.name).join(", ");
+											}}
+											MenuProps={{
+												anchorOrigin: {
+													vertical: "bottom",
+													horizontal: "left",
+												},
+												transformOrigin: {
+													vertical: "top",
+													horizontal: "left",
+												},
+												getContentAnchorEl: null,
+											}}
+										>
+											{whatsapps.map((whatsapp) => (
+												<MenuItem key={whatsapp.id} value={whatsapp.id}>
+													<Checkbox
+														checked={
+															values.whatsappIds.indexOf(whatsapp.id) > -1
+														}
+													/>
+													<ListItemText primary={whatsapp.name} />
+												</MenuItem>
+											))}
+										</Field>
+									</FormControl>
+								</Paper>
 
 								<Divider style={{ margin: "16px 0" }} />
 

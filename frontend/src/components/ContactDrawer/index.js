@@ -158,6 +158,57 @@ const ContactDrawer = ({ open, handleDrawerClose, contact, ticketId, loading, ti
 	const [aiEnabled, setAiEnabled] = useState(false);
 	const [aiAssistantEnabled, setAiAssistantEnabled] = useState(false);
 
+	// Ticket Tags state
+	const [ticketTags, setTicketTags] = useState([]);
+	// Contact Tags state - Local state needed for immediate UI update
+	const [contactTags, setContactTags] = useState([]);
+
+	useEffect(() => {
+		if (ticket && ticket.tags) {
+			setTicketTags(ticket.tags.map(tag => tag.id));
+		}
+	}, [ticket]);
+
+	// Initialize contact tags from props or fetch if missing
+	useEffect(() => {
+		const loadTags = async () => {
+			if (!contact?.id) return;
+			
+			// If tags are already in props, use them
+			if (contact.tags && contact.tags.length > 0) {
+				setContactTags(contact.tags.map(tag => tag.id));
+			} else {
+				// Otherwise fetch from API (now that ShowContactService includes tags)
+				try {
+					const { data } = await api.get(`/contacts/${contact.id}`);
+					if (data.tags) {
+						setContactTags(data.tags.map(tag => tag.id));
+					}
+				} catch (err) {
+					console.error("Erro ao carregar tags do contato:", err);
+				}
+			}
+		};
+		loadTags();
+	}, [contact]);
+
+	const handleTagsChange = async (selectedIds) => {
+		setTicketTags(selectedIds);
+		try {
+			await api.put(`/tickets/${ticketId}`, {
+				tags: selectedIds
+			});
+		} catch (err) {
+			toast.error("Erro ao atualizar tags");
+		}
+	};
+
+	const handleContactTagsChange = async (selectedIds) => {
+		setContactTags(selectedIds);
+		// API call is handled by TagPicker via entityType/entityId, 
+		// but we keep local state for UI responsiveness
+	};
+
 	useEffect(() => {
 		const fetchAISettings = async () => {
 			try {
@@ -374,28 +425,29 @@ const ContactDrawer = ({ open, handleDrawerClose, contact, ticketId, loading, ti
 							{/* Tags do Contato */}
 							<Paper square variant="outlined" className={classes.contactDetails}>
 								<Typography variant="subtitle1" style={{ marginBottom: 8 }}>
-									🏷️ Tags
+									🏷️ Tags do Contato
 								</Typography>
 								<TagPicker
 									entityType="contact"
 									entityId={contact.id}
-									selectedTags={contact.tags?.map(t => t.id) || []}
+									selectedTags={contactTags}
+									onChange={handleContactTagsChange}
 									placeholder="Adicionar tag"
 								/>
 							</Paper>
-							{/* Tags do Ticket */}
+
 							<Paper square variant="outlined" className={classes.contactDetails}>
 								<Typography variant="subtitle1" style={{ marginBottom: 8 }}>
 									🎫 Tags do Ticket
 								</Typography>
 								<TagPicker
-									entityType="ticket"
-									entityId={ticketId}
-									selectedTags={ticket?.tags?.map(t => t.id) || []}
-									readOnly={!ticketId}
+									selectedTags={ticketTags}
+									onChange={handleTagsChange}
 									placeholder="Adicionar tag ao ticket"
 								/>
 							</Paper>
+							{/* Tags do Ticket */}
+
 
 							<Paper square variant="outlined" className={classes.contactDetails}>
 								<Typography variant="subtitle1" style={{ marginBottom: 8 }}>

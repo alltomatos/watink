@@ -258,6 +258,8 @@ const messages = {
           name: "Nome",
           color: "Cor",
           greetingMessage: "Mensagem de saudação",
+          connection: "Conexões",
+          selectConnection: "Selecione uma conexão",
           distributionSection: "Distribuição de Tickets",
           distributionStrategy: "Estratégia de Distribuição",
           prioritizeWallet: "Priorizar Carteira",

@@ -4,6 +4,8 @@ import AppError from "../../errors/AppError";
 import { SerializeUser } from "../../helpers/SerializeUser";
 import ShowUserService from "./ShowUserService";
 import Permission from "../../models/Permission";
+import { RedisService } from "../../services/RedisService";
+import User from "../../models/User";
 
 interface UserData {
   email?: string;
@@ -13,6 +15,7 @@ interface UserData {
   queueIds?: number[];
   whatsappId?: number;
   groupIds?: number[];
+  groupId?: number;
   permissionIds?: number[];
   permissions?: number[];
   profileImage?: string;
@@ -42,7 +45,11 @@ const UpdateUserService = async ({
   userId,
   requestUser
 }: Request): Promise<Response | undefined> => {
-  const user = await ShowUserService(userId);
+  const user = await User.findByPk(userId);
+
+  if (!user) {
+    throw new AppError("ERR_NO_USER_FOUND", 404);
+  }
 
   const schema = Yup.object().shape({
     name: Yup.string().min(2),
@@ -59,12 +66,26 @@ const UpdateUserService = async ({
     queueIds = [],
     whatsappId,
     groupIds = [],
+    groupId,
     permissionIds = [],
     permissions = [],
     profileImage
   } = userData;
 
+  console.log("UpdateUserService: Payload received", { userId, groupId, groupIds, permissionIds, permissions });
+
   const finalPermissionIds = permissionIds.length > 0 ? permissionIds : permissions;
+  
+  // Compatibility: Frontend sends groupId (singular) but backend expects groupIds (plural)
+  const finalGroupIds = [...groupIds];
+  if (groupId) {
+     const gid = Number(groupId);
+     if (!isNaN(gid) && !finalGroupIds.includes(gid)) {
+        finalGroupIds.push(gid);
+     }
+  }
+
+  console.log("UpdateUserService: Processing", { finalGroupIds, finalPermissionIds });
 
   try {
     await schema.validate({ email, password, profile, name });
@@ -86,13 +107,25 @@ const UpdateUserService = async ({
     profileImage
   });
 
-  await user.$set("queues", queueIds);
-  await user.$set("groups", groupIds, { through: { tenantId: requestUser.tenantId } });
-  await user.$set("permissions", finalPermissionIds, { through: { tenantId: requestUser.tenantId } });
+  try {
+      console.log("UpdateUserService: Setting queues...");
+      await user.$set("queues", queueIds);
+      
+      console.log("UpdateUserService: Setting groups...", finalGroupIds);
+      await user.$set("groups", finalGroupIds, { through: { tenantId: requestUser.tenantId } });
+      
+      console.log("UpdateUserService: Setting permissions...", finalPermissionIds);
+      await user.$set("permissions", finalPermissionIds, { through: { tenantId: requestUser.tenantId } });
 
-  // Permissions are now handled via Roles.
-  // Superadmin profile check is done via Role assignment elsewhere or pre-seeded.
-  // if (profile === "superadmin") { ... } logic removed for now to fix build.
+      // Invalidate Permission Cache
+      console.log("UpdateUserService: Invalidating cache...");
+      const redis = RedisService.getInstance();
+      await redis.delValue(`perms:${requestUser.tenantId}:${userId}`);
+  } catch (error) {
+      console.error("UpdateUserService: Error during associations/cache", error);
+      throw new AppError("INTERNAL_ERROR_UPDATE_USER_RELATIONS", 500);
+  }
+
 
   // await user.reload();
   const updatedUser = await ShowUserService(userId);

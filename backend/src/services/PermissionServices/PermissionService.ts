@@ -29,30 +29,45 @@ class PermissionService {
         let permissions: any[] = [];
 
         const user = await User.findByPk(userId, {
-            include: [{
-                model: Role,
-                through: {
-                    where: { tenantId }
+            include: [
+                {
+                    model: Role,
+                    through: {
+                        where: { tenantId }
+                    },
+                    include: [{
+                        model: Permission,
+                        as: "permissions"
+                    }]
                 },
-                include: [{
+                {
                     model: Permission,
-                    as: "permissions"
-                }]
-            }]
+                    as: "permissions",
+                    through: {
+                        where: { tenantId }
+                    }
+                }
+            ]
         });
 
-        if (user && user.roles) {
-            const isAdmin = user.roles.some(r => r.name === "Admin");
+        if (user) {
+            // 1. Get permissions from Roles
+            if (user.roles) {
+                const isAdmin = user.roles.some(r => r.name === "Admin");
 
-            if (isAdmin) {
-                const allPermissions = await Permission.findAll();
-                permissions = allPermissions.map(p => ({
-                    resource: p.resource,
-                    action: p.action,
-                    scope: null,
-                    conditions: null
-                }));
-            } else {
+                if (isAdmin) {
+                    const allPermissions = await Permission.findAll();
+                    permissions = allPermissions.map(p => ({
+                        resource: p.resource,
+                        action: p.action,
+                        scope: null,
+                        conditions: null
+                    }));
+                    // Admin has all permissions, return immediately
+                    await redis.setValue(cacheKey, JSON.stringify(permissions), "EX", this.CACHE_TTL);
+                    return permissions;
+                }
+
                 user.roles.forEach(role => {
                     if (role.permissions) {
                         role.permissions.forEach(permission => {
@@ -64,6 +79,18 @@ class PermissionService {
                             });
                         });
                     }
+                });
+            }
+
+            // 2. Get direct permissions
+            if (user.permissions) {
+                user.permissions.forEach(permission => {
+                    permissions.push({
+                        resource: permission.resource,
+                        action: permission.action,
+                        scope: (permission as any).UserPermission?.scope,
+                        conditions: (permission as any).UserPermission?.conditions
+                    });
                 });
             }
         }

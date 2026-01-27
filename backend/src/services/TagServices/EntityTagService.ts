@@ -186,6 +186,8 @@ export const SyncEntityTags = async ({
     tenantId,
     createdBy
 }: BulkApplyRequest): Promise<EntityTag[]> => {
+    logger.info(`[SyncEntityTags] Start. Entity: ${entityType}:${entityId}, Tenant: ${tenantId}, NewTags: ${tagIds}`);
+
     // Buscar tags atuais
     const currentTags = await EntityTag.findAll({
         where: { entityType, entityId },
@@ -193,12 +195,15 @@ export const SyncEntityTags = async ({
     });
 
     const currentTagIds = currentTags.map(et => et.tagId);
+    logger.info(`[SyncEntityTags] CurrentTags: ${currentTagIds}`);
 
     // Tags a remover (estão no atual mas não no novo)
     const toRemove = currentTagIds.filter(id => !tagIds.includes(id));
 
     // Tags a adicionar (estão no novo mas não no atual)
     const toAdd = tagIds.filter(id => !currentTagIds.includes(id));
+
+    logger.info(`[SyncEntityTags] ToRemove: ${toRemove}, ToAdd: ${toAdd}`);
 
     // Remover
     for (const tagId of toRemove) {

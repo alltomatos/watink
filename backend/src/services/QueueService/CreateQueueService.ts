@@ -8,13 +8,14 @@ interface QueueData {
   greetingMessage?: string;
   distributionStrategy?: DistributionStrategy;
   prioritizeWallet?: boolean;
+  whatsappIds?: number[];
 }
 
 // Valid distribution strategies for validation
 const validStrategies = Object.values(DISTRIBUTION_STRATEGIES);
 
 const CreateQueueService = async (queueData: QueueData): Promise<Queue> => {
-  const { color, name, distributionStrategy, prioritizeWallet } = queueData;
+  const { color, name, distributionStrategy, prioritizeWallet, whatsappIds } = queueData;
 
   const queueSchema = Yup.object().shape({
     name: Yup.string()
@@ -69,6 +70,10 @@ const CreateQueueService = async (queueData: QueueData): Promise<Queue> => {
   }
 
   const queue = await Queue.create(queueData);
+
+  if (whatsappIds) {
+    await queue.$set("whatsapps", whatsappIds);
+  }
 
   return queue;
 };

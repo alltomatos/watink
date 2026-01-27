@@ -197,6 +197,8 @@ const messages = {
           name: "Nombre",
           color: "Color",
           greetingMessage: "Mensaje de saludo",
+          connection: "Conexiones",
+          selectConnection: "Seleccione una conexión",
         },
         buttons: {
           okAdd: "Añadir",

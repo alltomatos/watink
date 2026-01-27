@@ -117,6 +117,10 @@ const TagPicker = ({
     }, [selectedTags]);
 
     useEffect(() => {
+        fetchTags();
+    }, []);
+
+    useEffect(() => {
         if (open) {
             fetchTags();
         }

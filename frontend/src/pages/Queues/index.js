@@ -205,6 +205,9 @@ const Queues = () => {
                 {i18n.t("queues.table.greeting")}
               </TableCell>
               <TableCell align="center">
+                {i18n.t("queueModal.form.connection") || "Conexões"}
+              </TableCell>
+              <TableCell align="center">
                 {i18n.t("queues.table.actions")}
               </TableCell>
             </TableRow>
@@ -234,6 +237,19 @@ const Queues = () => {
                         variant="body2"
                       >
                         {queue.greetingMessage}
+                      </Typography>
+                    </div>
+                  </TableCell>
+                  <TableCell align="center">
+                    <div className={classes.customTableCell}>
+                      <Typography
+                        style={{ width: 150, align: "center" }}
+                        noWrap
+                        variant="body2"
+                      >
+                        {queue.whatsapps && queue.whatsapps.length > 0
+                          ? queue.whatsapps.map(w => w.name).join(", ")
+                          : "-"}
                       </Typography>
                     </div>
                   </TableCell>

@@ -15,6 +15,7 @@ interface Request {
   profile?: string;
   whatsappId?: number;
   groupIds?: number[];
+  groupId?: number;
   permissionIds?: number[];
   permissions?: number[];
   tenantId?: number | string;
@@ -45,10 +46,16 @@ const CreateUserService = async ({
   profile = "admin",
   whatsappId,
   groupIds = [],
+  groupId,
   permissionIds = [],
   permissions = [],
   tenantId
 }: Request): Promise<Response> => {
+  let finalGroupIds = [...groupIds];
+  if (groupId && !finalGroupIds.includes(groupId)) {
+    finalGroupIds.push(groupId);
+  }
+  
   const finalPermissionIds = permissionIds.length > 0 ? permissionIds : permissions;
   const schema = Yup.object().shape({
     name: Yup.string().required().min(2),
@@ -143,7 +150,7 @@ const CreateUserService = async ({
     // await user.$set("permissions", allPermissions);
   } else {
     await user.$set("queues", queueIds);
-    await user.$set("groups", groupIds, { through: { tenantId } });
+    await user.$set("groups", finalGroupIds, { through: { tenantId } });
     await user.$set("permissions", finalPermissionIds, { through: { tenantId } });
   }
 
