@@ -23,6 +23,7 @@ import {
     InputLabel,
     FormControl,
     Fade,
+    Tooltip
 } from "@material-ui/core";
 
 import {
@@ -53,6 +54,12 @@ import {
     WhatsApp,
     SupervisorAccount,
     Security,
+    Block,
+    CheckCircle,
+
+    Send,
+    VerifiedUser,
+
 } from "@material-ui/icons";
 
 import MainContainer from "../../components/MainContainer";
@@ -209,6 +216,17 @@ const useStyles = makeStyles((theme) => ({
     fieldSpacing: {
         marginBottom: theme.spacing(2),
     },
+    headerButtons: {
+        display: "flex",
+        gap: theme.spacing(1),
+        alignItems: "center",
+    },
+    actionButton: {
+        borderRadius: 10,
+        padding: theme.spacing(1, 2),
+        textTransform: "none",
+        fontWeight: 500,
+    },
 }));
 
 const UserSchema = Yup.object().shape({
@@ -262,6 +280,10 @@ const UserEdit = () => {
     const [loading, setLoading] = useState(!isNew);
     const [saving, setSaving] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [togglingStatus, setTogglingStatus] = useState(false);
+    const [resendingEmail, setResendingEmail] = useState(false);
+    const [verifyingEmail, setVerifyingEmail] = useState(false);
+    const [smtpPluginActive, setSmtpPluginActive] = useState(false);
 
     // Data lists
     const [groups, setGroups] = useState([]);
@@ -299,7 +321,7 @@ const UserEdit = () => {
         permissions.forEach(permission => {
             let category = "Outros";
             for (const [key, label] of Object.entries(categories)) {
-                if (permission.name.includes(key) || permission.name.includes(key.replace("es", ""))) {
+                if (permission.name && (permission.name.includes(key) || permission.name.includes(key.replace("es", "")))) {
                     category = label;
                     if (permission.name.includes("admin_queues")) category = "Filas";
                     if (permission.name.includes("admin_settings")) category = "Configurações";
@@ -354,6 +376,21 @@ const UserEdit = () => {
         fetchData();
     }, [userId, isNew, categorizePermissions]);
 
+    // Check if SMTP plugin is active
+    useEffect(() => {
+        const checkSmtpPlugin = async () => {
+            try {
+                const { data } = await api.get("/plugins/api/v1/plugins/installed");
+                if (data.active && data.active.includes("smtp")) {
+                    setSmtpPluginActive(true);
+                }
+            } catch (err) {
+                setSmtpPluginActive(false);
+            }
+        };
+        checkSmtpPlugin();
+    }, []);
+
     const handleSaveUser = async (values) => {
         setSaving(true);
         const userData = {
@@ -405,6 +442,44 @@ const UserEdit = () => {
         });
     };
 
+    const handleToggleStatus = async () => {
+        setTogglingStatus(true);
+        try {
+            const { data } = await api.post(`/users/${userId}/toggle-status`);
+            setUser(prev => ({ ...prev, enabled: data.enabled }));
+            toast.success(data.enabled ? i18n.t("userModal.toasts.activated") : i18n.t("userModal.toasts.deactivated"));
+        } catch (err) {
+            toastError(err);
+        } finally {
+            setTogglingStatus(false);
+        }
+    };
+
+    const handleResendResetPasswordEmail = async () => {
+        setResendingEmail(true);
+        try {
+            await api.post(`/users/${userId}/resend-welcome`);
+            toast.success(i18n.t("userModal.toasts.resetEmailSent"));
+        } catch (err) {
+            toastError(err);
+        } finally {
+            setResendingEmail(false);
+        }
+    };
+
+    const handleManualVerify = async () => {
+        setVerifyingEmail(true);
+        try {
+            await api.post(`/users/${userId}/manual-verify`);
+            setUser(prev => ({ ...prev, emailVerified: true }));
+            toast.success(i18n.t("userModal.toasts.emailVerified"));
+        } catch (err) {
+            toastError(err);
+        } finally {
+            setVerifyingEmail(false);
+        }
+    };
+
     const groupedPermissions = categorizePermissions(allPermissions);
 
     if (loading) {
@@ -449,16 +524,55 @@ const UserEdit = () => {
                                             )}
                                         </div>
                                     </div>
-                                    <Button
-                                        variant="contained"
-                                        color="primary"
-                                        startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <Save />}
-                                        className={classes.saveButton}
-                                        type="submit"
-                                        disabled={saving}
-                                    >
-                                        {isNew ? i18n.t("userModal.buttons.okAdd") : i18n.t("userModal.buttons.okEdit")}
-                                    </Button>
+                                    <div className={classes.headerButtons}>
+                                        {!isNew && (
+                                            <>
+                                                <Button
+                                                    variant="outlined"
+                                                    color={user.enabled ? "secondary" : "primary"}
+                                                    startIcon={togglingStatus ? <CircularProgress size={18} /> : (user.enabled ? <Block /> : <CheckCircle />)}
+                                                    className={classes.actionButton}
+                                                    onClick={handleToggleStatus}
+                                                    disabled={togglingStatus || saving}
+                                                >
+                                                    {user.enabled ? i18n.t("userModal.buttons.deactivate") : i18n.t("userModal.buttons.activate")}
+                                                </Button>
+                                                <Button
+                                                    variant="outlined"
+                                                    color="primary"
+                                                    startIcon={resendingEmail ? <CircularProgress size={18} /> : <Lock />}
+                                                    className={classes.actionButton}
+                                                    onClick={handleResendResetPasswordEmail}
+                                                    disabled={resendingEmail || saving}
+                                                >
+                                                    {i18n.t("userModal.buttons.sendResetPassword")}
+                                                </Button>
+
+                                                {(loggedInUser.profile === "admin" || loggedInUser.profile === "superadmin") && !user.emailVerified && (
+                                                    <Button
+                                                        variant="outlined"
+                                                        color="secondary"
+                                                        startIcon={verifyingEmail ? <CircularProgress size={18} /> : <VerifiedUser />}
+                                                        className={classes.actionButton}
+                                                        onClick={handleManualVerify}
+                                                        disabled={verifyingEmail || saving}
+                                                    >
+                                                        {i18n.t("userModal.buttons.manualVerify")}
+                                                    </Button>
+                                                )}
+                                            </>
+                                        )}
+                                        <Button
+                                            variant="contained"
+                                            color="primary"
+                                            startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <Save />}
+                                            className={classes.saveButton}
+                                            type="submit"
+                                            disabled={saving}
+                                        >
+                                            {isNew ? i18n.t("userModal.buttons.okAdd") : i18n.t("userModal.buttons.okEdit")}
+                                        </Button>
+                                    </div>
                                 </div>
 
                                 <Grid container spacing={3}>
