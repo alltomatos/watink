@@ -23,7 +23,7 @@ import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
 import toastError from "../../errors/toastError";
 import { AuthContext } from "../../context/Auth/AuthContext";
-import { getBackendUrl } from "../../config";
+import { getBackendUrl } from "../../helpers/urlUtils";
 
 const useStyles = makeStyles((theme) => ({
     root: {
@@ -99,7 +99,7 @@ const UserProfile = () => {
                 const { data } = await api.get(`/users/${user.id}`);
                 setProfile((prevState) => ({ ...prevState, ...data }));
                 if (data.profileImage) {
-                    setAvatarPreview(`${getBackendUrl()}/public/${data.profileImage}`);
+                    setAvatarPreview(getBackendUrl(data.profileImage));
                 }
             } catch (err) {
                 toastError(err);

@@ -25,12 +25,16 @@ export type CommandType =
 
 export interface StartSessionPayload {
   sessionId: number;
+  sessionInstanceId?: number; // [NEW] Unique ID per start attempt
+  webchatId?: number;         // [NEW] For compatibility with Webchat
   sessionToken?: string;
   usePairingCode?: boolean;  // true = usar código, false = usar QR
   phoneNumber?: string;       // Formato E.164 sem +: 5511999999999
   name?: string;
   syncHistory?: boolean;
   syncPeriod?: string;
+  keepAlive?: boolean;
+  force?: boolean;
 }
 
 export interface StopSessionPayload {

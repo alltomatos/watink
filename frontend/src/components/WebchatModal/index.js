@@ -30,6 +30,7 @@ import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
 import toastError from "../../errors/toastError";
 import QueueSelect from "../QueueSelect";
+import TagPicker from "../TagPicker";
 
 const useStyles = makeStyles(theme => ({
     root: {
@@ -115,6 +116,7 @@ const WebchatModal = ({ open, onClose, whatsAppId }) => {
     };
     const [whatsApp, setWhatsApp] = useState(initialState);
     const [selectedQueueIds, setSelectedQueueIds] = useState([]);
+    const [selectedTags, setSelectedTags] = useState([]);
     const [tab, setTab] = useState(0);
 
     useEffect(() => {
@@ -134,6 +136,9 @@ const WebchatModal = ({ open, onClose, whatsAppId }) => {
 
                 const whatsQueueIds = data.queues?.map(queue => queue.id);
                 setSelectedQueueIds(whatsQueueIds);
+
+                const whatsTags = data.tags?.map(tag => tag.id);
+                setSelectedTags(whatsTags || []);
             } catch (err) {
                 toastError(err);
             }
@@ -147,7 +152,7 @@ const WebchatModal = ({ open, onClose, whatsAppId }) => {
         // Merge chatConfig from state (as it might be complex object not fully in Formik values if we don't manage it there)
         // Or better, let Formik handle everything.
         // For simplicity, we'll use values but ensure chatConfig is structured.
-        const whatsappData = { ...values, queueIds: selectedQueueIds, type: "webchat" };
+        const whatsappData = { ...values, queueIds: selectedQueueIds, type: "webchat", tags: selectedTags };
 
         try {
             if (whatsAppId) {
@@ -288,6 +293,12 @@ const WebchatModal = ({ open, onClose, whatsAppId }) => {
                                         selectedQueueIds={selectedQueueIds}
                                         onChange={selectedIds => setSelectedQueueIds(selectedIds)}
                                     />
+                                    <div style={{ marginTop: 15 }}>
+                                        <TagPicker
+                                            selectedTags={selectedTags}
+                                            onChange={setSelectedTags}
+                                        />
+                                    </div>
                                 </>
                             )}
 

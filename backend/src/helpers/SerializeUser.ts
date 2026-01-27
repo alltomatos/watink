@@ -12,12 +12,19 @@ interface SerializedUser {
   whatsapp: Whatsapp;
   permissions: string[];
   tenantId: number | string;
+  emailVerified?: boolean;
 }
 
 export const SerializeUser = (user: User): SerializedUser => {
-  const groupPermissions = user.groups?.flatMap(g => g.permissions?.map(p => p.name)) || [];
-  const individualPermissions = user.permissions?.map(p => p.name) || [];
-  const allPermissions = [...new Set([...groupPermissions, ...individualPermissions])];
+  // Enterprise RBAC: Permissions are resource:action
+  // We map them to strings for frontend compatibility
+  const groupRoles = user.groups?.flatMap(g => g.roles?.flatMap(r => r.permissions?.map(p => `${p.resource}:${p.action}`))) || [];
+  // Direct roles
+  const directRoles = user.roles?.flatMap(r => r.permissions?.map(p => `${p.resource}:${p.action}`)) || [];
+  // Direct permissions (overrides)
+  const directPermissions = user.permissions?.map(p => `${p.resource}:${p.action}`) || [];
+
+  const allPermissions = [...new Set([...groupRoles, ...directRoles, ...directPermissions])];
 
   return {
     id: user.id,
@@ -28,6 +35,7 @@ export const SerializeUser = (user: User): SerializedUser => {
     queues: user.queues,
     whatsapp: user.whatsapp,
     permissions: allPermissions,
-    tenantId: user.tenantId
+    tenantId: user.tenantId,
+    emailVerified: user.emailVerified
   };
 };

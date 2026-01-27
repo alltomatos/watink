@@ -39,6 +39,7 @@ import ContactDrawerSkeleton from "../ContactDrawerSkeleton";
 import MarkdownWrapper from "../MarkdownWrapper";
 import ContactAIInsights from "../ContactAIInsights";
 import ProtocolDrawer from "../../pages/Helpdesk/ProtocolDrawer";
+import TagPicker from "../TagPicker";
 import { getBackendUrl } from "../../helpers/urlUtils";
 
 const drawerWidth = 320;
@@ -134,7 +135,7 @@ const stageColors = [
 
 const getStageColor = (index) => stageColors[index % stageColors.length];
 
-const ContactDrawer = ({ open, handleDrawerClose, contact, ticketId, loading }) => {
+const ContactDrawer = ({ open, handleDrawerClose, contact, ticketId, loading, ticket }) => {
 	const classes = useStyles();
 
 	const [modalOpen, setModalOpen] = useState(false);
@@ -144,6 +145,7 @@ const ContactDrawer = ({ open, handleDrawerClose, contact, ticketId, loading }) 
 	const [selectedPipeline, setSelectedPipeline] = useState("");
 	const [selectedStage, setSelectedStage] = useState("");
 	const [stages, setStages] = useState([]);
+	const [dealTags, setDealTags] = useState([]);
 
 	// Protocol creation state
 	const [protocolDrawerOpen, setProtocolDrawerOpen] = useState(false);
@@ -218,7 +220,8 @@ const ContactDrawer = ({ open, handleDrawerClose, contact, ticketId, loading }) 
 				pipelineId: selectedPipeline,
 				stageId: selectedStage,
 				contactId: contact.id,
-				ticketId: ticketId
+				ticketId: ticketId,
+				tags: dealTags
 			};
 			await api.post("/deals", dealData);
 			toast.success("Deal criado com sucesso!");
@@ -368,6 +371,32 @@ const ContactDrawer = ({ open, handleDrawerClose, contact, ticketId, loading }) 
 								contactId={contact.id}
 							></ContactModal>
 
+							{/* Tags do Contato */}
+							<Paper square variant="outlined" className={classes.contactDetails}>
+								<Typography variant="subtitle1" style={{ marginBottom: 8 }}>
+									🏷️ Tags
+								</Typography>
+								<TagPicker
+									entityType="contact"
+									entityId={contact.id}
+									selectedTags={contact.tags?.map(t => t.id) || []}
+									placeholder="Adicionar tag"
+								/>
+							</Paper>
+							{/* Tags do Ticket */}
+							<Paper square variant="outlined" className={classes.contactDetails}>
+								<Typography variant="subtitle1" style={{ marginBottom: 8 }}>
+									🎫 Tags do Ticket
+								</Typography>
+								<TagPicker
+									entityType="ticket"
+									entityId={ticketId}
+									selectedTags={ticket?.tags?.map(t => t.id) || []}
+									readOnly={!ticketId}
+									placeholder="Adicionar tag ao ticket"
+								/>
+							</Paper>
+
 							<Paper square variant="outlined" className={classes.contactDetails}>
 								<Typography variant="subtitle1" style={{ marginBottom: 8 }}>
 									Fluxos (Pipelines)
@@ -467,6 +496,13 @@ const ContactDrawer = ({ open, handleDrawerClose, contact, ticketId, loading }) 
 											</Select>
 										</FormControl>
 									)}
+									<div style={{ marginTop: 15 }}>
+										<TagPicker
+											selectedTags={dealTags}
+											onChange={setDealTags}
+											placeholder="Tags do Deal"
+										/>
+									</div>
 								</DialogContent>
 								<DialogActions>
 									<Button onClick={() => setPipelineModalOpen(false)} color="secondary">

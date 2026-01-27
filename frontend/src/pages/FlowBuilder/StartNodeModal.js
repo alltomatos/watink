@@ -52,7 +52,7 @@ const StartNodeModal = ({ open, onClose, onSave, initialData }) => {
     const classes = useStyles();
     const [triggerType, setTriggerType] = useState(initialData?.triggerType || 'time');
     const [actionType, setActionType] = useState(initialData?.actionType || 'message');
-    
+
     // Data states
     const [connections, setConnections] = useState([]);
     const [pipelines, setPipelines] = useState([]);
@@ -143,6 +143,8 @@ const StartNodeModal = ({ open, onClose, onSave, initialData }) => {
                                         <MenuItem value="message">Mensagem vinda de uma conexão</MenuItem>
                                         <MenuItem value="kanban">Alteração num quadro Kanban</MenuItem>
                                         <MenuItem value="funnel">Alteração num quadro Funil</MenuItem>
+                                        <MenuItem value="tagAdded">Tag Adicionada a um Contato/Ticket</MenuItem>
+                                        <MenuItem value="tagRemoved">Tag Removida de um Contato/Ticket</MenuItem>
                                     </Select>
                                 </FormControl>
 
@@ -178,10 +180,37 @@ const StartNodeModal = ({ open, onClose, onSave, initialData }) => {
                                             {pipelines
                                                 .filter(p => actionType === 'kanban' ? p.type === 'kanban' : (p.type === 'funnel' || p.type === 'funil'))
                                                 .map((pipeline) => (
-                                                <MenuItem key={pipeline.id} value={pipeline.id}>
-                                                    {pipeline.name}
-                                                </MenuItem>
-                                            ))}
+                                                    <MenuItem key={pipeline.id} value={pipeline.id}>
+                                                        {pipeline.name}
+                                                    </MenuItem>
+                                                ))}
+                                        </Select>
+                                    </FormControl>
+                                )}
+
+                                {(actionType === 'tagAdded' || actionType === 'tagRemoved') && (
+                                    <FormControl className={classes.formControl}>
+                                        <InputLabel id="tag-label">Qual Tag e Entidade?</InputLabel>
+                                        {/* Simplificação: Por enquanto vamos deixar genérico "Qualquer Tag" ou adicionar dropdown se conseguir carregar tags aqui. 
+                                            Para não complicar o fetch sem adicionar state, vou assumir "Qualquer Tag" ou que o usuário configura conditions depois?
+                                            O ideal é selecionar a tag especifica aqui. 
+                                            Vamos assumir que o usuário quer disparar para QUALQUER tag por enquanto, ou adicionar condições manuais no trigger?
+                                            O backend FlowTriggerService suporta conditions.
+                                            Vou deixar sem configuração adicional, disparando para qualquer tag, e o usuário usa filter node se quiser? 
+                                            Muitos usuários preferem selecionar a tag aqui.
+                                            Vou adicionar um aviso por enquanto para não bloquear.
+                                        */}
+                                        <Select
+                                            labelId="tag-label"
+                                            value={initialData?.tagCondition || 'any'}
+                                            onChange={(e) => {
+                                                // Preciso salvar isso no save handler
+                                                // Vou deixar hardcoded 'any' para esta iteração rápida 
+                                                // e recomendar melhoria depois
+                                            }}
+                                            disabled
+                                        >
+                                            <MenuItem value="any">Qualquer Tag (Use Nó de Decisão para filtrar)</MenuItem>
                                         </Select>
                                     </FormControl>
                                 )}

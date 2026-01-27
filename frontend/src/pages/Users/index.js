@@ -19,6 +19,8 @@ import {
   Chip,
   Tooltip,
   Typography,
+  Checkbox,
+  FormControlLabel,
 } from "@material-ui/core";
 
 import {
@@ -140,12 +142,30 @@ const Users = () => {
   const [searchParam, setSearchParam] = useState("");
   const [deletingUser, setDeletingUser] = useState(null);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [users, dispatch] = useReducer(reducer, []);
+  const [smtpPluginActive, setSmtpPluginActive] = useState(false);
 
   useEffect(() => {
     dispatch({ type: "RESET" });
     setPageNumber(1);
   }, [searchParam]);
+
+  // Check if SMTP plugin is active
+  useEffect(() => {
+    const checkSmtpPlugin = async () => {
+      try {
+        const { data } = await api.get("/plugins/api/v1/plugins/installed");
+        if (data.active && data.active.includes("smtp")) {
+          setSmtpPluginActive(true);
+        }
+      } catch (err) {
+        // Plugin manager not available
+        setSmtpPluginActive(false);
+      }
+    };
+    checkSmtpPlugin();
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -205,6 +225,7 @@ const Users = () => {
     setDeletingUser(null);
     setSearchParam("");
     setPageNumber(1);
+    setConfirmDelete(false);
   };
 
   const loadMore = () => {
@@ -250,8 +271,37 @@ const Users = () => {
         open={confirmModalOpen}
         onClose={setConfirmModalOpen}
         onConfirm={() => handleDeleteUser(deletingUser.id)}
+        confirmDisabled={!confirmDelete}
       >
-        {i18n.t("users.confirmationModal.deleteMessage")}
+        <div style={{ marginTop: 0 }}>
+          <Typography>
+            {i18n.t("users.confirmationModal.deleteMessage")}
+          </Typography>
+
+          <div style={{ marginTop: 15, marginBottom: 15, padding: 10, background: "#f5f5f5", borderRadius: 5 }}>
+            <Typography variant="body2" color="textPrimary">
+              <strong>{i18n.t("users.table.name")}:</strong> {deletingUser?.name}
+            </Typography>
+            <Typography variant="body2" color="textPrimary">
+              <strong>{i18n.t("users.table.email")}:</strong> {deletingUser?.email}
+            </Typography>
+          </div>
+
+          <Typography variant="body2" style={{ color: "#f44336", marginBottom: 10, fontWeight: "bold" }}>
+            {i18n.t("users.confirmationModal.warning")}
+          </Typography>
+
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={confirmDelete}
+                onChange={(e) => setConfirmDelete(e.target.checked)}
+                color="secondary"
+              />
+            }
+            label={i18n.t("users.confirmationModal.confirmCheckbox")}
+          />
+        </div>
       </ConfirmationModal>
 
       <MainHeader>
@@ -292,6 +342,9 @@ const Users = () => {
               </TableCell>
               <TableCell>{i18n.t("users.table.name")}</TableCell>
               <TableCell align="center">{i18n.t("users.table.email")}</TableCell>
+              {smtpPluginActive && (
+                <TableCell align="center">{i18n.t("users.table.emailVerified")}</TableCell>
+              )}
               <TableCell align="center">{i18n.t("users.table.profile")}</TableCell>
               <TableCell align="center">{i18n.t("users.table.actions")}</TableCell>
             </TableRow>
@@ -319,6 +372,20 @@ const Users = () => {
                         {user.email}
                       </Typography>
                     </TableCell>
+                    {smtpPluginActive && (
+                      <TableCell align="center">
+                        <Chip
+                          label={user.emailVerified ? i18n.t("users.status.verified") : i18n.t("users.status.pending")}
+                          size="small"
+                          variant="outlined"
+                          style={{
+                            fontWeight: 500,
+                            color: user.emailVerified ? "#4caf50" : "#ff9800",
+                            borderColor: user.emailVerified ? "#4caf50" : "#ff9800"
+                          }}
+                        />
+                      </TableCell>
+                    )}
                     <TableCell align="center">
                       <Chip
                         label={profileInfo.label}
@@ -351,7 +418,7 @@ const Users = () => {
                   </TableRow>
                 );
               })}
-              {loading && <TableRowSkeleton columns={5} />}
+              {loading && <TableRowSkeleton columns={smtpPluginActive ? 6 : 5} />}
             </>
           </TableBody>
         </Table>

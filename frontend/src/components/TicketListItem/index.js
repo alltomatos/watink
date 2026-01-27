@@ -233,6 +233,15 @@ const TicketListItem = ({ ticket }) => {
 							{ticket.whatsappId && (
 								<div className={classes.userTag} title={i18n.t("ticketsList.connectionTitle")}>{ticket.whatsapp?.name}</div>
 							)}
+							{ticket.tags && ticket.tags.length > 0 && (
+								<span className={classes.userTag} style={{ marginRight: 5, display: "flex", gap: 4, background: "none", boxShadow: "none", right: 60 }}>
+									{ticket.tags.map(tag => (
+										<Tooltip title={tag.name} key={tag.id}>
+											<span style={{ backgroundColor: tag.color, width: 10, height: 10, borderRadius: "50%", display: "inline-block" }} />
+										</Tooltip>
+									))}
+								</span>
+							)}
 						</span>
 					}
 					secondary={

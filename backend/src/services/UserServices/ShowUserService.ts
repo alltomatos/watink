@@ -15,6 +15,7 @@ const ShowUserService = async (id: string | number): Promise<User> => {
       "profile",
       "tokenVersion",
       "whatsappId",
+      "emailVerified",
       "profileImage"
     ],
 
@@ -37,6 +38,11 @@ const ShowUserService = async (id: string | number): Promise<User> => {
         model: Role,
         as: "roles",
         include: [{ model: Permission, as: "permissions", attributes: ["id", "resource", "action"] }]
+      },
+      {
+        model: Permission,
+        as: "permissions",
+        attributes: ["id", "resource", "action"]
       }
     ],
     order: [[{ model: Queue, as: "queues" }, "name", "asc"]]

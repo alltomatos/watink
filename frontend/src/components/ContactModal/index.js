@@ -21,6 +21,7 @@ import { i18n } from "../../translate/i18n";
 
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
+import TagPicker from "../TagPicker";
 
 const useStyles = makeStyles(theme => ({
 	root: {
@@ -36,6 +37,10 @@ const useStyles = makeStyles(theme => ({
 		display: "flex",
 		justifyContent: "center",
 		alignItems: "center",
+	},
+
+	tagSection: {
+		padding: theme.spacing(2, 0),
 	},
 
 	btnWrapper: {
@@ -94,6 +99,9 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
 				const { data } = await api.get(`/contacts/${contactId}`);
 				if (isMounted.current) {
 					setContact(data);
+					if (data.tags) {
+						setSelectedTags(data.tags.map(t => t.id));
+					}
 				}
 			} catch (err) {
 				toastError(err);
@@ -250,6 +258,20 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
 										</>
 									)}
 								</FieldArray>
+
+								<div className={classes.tagSection}>
+									<Typography variant="subtitle1" gutterBottom>
+										{i18n.t("tags.title") || "Tags"}
+									</Typography>
+									<TagPicker
+										selectedTags={selectedTags}
+										onChange={setSelectedTags}
+										entityType={contactId ? "contact" : null}
+										entityId={contactId}
+									/>
+								</div>
+
+
 							</DialogContent>
 							<DialogActions>
 								<Button
@@ -303,7 +325,7 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
 					)}
 				</Formik>
 			</Dialog>
-		</div>
+		</div >
 	);
 };
 

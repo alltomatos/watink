@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "0.7.243",
+  "version": "0.7.271",
   "private": true,
   "dependencies": {
     "@material-ui/core": "^4.11.0",

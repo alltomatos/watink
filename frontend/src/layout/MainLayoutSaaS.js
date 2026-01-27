@@ -26,7 +26,7 @@ import BackdropLoading from "../components/BackdropLoading";
 import { i18n } from "../translate/i18n";
 import VersionFooter from "../components/VersionFooter";
 import api from "../services/api";
-import { getBackendUrl } from "../config";
+import { getBackendUrl } from "../helpers/urlUtils";
 
 const drawerWidth = 260;
 const drawerWidthClosed = 72;
@@ -182,12 +182,7 @@ const MainLayoutSaaS = ({ children }) => {
                 }
                 // Update browser favicon dynamically
                 if (faviconSetting && faviconSetting.value) {
-                    const faviconPath = faviconSetting.value.startsWith('/')
-                        ? faviconSetting.value.slice(1)
-                        : faviconSetting.value;
-                    const link = document.querySelector("link[rel~='icon']") || document.createElement('link');
-                    link.rel = 'icon';
-                    link.href = `${getBackendUrl()}${faviconPath}`;
+                    link.href = getBackendUrl(faviconSetting.value);
                     document.head.appendChild(link);
                 }
             } catch (err) {
@@ -244,7 +239,7 @@ const MainLayoutSaaS = ({ children }) => {
                 <Box className={classes.logoContainer}>
                     {drawerOpen && systemLogo && logoEnabled ? (
                         <img
-                            src={`${getBackendUrl()}${systemLogo.startsWith('/') ? systemLogo.slice(1) : systemLogo}`}
+                            src={getBackendUrl(systemLogo)}
                             alt="Logo"
                             className={classes.systemLogo}
                         />
@@ -306,7 +301,7 @@ const MainLayoutSaaS = ({ children }) => {
                             {user.profileImage ? (
                                 <Avatar
                                     alt={user.name}
-                                    src={`${getBackendUrl()}/public/${user.profileImage}`}
+                                    src={getBackendUrl(user.profileImage)}
                                     className={classes.avatar}
                                     style={{ width: 32, height: 32 }}
                                 />

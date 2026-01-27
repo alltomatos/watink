@@ -173,6 +173,7 @@ const Settings = () => {
 	const [logoPreview, setLogoPreview] = useState(null);
 	const [logoEnabled, setLogoEnabled] = useState(true);
 	const [faviconPreview, setFaviconPreview] = useState(null);
+	const [mobileLogoPreview, setMobileLogoPreview] = useState(null);
 
 	const [loginImagePreview, setLoginImagePreview] = useState(null);
 	const [loginLayout, setLoginLayout] = useState("split_left");
@@ -248,6 +249,9 @@ const Settings = () => {
 
 				const logoSetting = settingsData.find(s => s.key === "systemLogo");
 				if (logoSetting && logoSetting.value) setLogoPreview(logoSetting.value);
+
+				const mobileLogoSetting = settingsData.find(s => s.key === "mobileLogo");
+				if (mobileLogoSetting && mobileLogoSetting.value) setMobileLogoPreview(mobileLogoSetting.value);
 
 				const logoEnabledSetting = settingsData.find(s => s.key === "systemLogoEnabled");
 				if (logoEnabledSetting) setLogoEnabled(logoEnabledSetting.value === "true");
@@ -395,7 +399,7 @@ const Settings = () => {
 			toast.success("Favicon atualizado com sucesso!");
 			const link = document.querySelector("link[rel~='icon']") || document.createElement('link');
 			link.rel = 'icon';
-			link.href = `${getBackendUrl()}${data.faviconUrl}`;
+			link.href = getBackendUrl(data.faviconUrl);
 			document.head.appendChild(link);
 		} catch (err) {
 			toastError(err);
@@ -407,6 +411,35 @@ const Settings = () => {
 			await api.put("/settings/systemFavicon", { value: "" });
 			setFaviconPreview(null);
 			toast.success("Favicon removido com sucesso!");
+		} catch (err) {
+			toastError(err);
+		}
+	};
+
+	// Mobile Logo Handlers
+	const handleMobileLogoUpload = async (e) => {
+		const file = e.target.files[0];
+		if (!file) return;
+
+		const formData = new FormData();
+		formData.append("mobileLogo", file);
+
+		try {
+			const { data } = await api.post("/settings/mobileLogo", formData, {
+				headers: { "Content-Type": "multipart/form-data" },
+			});
+			setMobileLogoPreview(data.mobileLogoUrl);
+			toast.success("Logo mobile atualizada com sucesso!");
+		} catch (err) {
+			toastError(err);
+		}
+	};
+
+	const handleRemoveMobileLogo = async () => {
+		try {
+			await api.put("/settings/mobileLogo", { value: "" });
+			setMobileLogoPreview(null);
+			toast.success("Logo mobile removida com sucesso!");
 		} catch (err) {
 			toastError(err);
 		}
@@ -649,7 +682,7 @@ const Settings = () => {
 						<Box className={classes.uploadBox}>
 							{logoPreview ? (
 								<img
-									src={`${getBackendUrl()}${logoPreview.startsWith('/') ? logoPreview.slice(1) : logoPreview}`}
+									src={getBackendUrl(logoPreview)}
 									alt="Logo"
 									className={classes.logoPreview}
 								/>
@@ -688,7 +721,7 @@ const Settings = () => {
 						<Box className={classes.uploadBox}>
 							{faviconPreview ? (
 								<img
-									src={`${getBackendUrl()}${faviconPreview.startsWith('/') ? faviconPreview.slice(1) : faviconPreview}`}
+									src={getBackendUrl(faviconPreview)}
 									alt="Favicon"
 									style={{ maxWidth: 64, maxHeight: 64, objectFit: 'contain' }}
 								/>
@@ -704,6 +737,48 @@ const Settings = () => {
 						<Box mt={2} display="flex" justifyContent="center">
 							<Button variant="outlined" color="secondary" startIcon={<DeleteIcon />} onClick={handleRemoveFavicon}>
 								Remover Favicon
+							</Button>
+						</Box>
+					)}
+				</Paper>
+			</Box>
+
+			{/* Mobile Logo Card */}
+			<Box display="flex" gap={2} flexWrap="wrap" mt={2}>
+				<Paper className={classes.paper} style={{ flexDirection: "column", alignItems: "stretch", flex: 1, minWidth: 280 }}>
+					<Typography variant="body1" gutterBottom>
+						Logo Mobile
+					</Typography>
+					<Typography variant="body2" color="textSecondary">
+						Logo exibida no aplicativo Android/iOS
+					</Typography>
+					<input
+						accept="image/*"
+						className={classes.hiddenInput}
+						id="mobile-logo-upload"
+						type="file"
+						onChange={handleMobileLogoUpload}
+					/>
+					<label htmlFor="mobile-logo-upload">
+						<Box className={classes.uploadBox}>
+							{mobileLogoPreview ? (
+								<img
+									src={getBackendUrl(mobileLogoPreview)}
+									alt="Logo Mobile"
+									style={{ maxWidth: 120, maxHeight: 120, objectFit: 'contain' }}
+								/>
+							) : (
+								<CloudUploadIcon style={{ fontSize: 48, color: "#9ca3af" }} />
+							)}
+							<Typography variant="body2" color="textSecondary">
+								{mobileLogoPreview ? "Clique para alterar" : "Clique para upload"}
+							</Typography>
+						</Box>
+					</label>
+					{mobileLogoPreview && (
+						<Box mt={2} display="flex" justifyContent="center">
+							<Button variant="outlined" color="secondary" startIcon={<DeleteIcon />} onClick={handleRemoveMobileLogo}>
+								Remover Logo Mobile
 							</Button>
 						</Box>
 					)}

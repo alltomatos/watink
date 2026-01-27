@@ -22,6 +22,7 @@ import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
 import toastError from "../../errors/toastError";
 import QueueSelect from "../QueueSelect";
+import TagPicker from "../TagPicker";
 
 const useStyles = makeStyles(theme => ({
 	root: {
@@ -70,6 +71,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 	};
 	const [whatsApp, setWhatsApp] = useState(initialState);
 	const [selectedQueueIds, setSelectedQueueIds] = useState([]);
+	const [selectedTags, setSelectedTags] = useState([]);
 
 	useEffect(() => {
 		const fetchSession = async () => {
@@ -81,6 +83,9 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 
 				const whatsQueueIds = data.queues?.map(queue => queue.id);
 				setSelectedQueueIds(whatsQueueIds);
+
+				const whatsTags = data.tags?.map(tag => tag.id);
+				setSelectedTags(whatsTags || []);
 			} catch (err) {
 				toastError(err);
 			}
@@ -91,7 +96,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 	}, [whatsAppId, open]);
 
 	const handleSaveWhatsApp = async values => {
-		const whatsappData = { ...values, queueIds: selectedQueueIds };
+		const whatsappData = { ...values, queueIds: selectedQueueIds, tags: selectedTags };
 
 		try {
 			if (whatsAppId) {
@@ -246,6 +251,12 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 									selectedQueueIds={selectedQueueIds}
 									onChange={selectedIds => setSelectedQueueIds(selectedIds)}
 								/>
+								<div style={{ marginTop: 15 }}>
+									<TagPicker
+										selectedTags={selectedTags}
+										onChange={setSelectedTags}
+									/>
+								</div>
 							</DialogContent>
 							<DialogActions>
 								<Button

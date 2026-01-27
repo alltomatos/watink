@@ -24,12 +24,28 @@ export const initIO = (httpServer: Server): SocketIO => {
         callback(null, true);
       },
       credentials: true
-    }
+    },
+    allowEIO3: true
   });
 
   io.on("connection", async socket => {
-    const { token } = socket.handshake.query;
-    logger.info(`[Socket Debug] Connection attempt. Token provided: ${token ? "YES" : "NO"}`);
+    logger.info("Socket Connection Attempt");
+    let { token } = socket.handshake.query;
+
+    if (!token && socket.handshake.auth?.token) {
+      token = socket.handshake.auth.token;
+      logger.info(`[Socket Debug] Token found in handshake.auth`);
+    }
+
+    if (!token && socket.handshake.headers?.authorization) {
+        const authHeader = socket.handshake.headers.authorization;
+        if (authHeader.startsWith("Bearer ")) {
+            token = authHeader.substring(7);
+            logger.info(`[Socket Debug] Token found in Authorization header`);
+        }
+    }
+
+    logger.info(`[Socket Debug] Final Token provided: ${token ? "YES" : "NO"}`);
 
     let tokenData: TokenPayload | null = null;
     try {

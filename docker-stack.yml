@@ -2,13 +2,11 @@ version: '3.8'
 
 services:
   backend:
-    image: watink/backend:1.3.258
+    image: watink/backend:latest
     build:
-      context: ./backend
-      dockerfile: ./Dockerfile
     environment:
       - DB_DIALECT=postgres
-      - DB_HOST=postgres
+      - DB_HOST=watink_postgres
       - DB_PORT=5432
       - DB_USER=postgres
       - DB_PASS=postgres
@@ -16,19 +14,17 @@ services:
       - AMQP_URL=amqp://guest:guest@rabbitmq:5672
       - JWT_SECRET=3123123213123
       - JWT_REFRESH_SECRET=75756756756
-      - FRONTEND_URL=http://app.localhost
-      - URL_BACKEND=http://api.localhost
+      - FRONTEND_URL=${FRONTEND_URL:-http://app.localhost}
+      - URL_BACKEND=${BACKEND_API_URL:-http://api.localhost}
       - PORT=8080
       - NODE_OPTIONS=--max-old-space-size=800
       - DEFAULT_TENANT_UUID=550e8400-e29b-41d4-a716-446655440000
       - REDIS_URL=redis://redis:6379
-
     volumes:
       - ./backend/public:/app/public
     networks:
-      - watink_public
-      - watink_private
-
+      - watink_proxy
+      - watink_network
     deploy:
       mode: replicated
       replicas: 1
@@ -41,42 +37,40 @@ services:
           memory: 1024M
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.backend-api.rule=Host(`api.localhost`) && PathPrefix(`/api`)"
+        - "traefik.http.routers.backend-api.rule=Host(`${DOMAIN_BACKEND:-api.localhost}`) && PathPrefix(`/api`)"
         - "traefik.http.routers.backend-api.entrypoints=web"
         - "traefik.http.routers.backend-api.middlewares=backend-strip"
         - "traefik.http.middlewares.backend-strip.stripprefix.prefixes=/api"
         - "traefik.http.routers.backend-api.service=backend"
-        - "traefik.http.routers.backend-root.rule=Host(`api.localhost`)"
+        - "traefik.http.routers.backend-root.rule=Host(`${DOMAIN_BACKEND:-api.localhost}`)"
         - "traefik.http.routers.backend-root.entrypoints=web"
         - "traefik.http.routers.backend-root.service=backend"
         - "traefik.http.services.backend.loadbalancer.server.port=8080"
-        - "traefik.docker.network=watink_watink_public"
+        - "traefik.docker.network=watink_watink_proxy"
 
   frontend:
-    image: watink/frontend:0.7.212
+    image: watink/frontend:latest
     build:
-      context: ./frontend
-      dockerfile: ./Dockerfile
     environment:
       - URL_BACKEND=backend:8080
-      - VITE_BACKEND_URL=http://api.localhost/
+      - VITE_BACKEND_URL=${BACKEND_API_URL:-http://api.localhost/}
       - VITE_PLUGIN_MANAGER_URL=/plugins/
       - VITE_HOURS_CLOSE_TICKETS_AUTO=24
 
     networks:
-      - watink_public
-      - watink_private
+      - watink_proxy
+      - watink_network
 
     deploy:
       mode: replicated
       replicas: 1
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.frontend.rule=Host(`app.localhost`)"
+        - "traefik.http.routers.frontend.rule=Host(`${DOMAIN_FRONTEND:-app.localhost}`)"
         - "traefik.http.routers.frontend.entrypoints=web"
         - "traefik.http.routers.frontend.service=frontend"
         - "traefik.http.services.frontend.loadbalancer.server.port=80"
-        - "traefik.docker.network=watink_watink_public"
+        - "traefik.docker.network=watink_watink_proxy"
 
   traefik:
     image: traefik:v3.4.0
@@ -85,13 +79,13 @@ services:
       - "--providers.swarm=true"
       - "--providers.docker.endpoint=unix:///var/run/docker.sock"
       - "--providers.docker.exposedbydefault=false"
-      - "--providers.docker.network=watink_watink_public"
+      - "--providers.docker.network=watink_watink_proxy"
       - "--entrypoints.web.address=:80"
     volumes:
       - "vol_certificates:/etc/traefik/letsencrypt"
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
     networks:
-      - watink_public
+      - watink_proxy
     ports:
       - target: 80
         published: 80
@@ -112,18 +106,14 @@ services:
         - "traefik.http.middlewares.auth.basicauth.users=admin:$$apr1$$8EVDtcp.$$J2A.0.1.0/0.1.0"
 
   whaileys-engine:
-    image: watink/engine:1.0.116
+    image: watink/engine:latest
     build:
-      context: ./engine-standard
-      dockerfile: ./Dockerfile
     environment:
       - AMQP_URL=amqp://guest:guest@rabbitmq:5672
       - REDIS_URL=redis://redis:6379
     networks:
-      - watink_private
-      - watink_public
-    volumes:
-      - sessions_auth_data:/usr/src/app/.sessions_auth/
+      - watink_network
+      - watink_proxy
 
     deploy:
       mode: replicated
@@ -134,11 +124,11 @@ services:
           memory: 2048M
 
   flow-worker:
-    image: watink/backend:1.3.258
+    image: watink/backend:latest
     command: ["node", "dist/flow-worker.js"]
     environment:
       - DB_DIALECT=postgres
-      - DB_HOST=postgres
+      - DB_HOST=watink_postgres
       - DB_PORT=5432
       - DB_USER=postgres
       - DB_PASS=postgres
@@ -147,7 +137,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - DEFAULT_TENANT_UUID=550e8400-e29b-41d4-a716-446655440000
     networks:
-      - watink_private
+      - watink_network
 
     deploy:
       mode: replicated
@@ -157,12 +147,29 @@ services:
           cpus: '0.50'
           memory: 512M
 
+  watink-guard:
+    image: watink/guard:latest
+    build:
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@watink_postgres:5432/watink
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - WATINK_MASTER_KEY=${WATINK_MASTER_KEY:-change_me_in_production}
+    networks:
+      - watink_network
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+
 
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
     networks:
-      - watink_private
+      - watink_network
     ports:
       - "15673:15672"
 
@@ -177,7 +184,7 @@ services:
     image: redis:alpine
     command: ["redis-server", "--appendonly", "yes"]
     networks:
-      - watink_private
+      - watink_network
     volumes:
       - redis_data:/data
     deploy:
@@ -187,10 +194,10 @@ services:
         limits:
           memory: 512M
 
-  postgres:
+  watink_postgres:
     image: ronaldodavi/pgvectorgis:latest
     labels:
-      - com.docker.compose.project=${STACK_NAME:-watink}
+      - com.docker.compose.project=${STACK_NAME:-watinkdev}
       - com.docker.compose.service=watink_postgres
     environment:
       - POSTGRES_DB=watink
@@ -198,7 +205,7 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
     networks:
-      - watink_private
+      - watink_network
 
     deploy:
       mode: replicated
@@ -208,15 +215,16 @@ services:
           - node.role == manager
 
 networks:
-  watink_public:
+  watink_proxy:
     driver: overlay
-  watink_private:
+    name: watink_watink_proxy
+  watink_network:
     driver: overlay
+    name: watink_network
 
 volumes:
   db_data:
   redis_data:
-  sessions_auth_data:
   backend_public_data:
   vol_certificates:
     external: true

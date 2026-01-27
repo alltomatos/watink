@@ -59,6 +59,8 @@ import {
     Storefront,
     Headset,
 } from "@material-ui/icons";
+import Switch from "@material-ui/core/Switch";
+import InputBase from "@material-ui/core/InputBase";
 
 import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
@@ -306,6 +308,7 @@ const GroupEdit = () => {
     const [userSearchTerm, setUserSearchTerm] = useState("");
     const [addUserDialogOpen, setAddUserDialogOpen] = useState(false);
     const [availableUserSearch, setAvailableUserSearch] = useState("");
+    const [permissionSearchTerm, setPermissionSearchTerm] = useState("");
 
     const categorizePermissions = useCallback((permissions) => {
         const categories = {
@@ -330,18 +333,20 @@ const GroupEdit = () => {
         const grouped = {};
 
         permissions.forEach(permission => {
+            const permName = permission.name || permission.resource;
+            if (!permission || !permName) return;
             let category = "Outros";
             for (const [key, label] of Object.entries(categories)) {
-                if (permission.name.includes(key) || permission.name.includes(key.replace("es", ""))) {
+                if (permName.includes(key) || permName.includes(key.replace("es", ""))) {
                     category = label;
-                    if (permission.name.includes("admin_queues")) category = "Filas";
-                    if (permission.name.includes("admin_settings")) category = "Configurações";
+                    if (permName.includes("admin_queues")) category = "Filas";
+                    if (permName.includes("admin_settings")) category = "Configurações";
                     break;
                 }
             }
 
-            if (permission.name.includes("admin_queues")) category = "Filas";
-            if (permission.name.includes("admin_settings")) category = "Configurações";
+            if (permName.includes("admin_queues")) category = "Filas";
+            if (permName.includes("admin_settings")) category = "Configurações";
 
             if (!grouped[category]) {
                 grouped[category] = [];
@@ -476,7 +481,12 @@ const GroupEdit = () => {
             .toUpperCase();
     };
 
-    const groupedPermissions = categorizePermissions(allPermissions);
+    const filteredPermissions = allPermissions.filter(p =>
+        ((p.name || p.resource) && (p.name || p.resource).toLowerCase().includes(permissionSearchTerm.toLowerCase())) ||
+        (p.description && p.description.toLowerCase().includes(permissionSearchTerm.toLowerCase()))
+    );
+
+    const groupedPermissions = categorizePermissions(filteredPermissions);
 
     const filteredGroupUsers = groupUsers.filter(user =>
         user.name.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
@@ -612,13 +622,25 @@ const GroupEdit = () => {
                                                 />
                                             </div>
 
+                                            <div className={classes.searchContainer}>
+                                                <div className={classes.searchWrapper}>
+                                                    <Search className={classes.searchIcon} />
+                                                    <InputBase
+                                                        className={classes.searchInput}
+                                                        placeholder="Buscar permissões..."
+                                                        value={permissionSearchTerm}
+                                                        onChange={(e) => setPermissionSearchTerm(e.target.value)}
+                                                    />
+                                                </div>
+                                            </div>
+
                                             <div className={classes.permissionsContainer}>
                                                 {Object.entries(groupedPermissions).map(([category, permissions]) => {
                                                     const CategoryIcon = categoryIcons[category] || Settings;
                                                     const selectedCount = permissions.filter(p =>
                                                         selectedPermissions.includes(p.id)
                                                     ).length;
-                                                    const isAllSelected = selectedCount === permissions.length;
+                                                    const isAllSelected = selectedCount === permissions.length && permissions.length > 0;
                                                     const isPartialSelected = selectedCount > 0 && selectedCount < permissions.length;
 
                                                     return (
@@ -628,16 +650,14 @@ const GroupEdit = () => {
                                                                 onClick={() => handleCategoryToggle(category)}
                                                             >
                                                                 <div className={classes.categoryHeaderLeft}>
-                                                                    <Checkbox
+                                                                    <Switch
                                                                         checked={isAllSelected}
-                                                                        indeterminate={isPartialSelected}
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
                                                                             handleSelectAllCategory(permissions, isAllSelected);
                                                                         }}
                                                                         color="primary"
                                                                         size="small"
-                                                                        className={classes.permissionCheckbox}
                                                                     />
                                                                     <CategoryIcon className={classes.categoryIcon} />
                                                                     <Typography className={classes.categoryName}>
@@ -656,26 +676,28 @@ const GroupEdit = () => {
 
                                                             <Collapse in={expandedCategories[category]}>
                                                                 <div style={{ paddingLeft: 24 }}>
-                                                                    {permissions.map(permission => (
-                                                                        <FormControlLabel
-                                                                            key={permission.id}
-                                                                            control={
-                                                                                <Checkbox
-                                                                                    checked={selectedPermissions.includes(permission.id)}
-                                                                                    onChange={() => handlePermissionChange(permission.id)}
-                                                                                    color="primary"
-                                                                                    size="small"
-                                                                                    className={classes.permissionCheckbox}
+                                                                    <Grid container spacing={1}>
+                                                                        {permissions.map(permission => (
+                                                                            <Grid item xs={12} sm={6} key={permission.id}>
+                                                                                <FormControlLabel
+                                                                                    control={
+                                                                                        <Switch
+                                                                                            checked={selectedPermissions.includes(permission.id)}
+                                                                                            onChange={() => handlePermissionChange(permission.id)}
+                                                                                            color="primary"
+                                                                                            size="small"
+                                                                                        />
+                                                                                    }
+                                                                                    label={
+                                                                                        <Typography className={classes.permissionLabel}>
+                                                                                            {permission.description || permission.name || permission.resource}
+                                                                                        </Typography>
+                                                                                    }
+                                                                                    className={classes.permissionItem}
                                                                                 />
-                                                                            }
-                                                                            label={
-                                                                                <Typography className={classes.permissionLabel}>
-                                                                                    {permission.description || permission.name}
-                                                                                </Typography>
-                                                                            }
-                                                                            className={classes.permissionItem}
-                                                                        />
-                                                                    ))}
+                                                                            </Grid>
+                                                                        ))}
+                                                                    </Grid>
                                                                 </div>
                                                             </Collapse>
                                                         </div>

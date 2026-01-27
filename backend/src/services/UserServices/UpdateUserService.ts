@@ -13,6 +13,8 @@ interface UserData {
   queueIds?: number[];
   whatsappId?: number;
   groupIds?: number[];
+  permissionIds?: number[];
+  permissions?: number[];
   profileImage?: string;
 }
 
@@ -57,8 +59,12 @@ const UpdateUserService = async ({
     queueIds = [],
     whatsappId,
     groupIds = [],
+    permissionIds = [],
+    permissions = [],
     profileImage
   } = userData;
+
+  const finalPermissionIds = permissionIds.length > 0 ? permissionIds : permissions;
 
   try {
     await schema.validate({ email, password, profile, name });
@@ -81,15 +87,17 @@ const UpdateUserService = async ({
   });
 
   await user.$set("queues", queueIds);
-  await user.$set("groups", groupIds);
+  await user.$set("groups", groupIds, { through: { tenantId: requestUser.tenantId } });
+  await user.$set("permissions", finalPermissionIds, { through: { tenantId: requestUser.tenantId } });
 
   // Permissions are now handled via Roles.
   // Superadmin profile check is done via Role assignment elsewhere or pre-seeded.
   // if (profile === "superadmin") { ... } logic removed for now to fix build.
 
-  await user.reload();
+  // await user.reload();
+  const updatedUser = await ShowUserService(userId);
 
-  return SerializeUser(user);
+  return SerializeUser(updatedUser);
 };
 
 export default UpdateUserService;

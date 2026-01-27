@@ -9,6 +9,11 @@ import ListUsersService from "../services/UserServices/ListUsersService";
 import UpdateUserService from "../services/UserServices/UpdateUserService";
 import ShowUserService from "../services/UserServices/ShowUserService";
 import DeleteUserService from "../services/UserServices/DeleteUserService";
+import ToggleUserStatusService from "../services/UserServices/ToggleUserStatusService";
+import ResendWelcomeEmailService from "../services/UserServices/ResendWelcomeEmailService";
+import SendPasswordResetEmailService from "../services/UserServices/SendPasswordResetEmailService";
+import ResetPasswordService from "../services/UserServices/ResetPasswordService";
+import VerifyEmailService from "../services/UserServices/VerifyEmailService";
 
 type IndexQuery = {
   searchParam: string;
@@ -29,7 +34,7 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 };
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
-  const { email, password, name, profile, queueIds, whatsappId, groupIds } = req.body;
+  const { email, password, name, profile, queueIds, whatsappId, groupIds, permissions } = req.body;
 
   if (
     req.url === "/signup" &&
@@ -48,6 +53,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     queueIds,
     whatsappId,
     groupIds,
+    permissions,
     tenantId: req.user?.tenantId || undefined
   });
 
@@ -111,4 +117,86 @@ export const remove = async (
   });
 
   return res.status(200).json({ message: "User deleted" });
+};
+
+export const toggleStatus = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { userId } = req.params;
+
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
+    throw new AppError("ERR_NO_PERMISSION", 403);
+  }
+
+  const user = await ToggleUserStatusService(userId);
+
+  const io = getIO();
+  io.emit("user", {
+    action: "update",
+    user
+  });
+
+  return res.status(200).json(user);
+};
+
+export const resendWelcomeEmail = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { userId } = req.params;
+
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
+    throw new AppError("ERR_NO_PERMISSION", 403);
+  }
+
+  // Use the new service to send a password reset link instead of credentials
+  const user = await ShowUserService(userId);
+  const appUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+
+  await SendPasswordResetEmailService(user.email, appUrl);
+
+  return res.status(200).json({ message: "Email sent successfully" });
+};
+
+export const forgotPassword = async (req: Request, res: Response): Promise<Response> => {
+  const { email } = req.body;
+  const appUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+
+  await SendPasswordResetEmailService(email, appUrl);
+
+  return res.status(200).json({ message: "Email sent successfully" });
+};
+
+export const resetPassword = async (req: Request, res: Response): Promise<Response> => {
+  const { token, password } = req.body;
+
+  await ResetPasswordService({ token, password });
+
+  return res.status(200).json({ message: "Password updated successfully" });
+};
+
+export const verifyEmail = async (req: Request, res: Response): Promise<Response> => {
+  const { token } = req.params;
+  const user = await VerifyEmailService(token);
+  return res.status(200).json(user);
+};
+
+export const manualVerify = async (req: Request, res: Response): Promise<Response> => {
+  const { userId } = req.params;
+
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
+    throw new AppError("ERR_NO_PERMISSION", 403);
+  }
+
+  const user = await ShowUserService(userId);
+  await user.update({ emailVerified: true });
+
+  const io = getIO();
+  io.emit("user", {
+    action: "update",
+    user
+  });
+
+  return res.status(200).json(user);
 };

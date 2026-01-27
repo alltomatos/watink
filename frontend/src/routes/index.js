@@ -37,6 +37,7 @@ import HelpdeskKanban from "../pages/Helpdesk/HelpdeskKanban";
 import HelpdeskTvMode from "../pages/Helpdesk/HelpdeskTvMode";
 import Swagger from "../pages/Swagger/";
 import VersionDashboard from "../pages/VersionDashboard/";
+import TagManager from "../pages/TagManager/";
 import { AuthProvider } from "../context/Auth/AuthContext";
 import { WhatsAppsProvider } from "../context/WhatsApp/WhatsAppsContext";
 import { ThemeProvider } from "../context/DarkMode";
@@ -81,6 +82,7 @@ const PrivateRoutes = () => {
             <Route exact path="/helpdesk/tv" component={HelpdeskTvMode} isPrivate />
             <Route exact path="/helpdesk/:protocolId" component={ProtocolDetails} isPrivate />
             <Route exact path="/versions" component={VersionDashboard} isPrivate />
+            <Route exact path="/tags" component={TagManager} isPrivate />
           </Switch>
         </LoggedInLayout>
       </TicketsProvider>
@@ -89,6 +91,7 @@ const PrivateRoutes = () => {
 };
 
 import PublicProtocol from "../pages/PublicProtocol";
+import ResetPassword from "../pages/ResetPassword/";
 
 const Routes = () => {
   return (
@@ -99,6 +102,7 @@ const Routes = () => {
             <Route exact path="/login" component={Login} />
             <Route exact path="/signup" component={Signup} />
             <Route exact path="/public/protocols/:token" component={PublicProtocol} isPublic />
+            <Route exact path="/reset-password/:token" component={ResetPassword} isPublic />
             <Route path="/" component={PrivateRoutes} isPrivate />
           </Switch>
           <ToastContainer autoClose={3000} />

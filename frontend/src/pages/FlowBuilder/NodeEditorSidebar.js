@@ -95,7 +95,8 @@ const nodeTitles = {
     'api': 'Configurar Requisição API',
     'helpdesk': 'Configurar Helpdesk',
     'end': 'Configurar Fim',
-    'output': 'Configurar Fim'
+    'output': 'Configurar Fim',
+    'tag': 'Configurar Tag'
 };
 
 // Campos disponíveis por tabela para READ
@@ -117,6 +118,7 @@ const NodeEditorSidebar = ({ open, node, onClose, onSave, onDelete }) => {
     const [queues, setQueues] = React.useState([]);
     const [users, setUsers] = React.useState([]);
     const [knowledgeBases, setKnowledgeBases] = React.useState([]);
+    const [tags, setTags] = React.useState([]);
 
     React.useEffect(() => {
         if (node && node.data) {
@@ -125,6 +127,11 @@ const NodeEditorSidebar = ({ open, node, onClose, onSave, onDelete }) => {
     }, [node]);
 
     React.useEffect(() => {
+        if (node && node.type === 'tag') {
+            api.get('/tags')
+                .then(res => setTags(res.data))
+                .catch(err => console.error("Erro ao carregar tags", err));
+        }
         if (node && node.type === 'pipeline') {
             api.get('/pipelines')
                 .then(res => setPipelines(res.data))
@@ -154,6 +161,15 @@ const NodeEditorSidebar = ({ open, node, onClose, onSave, onDelete }) => {
 
     const handleChange = (field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }));
+    };
+
+    const handleTagChange = (tagId) => {
+        const tag = tags.find(t => t.id === tagId);
+        setFormData(prev => ({
+            ...prev,
+            tagId,
+            tagName: tag ? tag.name : ''
+        }));
     };
 
     const handleSave = () => {
@@ -193,10 +209,44 @@ const NodeEditorSidebar = ({ open, node, onClose, onSave, onDelete }) => {
             case 'end':
             case 'output':
                 return renderEndForm();
+            case 'tag':
+                return renderTagForm();
             default:
                 return <Typography>Tipo de nó desconhecido</Typography>;
         }
     };
+
+    const renderTagForm = () => (
+        <>
+            <FormControl fullWidth className={classes.field} variant="outlined" size="small">
+                <InputLabel>Ação</InputLabel>
+                <Select
+                    value={formData.tagAction || 'add'}
+                    onChange={(e) => handleChange('tagAction', e.target.value)}
+                    label="Ação"
+                >
+                    <MenuItem value="add">Adicionar Tag</MenuItem>
+                    <MenuItem value="remove">Remover Tag</MenuItem>
+                </Select>
+            </FormControl>
+
+            <FormControl fullWidth className={classes.field} variant="outlined" size="small">
+                <InputLabel>Tag</InputLabel>
+                <Select
+                    value={formData.tagId || ''}
+                    onChange={(e) => handleTagChange(e.target.value)}
+                    label="Tag"
+                >
+                    {tags.map(t => (
+                        <MenuItem key={t.id} value={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: t.color || '#ccc' }}></div>
+                            {t.name}
+                        </MenuItem>
+                    ))}
+                </Select>
+            </FormControl>
+        </>
+    );
 
     const renderStartForm = () => (
         <>

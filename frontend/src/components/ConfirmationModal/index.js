@@ -8,7 +8,7 @@ import Typography from "@material-ui/core/Typography";
 
 import { i18n } from "../../translate/i18n";
 
-const ConfirmationModal = ({ title, children, open, onClose, onConfirm }) => {
+const ConfirmationModal = ({ title, children, open, onClose, onConfirm, confirmDisabled }) => {
 	return (
 		<Dialog
 			open={open}
@@ -34,6 +34,7 @@ const ConfirmationModal = ({ title, children, open, onClose, onConfirm }) => {
 						onConfirm();
 					}}
 					color="secondary"
+					disabled={confirmDisabled}
 				>
 					{i18n.t("confirmationModal.buttons.confirm")}
 				</Button>

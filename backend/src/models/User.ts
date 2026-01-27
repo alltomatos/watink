@@ -27,6 +27,8 @@ import Role from "./Role";
 import UserRole from "./UserRole";
 import UserGroup from "./UserGroup";
 import Contact from "./Contact";
+import Permission from "./Permission";
+import UserPermission from "./UserPermission";
 
 @Table
 class User extends Model<User> {
@@ -116,6 +118,9 @@ class User extends Model<User> {
 
   @BelongsToMany(() => Role, () => UserRole)
   roles: Role[];
+
+  @BelongsToMany(() => Permission, () => UserPermission)
+  permissions: Permission[];
 
   @BeforeUpdate
   @BeforeCreate

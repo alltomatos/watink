@@ -4,11 +4,9 @@ import {
     CreatedAt,
     UpdatedAt,
     Model,
-    DataType,
     ForeignKey,
     PrimaryKey,
-    AutoIncrement,
-    BelongsTo
+    AutoIncrement
 } from "sequelize-typescript";
 import User from "./User";
 import Permission from "./Permission";
@@ -30,11 +28,8 @@ class UserPermission extends Model<UserPermission> {
     permissionId: number;
 
     @ForeignKey(() => Tenant)
-    @Column(DataType.UUID)
-    tenantId: number | string;
-
-    @BelongsTo(() => Tenant)
-    tenant: Tenant;
+    @Column
+    tenantId: number;
 
     @CreatedAt
     createdAt: Date;

@@ -59,8 +59,10 @@ import {
 
     Send,
     VerifiedUser,
-
+    Search
 } from "@material-ui/icons";
+import Switch from "@material-ui/core/Switch";
+import InputBase from "@material-ui/core/InputBase";
 
 import MainContainer from "../../components/MainContainer";
 import api from "../../services/api";
@@ -227,16 +229,31 @@ const useStyles = makeStyles((theme) => ({
         textTransform: "none",
         fontWeight: 500,
     },
+    searchContainer: {
+        display: "flex",
+        alignItems: "center",
+        backgroundColor: theme.palette.background.default,
+        borderRadius: 12,
+        padding: "8px 16px",
+        marginBottom: theme.spacing(2),
+        border: `1px solid ${theme.palette.divider}`,
+        transition: "all 0.2s ease",
+        "&:focus-within": {
+            borderColor: theme.palette.primary.main,
+            boxShadow: `0 0 0 2px ${theme.palette.primary.main}20`,
+        },
+    },
+    searchInput: {
+        marginLeft: theme.spacing(1),
+        flex: 1,
+        fontSize: "0.95rem",
+    },
+    searchIcon: {
+        color: theme.palette.text.secondary,
+    },
 }));
 
-const UserSchema = Yup.object().shape({
-    name: Yup.string()
-        .min(2, "Too Short!")
-        .max(50, "Too Long!")
-        .required("Required"),
-    password: Yup.string().min(5, "Too Short!").max(50, "Too Long!"),
-    email: Yup.string().email("Invalid email").required("Required"),
-});
+
 
 const categoryIcons = {
     "Contatos": ContactMail,
@@ -276,6 +293,20 @@ const UserEdit = () => {
     const { user: loggedInUser } = useContext(AuthContext);
     const { loading: loadingWhats, whatsApps } = useWhatsApps();
 
+    const UserSchema = Yup.object().shape({
+        name: Yup.string()
+            .min(2, "Too Short!")
+            .max(50, "Too Long!")
+            .required("Required"),
+        password: Yup.string()
+            .min(5, "Too Short!")
+            .max(50, "Too Long!")
+            .test("password-required", "Required", function (value) {
+                return !isNew || (isNew && !!value);
+            }),
+        email: Yup.string().email("Invalid email").required("Required"),
+    });
+
     const [user, setUser] = useState(initialState);
     const [loading, setLoading] = useState(!isNew);
     const [saving, setSaving] = useState(false);
@@ -293,6 +324,7 @@ const UserEdit = () => {
     const [selectedQueueIds, setSelectedQueueIds] = useState([]);
     const [whatsappId, setWhatsappId] = useState("");
     const [selectedPermissions, setSelectedPermissions] = useState([]);
+    const [searchParam, setSearchParam] = useState("");
 
     const [expandedCategories, setExpandedCategories] = useState({});
 
@@ -319,18 +351,20 @@ const UserEdit = () => {
         const grouped = {};
 
         permissions.forEach(permission => {
+            const permName = permission.name || permission.resource;
+            if (!permission || !permName) return;
             let category = "Outros";
             for (const [key, label] of Object.entries(categories)) {
-                if (permission.name && (permission.name.includes(key) || permission.name.includes(key.replace("es", "")))) {
+                if (permName.includes(key) || permName.includes(key.replace("es", ""))) {
                     category = label;
-                    if (permission.name.includes("admin_queues")) category = "Filas";
-                    if (permission.name.includes("admin_settings")) category = "Configurações";
+                    if (permName.includes("admin_queues")) category = "Filas";
+                    if (permName.includes("admin_settings")) category = "Configurações";
                     break;
                 }
             }
 
-            if (permission.name.includes("admin_queues")) category = "Filas";
-            if (permission.name.includes("admin_settings")) category = "Configurações";
+            if (permName.includes("admin_queues")) category = "Filas";
+            if (permName.includes("admin_settings")) category = "Configurações";
 
             if (!grouped[category]) {
                 grouped[category] = [];
@@ -480,7 +514,12 @@ const UserEdit = () => {
         }
     };
 
-    const groupedPermissions = categorizePermissions(allPermissions);
+    const filteredPermissions = allPermissions.filter(p =>
+        ((p.name || p.resource) && (p.name || p.resource).toLowerCase().includes(searchParam.toLowerCase())) ||
+        (p.description && p.description.toLowerCase().includes(searchParam.toLowerCase()))
+    );
+
+    const groupedPermissions = categorizePermissions(filteredPermissions);
 
     if (loading) {
         return (
@@ -527,16 +566,6 @@ const UserEdit = () => {
                                     <div className={classes.headerButtons}>
                                         {!isNew && (
                                             <>
-                                                <Button
-                                                    variant="outlined"
-                                                    color={user.enabled ? "secondary" : "primary"}
-                                                    startIcon={togglingStatus ? <CircularProgress size={18} /> : (user.enabled ? <Block /> : <CheckCircle />)}
-                                                    className={classes.actionButton}
-                                                    onClick={handleToggleStatus}
-                                                    disabled={togglingStatus || saving}
-                                                >
-                                                    {user.enabled ? i18n.t("userModal.buttons.deactivate") : i18n.t("userModal.buttons.activate")}
-                                                </Button>
                                                 <Button
                                                     variant="outlined"
                                                     color="primary"
@@ -783,13 +812,22 @@ const UserEdit = () => {
                                                 perform="user-modal:editProfile"
                                                 yes={() => (
                                                     <div className={classes.permissionsContainer}>
+                                                        <div className={classes.searchContainer}>
+                                                            <Search className={classes.searchIcon} />
+                                                            <InputBase
+                                                                className={classes.searchInput}
+                                                                placeholder="Buscar permissões..."
+                                                                value={searchParam}
+                                                                onChange={(e) => setSearchParam(e.target.value)}
+                                                            />
+                                                        </div>
+
                                                         {Object.entries(groupedPermissions).map(([category, permissions]) => {
                                                             const CategoryIcon = categoryIcons[category] || Settings;
                                                             const selectedCount = permissions.filter(p =>
                                                                 selectedPermissions.includes(p.id)
                                                             ).length;
                                                             const isAllSelected = selectedCount === permissions.length;
-                                                            const isPartialSelected = selectedCount > 0 && selectedCount < permissions.length;
 
                                                             return (
                                                                 <div key={category} className={classes.categorySection}>
@@ -798,16 +836,15 @@ const UserEdit = () => {
                                                                         onClick={() => handleCategoryToggle(category)}
                                                                     >
                                                                         <div className={classes.categoryHeaderLeft}>
-                                                                            <Checkbox
+                                                                            <Switch
                                                                                 checked={isAllSelected}
-                                                                                indeterminate={isPartialSelected}
                                                                                 onClick={(e) => {
                                                                                     e.stopPropagation();
                                                                                     handleSelectAllCategory(permissions, isAllSelected);
                                                                                 }}
                                                                                 color="primary"
                                                                                 size="small"
-                                                                                className={classes.permissionCheckbox}
+                                                                                inputProps={{ 'aria-label': 'secondary checkbox' }}
                                                                             />
                                                                             <CategoryIcon className={classes.categoryIcon} />
                                                                             <Typography className={classes.categoryName}>
@@ -831,17 +868,16 @@ const UserEdit = () => {
                                                                                     <Grid item xs={12} sm={6} key={permission.id}>
                                                                                         <FormControlLabel
                                                                                             control={
-                                                                                                <Checkbox
+                                                                                                <Switch
                                                                                                     checked={selectedPermissions.includes(permission.id)}
                                                                                                     onChange={() => handlePermissionChange(permission.id)}
                                                                                                     color="primary"
                                                                                                     size="small"
-                                                                                                    className={classes.permissionCheckbox}
                                                                                                 />
                                                                                             }
                                                                                             label={
                                                                                                 <Typography className={classes.permissionLabel}>
-                                                                                                    {permission.description || permission.name}
+                                                                                                    {permission.description || permission.name || permission.resource}
                                                                                                 </Typography>
                                                                                             }
                                                                                             className={classes.permissionItem}

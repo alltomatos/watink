@@ -49,6 +49,7 @@ import toastError from "../../errors/toastError";
 import { i18n } from "../../translate/i18n";
 import { WhatsAppsContext } from "../../context/WhatsApp/WhatsAppsContext";
 import { getBackendUrl } from "../../helpers/urlUtils";
+import TagChip from "../../components/TagChip";
 
 const useStyles = makeStyles(theme => ({
 	mainPaper: {
@@ -384,6 +385,13 @@ const Connections = () => {
 															<Typography variant="body2" color="textSecondary" style={{ marginTop: 4 }}>
 																+{whatsApp.number}
 															</Typography>
+														)}
+														{whatsApp.tags?.length > 0 && (
+															<Box mt={1} display="flex" flexWrap="wrap" gap={0.5}>
+																{whatsApp.tags.map(tag => (
+																	<TagChip key={tag.id} tag={tag} size="small" />
+																))}
+															</Box>
 														)}
 													</Box>
 												}

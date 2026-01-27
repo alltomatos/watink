@@ -7,6 +7,7 @@ import RabbitMQService from "./services/RabbitMQService";
 import { StartAllWhatsAppsSessions } from "./services/WbotServices/StartAllWhatsAppsSessions";
 import { CommandListener } from "./services/WbotServices/CommandListener";
 import FlowWorkerService from "./services/FlowServices/FlowWorkerService";
+import { TenantProvisioningWorker } from "./services/SaasServices/TenantProvisioningWorker";
 
 const startServer = async () => {
   await RabbitMQService.connect();
@@ -21,6 +22,9 @@ const startServer = async () => {
 
   // Initialize Flow Engine Worker (Consumer)
   await FlowWorkerService.start();
+
+  // Initialize SaaS Tenant Provisioning Worker
+  await TenantProvisioningWorker();
 
   StartAllWhatsAppsSessions().catch(err => {
     logger.error(`Error starting WhatsApp sessions: ${err}`);

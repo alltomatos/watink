@@ -34,6 +34,7 @@ interface TicketData {
   status: string;
   queueId: number;
   userId: number;
+  tags?: number[];
 }
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
@@ -65,7 +66,8 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     userId,
     queueIds,
     withUnreadMessages,
-    isGroup
+    isGroup,
+    tenantId: req.user.tenantId
   });
 
   return res.status(200).json({ tickets, count, hasMore });

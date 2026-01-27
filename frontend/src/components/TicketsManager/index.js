@@ -18,6 +18,7 @@ import { AuthContext } from "../../context/Auth/AuthContext";
 import { useTicketsContext } from "../../context/Tickets/TicketsContext";
 import { Can } from "../Can";
 import TicketsQueueSelect from "../TicketsQueueSelect";
+import TicketsTagFilter from "../TicketsTagFilter";
 import { Button, Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress, Checkbox, Typography } from "@material-ui/core";
 import { toast } from "react-toastify";
 import api from "../../services/api";
@@ -103,6 +104,7 @@ const TicketsManager = () => {
   const [groupsCount, setGroupsCount] = useState(0);
   const userQueueIds = user.queues.map((q) => q.id);
   const [selectedQueueIds, setSelectedQueueIds] = useState(userQueueIds || []);
+  const [selectedTags, setSelectedTags] = useState([]);
   const [closeAllModalOpen, setCloseAllModalOpen] = useState(false);
   const [closeAllLoading, setCloseAllLoading] = useState(false);
   const [closeAllOptions, setCloseAllOptions] = useState({
@@ -278,6 +280,10 @@ const TicketsManager = () => {
           userQueues={user?.queues}
           onChange={(values) => setSelectedQueueIds(values)}
         />
+        <TicketsTagFilter
+          selectedTags={selectedTags}
+          onChange={(values) => setSelectedTags(values)}
+        />
       </Paper>
       <TabPanel value={tab} name="open" className={classes.ticketsWrapper}>
         <Tabs
@@ -332,6 +338,7 @@ const TicketsManager = () => {
             updateCount={(val) => setOpenCount(val)}
             style={applyPanelStyle("open")}
             isGroup="false"
+            tags={selectedTags}
           />
           <TicketsList
             status="pending"
@@ -339,6 +346,7 @@ const TicketsManager = () => {
             updateCount={(val) => setPendingCount(val)}
             style={applyPanelStyle("pending")}
             isGroup="false"
+            tags={selectedTags}
           />
           <TicketsList
             showAll={showAllTickets}
@@ -346,6 +354,7 @@ const TicketsManager = () => {
             updateCount={(val) => setGroupsCount(val)}
             isGroup="true"
             style={applyPanelStyle("groups")}
+            tags={selectedTags}
           />
         </Paper>
       </TabPanel>
@@ -354,6 +363,7 @@ const TicketsManager = () => {
           status="closed"
           showAll={true}
           selectedQueueIds={selectedQueueIds}
+          tags={selectedTags}
         />
       </TabPanel>
       <TabPanel value={tab} name="search" className={classes.ticketsWrapper}>
@@ -361,6 +371,7 @@ const TicketsManager = () => {
           searchParam={searchParam}
           showAll={true}
           selectedQueueIds={selectedQueueIds}
+          tags={selectedTags}
         />
       </TabPanel>
 

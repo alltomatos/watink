@@ -18,6 +18,7 @@ import api from "../../services/api";
 import ButtonWithSpinner from "../ButtonWithSpinner";
 import ContactModal from "../ContactModal";
 import toastError from "../../errors/toastError";
+import TagPicker from "../TagPicker";
 import { AuthContext } from "../../context/Auth/AuthContext";
 
 const filter = createFilterOptions({
@@ -33,6 +34,7 @@ const NewTicketModal = ({ modalOpen, onClose }) => {
 	const [selectedContact, setSelectedContact] = useState(null);
 	const [newContact, setNewContact] = useState({});
 	const [contactModalOpen, setContactModalOpen] = useState(false);
+	const [tags, setTags] = useState([]);
 	const { user } = useContext(AuthContext);
 
 	useEffect(() => {
@@ -74,6 +76,7 @@ const NewTicketModal = ({ modalOpen, onClose }) => {
 				contactId: contactId,
 				userId: user.id,
 				status: "open",
+				tags: tags
 			});
 			history.push(`/tickets/${ticket.id}`);
 		} catch (err) {
@@ -180,6 +183,13 @@ const NewTicketModal = ({ modalOpen, onClose }) => {
 							/>
 						)}
 					/>
+					<div style={{ marginTop: 15 }}>
+						<TagPicker
+							selectedTags={tags}
+							onChange={setTags}
+							placeholder="Selecione as tags"
+						/>
+					</div>
 				</DialogContent>
 				<DialogActions>
 					<Button

@@ -25,7 +25,7 @@ import { i18n } from "../../translate/i18n";
 
 import { AuthContext } from "../../context/Auth/AuthContext";
 import api from "../../services/api";
-import { getBackendUrl } from "../../config";
+import { getBackendUrl } from "../../helpers/urlUtils";
 
 // const Copyright = () => {
 // 	return (
@@ -99,8 +99,8 @@ const Login = () => {
 
         setSettings({
           loginLayout: layoutSetting?.value || "split_left",
-          loginBackground: bgSetting?.value ? `${getBackendUrl()}${bgSetting.value.startsWith('/') ? bgSetting.value.slice(1) : bgSetting.value}` : "/login-background.png",
-          systemLogo: logoSetting?.value ? `${getBackendUrl()}${logoSetting.value.startsWith('/') ? logoSetting.value.slice(1) : logoSetting.value}` : "/logo.png",
+          loginBackground: bgSetting?.value ? getBackendUrl(bgSetting.value) : "/login-background.png",
+          systemLogo: logoSetting?.value ? getBackendUrl(logoSetting.value) : "/logo.png",
           userCreation: userCreationSetting?.value || "enabled",
         });
       } catch (err) {

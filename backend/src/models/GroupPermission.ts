@@ -4,11 +4,10 @@ import {
     CreatedAt,
     UpdatedAt,
     Model,
-    DataType,
     ForeignKey,
     PrimaryKey,
     AutoIncrement,
-    BelongsTo
+    DataType
 } from "sequelize-typescript";
 import Group from "./Group";
 import Permission from "./Permission";
@@ -32,9 +31,6 @@ class GroupPermission extends Model<GroupPermission> {
     @ForeignKey(() => Tenant)
     @Column(DataType.UUID)
     tenantId: number | string;
-
-    @BelongsTo(() => Tenant)
-    tenant: Tenant;
 
     @CreatedAt
     createdAt: Date;

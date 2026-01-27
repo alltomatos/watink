@@ -294,6 +294,7 @@ const messages = {
           clients: "Clients",
           helpdesk: "Helpdesk",
           queues: "Queues",
+          tags: "Tags",
           administration: "Administration",
           groups: "Groups",
           users: "Users",

@@ -5,6 +5,7 @@ import AppError from "../../errors/AppError";
 import { SerializeUser } from "../../helpers/SerializeUser";
 import User from "../../models/User";
 import Permission from "../../models/Permission";
+import ShowUserService from "./ShowUserService";
 
 interface Request {
   email: string;
@@ -14,6 +15,8 @@ interface Request {
   profile?: string;
   whatsappId?: number;
   groupIds?: number[];
+  permissionIds?: number[];
+  permissions?: number[];
   tenantId?: number | string;
 }
 
@@ -42,8 +45,11 @@ const CreateUserService = async ({
   profile = "admin",
   whatsappId,
   groupIds = [],
+  permissionIds = [],
+  permissions = [],
   tenantId
 }: Request): Promise<Response> => {
+  const finalPermissionIds = permissionIds.length > 0 ? permissionIds : permissions;
   const schema = Yup.object().shape({
     name: Yup.string().required().min(2),
     email: Yup.string()
@@ -137,7 +143,8 @@ const CreateUserService = async ({
     // await user.$set("permissions", allPermissions);
   } else {
     await user.$set("queues", queueIds);
-    await user.$set("groups", groupIds);
+    await user.$set("groups", groupIds, { through: { tenantId } });
+    await user.$set("permissions", finalPermissionIds, { through: { tenantId } });
   }
 
   // Send Verification Email (Async)
@@ -150,9 +157,10 @@ const CreateUserService = async ({
     }
   }
 
-  await user.reload();
+  // await user.reload();
+  const createdUser = await ShowUserService(user.id);
 
-  return SerializeUser(user);
+  return SerializeUser(createdUser);
 };
 
 

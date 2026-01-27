@@ -215,6 +215,7 @@ const Groups = () => {
                         <TableHead>
                             <TableRow>
                                 <TableCell align="center">{i18n.t("groups.table.name")}</TableCell>
+                                <TableCell align="center">{i18n.t("groups.table.permissions")}</TableCell>
                                 <TableCell align="center">{i18n.t("groups.table.actions")}</TableCell>
                             </TableRow>
                         </TableHead>
@@ -223,6 +224,9 @@ const Groups = () => {
                                 {groups.map((group) => (
                                     <TableRow key={group.id}>
                                         <TableCell align="center">{group.name}</TableCell>
+                                        <TableCell align="center">
+                                            {group.permissions?.length || 0}
+                                        </TableCell>
                                         <TableCell align="center">
                                             <IconButton
                                                 size="small"

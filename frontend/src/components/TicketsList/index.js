@@ -153,7 +153,7 @@ const reducer = (state, action) => {
 };
 
 const TicketsList = (props) => {
-	const { status, searchParam, showAll, selectedQueueIds, updateCount, style, isGroup } =
+	const { status, searchParam, showAll, selectedQueueIds, updateCount, style, isGroup, tags } =
 		props;
 	const classes = useStyles();
 	const [pageNumber, setPageNumber] = useState(1);
@@ -163,7 +163,7 @@ const TicketsList = (props) => {
 	useEffect(() => {
 		dispatch({ type: "RESET" });
 		setPageNumber(1);
-	}, [status, searchParam, dispatch, showAll, selectedQueueIds, isGroup]);
+	}, [status, searchParam, dispatch, showAll, selectedQueueIds, isGroup, tags]);
 
 	const { tickets, hasMore, loading } = useTickets({
 		pageNumber,
@@ -171,16 +171,17 @@ const TicketsList = (props) => {
 		status,
 		showAll,
 		queueIds: JSON.stringify(selectedQueueIds),
-		isGroup
+		isGroup,
+		tags
 	});
 
 	useEffect(() => {
-		if (!status && !searchParam && !isGroup) return;
+		if (!status && !searchParam && !isGroup && (!tags || tags.length === 0)) return;
 		dispatch({
 			type: "LOAD_TICKETS",
 			payload: tickets,
 		});
-	}, [tickets, status, searchParam, isGroup]);
+	}, [tickets, status, searchParam, isGroup, tags]);
 
 	useEffect(() => {
 		const socket = openSocket();
@@ -254,7 +255,7 @@ const TicketsList = (props) => {
 		return () => {
 			socket.disconnect();
 		};
-	}, [status, searchParam, showAll, user, selectedQueueIds, isGroup]);
+	}, [status, searchParam, showAll, user, selectedQueueIds, isGroup, tags]);
 
 	// Apply filter consistently for Render AND Count
 	const filteredTickets = ticketsList.filter(ticket => {

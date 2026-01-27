@@ -23,6 +23,7 @@ interface WhatsappData {
   keepAlive?: boolean;
   type?: string;
   chatConfig?: any;
+  tags?: number[];
 }
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
@@ -44,7 +45,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     syncPeriod,
     keepAlive,
     type,
-    chatConfig
+    chatConfig,
+    tags
   }: WhatsappData = req.body;
 
   const { tenantId } = (req as any).user;
@@ -78,7 +80,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     keepAlive,
     tenantId,
     type,
-    chatConfig
+    chatConfig,
+    tags
   });
 
   // StartWhatsAppSession(whatsapp); // [REMOVED] Manual connect only

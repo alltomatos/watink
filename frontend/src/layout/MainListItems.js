@@ -24,6 +24,7 @@ import DeviceHubIcon from "@material-ui/icons/DeviceHub";
 import LibraryBooksIcon from "@material-ui/icons/LibraryBooks";
 import PersonOutlineIcon from "@material-ui/icons/PersonOutline";
 import HeadsetMicIcon from "@material-ui/icons/HeadsetMic";
+import LocalOfferIcon from "@material-ui/icons/LocalOffer";
 
 import { i18n } from "../translate/i18n";
 import { WhatsAppsContext } from "../context/WhatsApp/WhatsAppsContext";
@@ -223,6 +224,20 @@ const MainListItems = (props) => {
           {i18n.t("mainDrawer.listItems.administration")}
         </ListSubheader>
       )}
+
+      <Can
+        user={user}
+        perform="tags:view"
+        yes={() => (
+          <ListItemLink
+            to="/tags"
+            primary={i18n.t("mainDrawer.listItems.tags")}
+            icon={<LocalOfferIcon />}
+            iconColor={googleColors.purple}
+            collapsed={collapsed}
+          />
+        )}
+      />
 
       <Can
         user={user}
