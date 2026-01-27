@@ -56,6 +56,38 @@ const ShowUserService = async (id: string | number): Promise<User> => {
     (userJson as any).groupId = user.groups[0].id;
   }
 
+  // Flatten permissions for the frontend/mobile app
+  const permissions = new Set<string>();
+
+  // 1. Direct Permissions
+  user.permissions?.forEach(p => {
+    if (p.resource && p.action) {
+      permissions.add(`${p.resource}:${p.action}`);
+    }
+  });
+
+  // 2. Role Permissions
+  user.roles?.forEach(role => {
+    role.permissions?.forEach(p => {
+      if (p.resource && p.action) {
+        permissions.add(`${p.resource}:${p.action}`);
+      }
+    });
+  });
+
+  // 3. Group Role Permissions
+  user.groups?.forEach(group => {
+    group.roles?.forEach(role => {
+      role.permissions?.forEach(p => {
+        if (p.resource && p.action) {
+          permissions.add(`${p.resource}:${p.action}`);
+        }
+      });
+    });
+  });
+
+  (userJson as any).permissions = Array.from(permissions);
+
   return userJson as User;
 };
 

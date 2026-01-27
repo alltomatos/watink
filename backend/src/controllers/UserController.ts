@@ -3,6 +3,7 @@ import { getIO } from "../libs/socket";
 
 import CheckSettingsHelper from "../helpers/CheckSettings";
 import AppError from "../errors/AppError";
+import User from "../models/User";
 
 import CreateUserService from "../services/UserServices/CreateUserService";
 import ListUsersService from "../services/UserServices/ListUsersService";
@@ -14,6 +15,7 @@ import ResendWelcomeEmailService from "../services/UserServices/ResendWelcomeEma
 import SendPasswordResetEmailService from "../services/UserServices/SendPasswordResetEmailService";
 import ResetPasswordService from "../services/UserServices/ResetPasswordService";
 import VerifyEmailService from "../services/UserServices/VerifyEmailService";
+import CompleteRegistrationService from "../services/UserServices/CompleteRegistrationService";
 
 type IndexQuery = {
   searchParam: string;
@@ -183,6 +185,12 @@ export const verifyEmail = async (req: Request, res: Response): Promise<Response
   return res.status(200).json(user);
 };
 
+export const completeRegistration = async (req: Request, res: Response): Promise<Response> => {
+  const { token, password } = req.body;
+  const user = await CompleteRegistrationService({ token, password });
+  return res.status(200).json(user);
+};
+
 export const manualVerify = async (req: Request, res: Response): Promise<Response> => {
   const { userId } = req.params;
 
@@ -190,7 +198,11 @@ export const manualVerify = async (req: Request, res: Response): Promise<Respons
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
 
-  const user = await ShowUserService(userId);
+  const user = await User.findByPk(userId);
+  if (!user) {
+    throw new AppError("ERR_NO_USER_FOUND", 404);
+  }
+
   await user.update({ emailVerified: true });
 
   const io = getIO();

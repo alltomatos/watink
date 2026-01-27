@@ -91,5 +91,6 @@ authRoutes.delete("/logout", isAuth, SessionController.remove);
 
 authRoutes.post("/forgot-password", UserController.forgotPassword);
 authRoutes.post("/reset-password", UserController.resetPassword);
+authRoutes.post("/complete-registration", UserController.completeRegistration);
 
 export default authRoutes;
