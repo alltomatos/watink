@@ -14,7 +14,7 @@ services:
       - JWT_SECRET=3123123213123
       - JWT_REFRESH_SECRET=75756756756
       - FRONTEND_URL=${FRONTEND_URL:-http://app.localhost}
-      - URL_BACKEND=${BACKEND_API_URL:-http://api.localhost}
+      - URL_BACKEND=${URL_BACKEND:-http://api.localhost}
       - PORT=8080
       - NODE_OPTIONS=--max-old-space-size=800
       - DEFAULT_TENANT_UUID=550e8400-e29b-41d4-a716-446655440000
@@ -45,13 +45,13 @@ services:
         - "traefik.http.routers.backend-root.entrypoints=web"
         - "traefik.http.routers.backend-root.service=backend"
         - "traefik.http.services.backend.loadbalancer.server.port=8080"
-        - "traefik.docker.network=watink_watink_proxy"
+        - "traefik.docker.network=${TRAEFIK_NETWORK:-watink_watink_proxy}"
 
   frontend:
     image: watink/frontend:latest
     environment:
       - URL_BACKEND=backend:8080
-      - VITE_BACKEND_URL=${BACKEND_API_URL:-http://api.localhost/}
+      - VITE_BACKEND_URL=${URL_BACKEND:-http://api.localhost/}
       - VITE_PLUGIN_MANAGER_URL=/plugins/
       - VITE_HOURS_CLOSE_TICKETS_AUTO=24
 
@@ -68,7 +68,7 @@ services:
         - "traefik.http.routers.frontend.entrypoints=web"
         - "traefik.http.routers.frontend.service=frontend"
         - "traefik.http.services.frontend.loadbalancer.server.port=80"
-        - "traefik.docker.network=watink_watink_proxy"
+        - "traefik.docker.network=${TRAEFIK_NETWORK:-watink_watink_proxy}"
 
   traefik:
     image: traefik:v3.4.0
@@ -77,7 +77,7 @@ services:
       - "--providers.swarm=true"
       - "--providers.docker.endpoint=unix:///var/run/docker.sock"
       - "--providers.docker.exposedbydefault=false"
-      - "--providers.docker.network=watink_watink_proxy"
+      - "--providers.docker.network=${TRAEFIK_NETWORK:-watink_watink_proxy}"
       - "--entrypoints.web.address=:80"
     volumes:
       - "vol_certificates:/etc/traefik/letsencrypt"
@@ -210,8 +210,8 @@ services:
 
 networks:
   watink_proxy:
-    driver: overlay
-    name: watink_watink_proxy
+    external: true
+    name: ${TRAEFIK_NETWORK:-watink_watink_proxy}
   watink_network:
     driver: overlay
     name: watink_network
