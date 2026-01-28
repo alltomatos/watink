@@ -1,0 +1,133 @@
+version: '3.8'
+
+services:
+  backend:
+    image: watink/backend:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_DIALECT=postgres
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASS=postgres
+      - DB_NAME=watink
+      - AMQP_URL=amqp://guest:guest@rabbitmq:5672
+      - JWT_SECRET=3123123213123
+      - JWT_REFRESH_SECRET=75756756756
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - URL_BACKEND=${BACKEND_API_URL:-http://localhost:8080}
+      - PORT=8080
+      - NODE_OPTIONS=--max-old-space-size=800
+      - DEFAULT_TENANT_UUID=550e8400-e29b-41d4-a716-446655440000
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ./backend/public:/app/public
+    networks:
+      - watink_network
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+
+  frontend:
+    image: watink/frontend:latest
+    ports:
+      - "3000:80"
+    environment:
+      - URL_BACKEND=backend:8080
+      - VITE_BACKEND_URL=${BACKEND_API_URL:-http://localhost:8080/}
+      - VITE_PLUGIN_MANAGER_URL=/plugins/
+      - VITE_HOURS_CLOSE_TICKETS_AUTO=24
+    networks:
+      - watink_network
+    depends_on:
+      - backend
+
+  whaileys-engine:
+    image: watink/engine:latest
+    environment:
+      - AMQP_URL=amqp://guest:guest@rabbitmq:5672
+      - REDIS_URL=redis://redis:6379
+      - DB_DIALECT=postgres
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASS=postgres
+      - DB_NAME=watink
+    networks:
+      - watink_network
+    depends_on:
+      - rabbitmq
+      - redis
+      - postgres
+
+  flow-worker:
+    image: watink/backend:latest
+    command: [ "node", "dist/flow-worker.js" ]
+    environment:
+      - DB_DIALECT=postgres
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASS=postgres
+      - DB_NAME=watink
+      - AMQP_URL=amqp://guest:guest@rabbitmq:5672
+      - REDIS_URL=redis://redis:6379
+      - DEFAULT_TENANT_UUID=550e8400-e29b-41d4-a716-446655440000
+    networks:
+      - watink_network
+    depends_on:
+      - postgres
+      - rabbitmq
+      - redis
+
+  watink-guard:
+    image: watink/guard:latest
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/watink
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - WATINK_MASTER_KEY=${WATINK_MASTER_KEY:-change_me_in_production}
+    networks:
+      - watink_network
+    depends_on:
+      - postgres
+      - rabbitmq
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    networks:
+      - watink_network
+
+  redis:
+    image: redis:alpine
+    command: [ "redis-server", "--appendonly", "yes" ]
+    ports:
+      - "6379:6379"
+    networks:
+      - watink_network
+    volumes:
+      - redis_data:/data
+
+  postgres:
+    image: ronaldodavi/pgvectorgis:latest
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=watink
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - watink_network
+
+networks:
+  watink_network:
+    driver: bridge
+
+volumes:
+  db_data:
+  redis_data:

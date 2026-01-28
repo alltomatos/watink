@@ -10,6 +10,20 @@ O **Watink** é uma solução completa e robusta projetada para transformar a co
 
 ---
 
+## 🚀 Quick Start (Instalação Rápida)
+
+Para rodar o projeto localmente de forma simplificada, utilize o script automático:
+
+1.  Execute o arquivo `start.bat` na raiz do projeto.
+2.  Escolha o modo de inicialização (Normal ou Limpo).
+3.  Aguarde os containers subirem.
+
+### 🔑 Credenciais Padrão (Super Admin)
+*   **Email**: `admin@admin.com`
+*   **Senha**: `devadmin`
+
+---
+
 ## 🔥 Diferenciais Técnicos e Funcionalidades
 
 O Watink OpenCore entrega nativamente tudo o que é essencial para uma operação de alto nível:
