@@ -13,8 +13,8 @@ services:
       - AMQP_URL=amqp://guest:guest@rabbitmq:5672
       - JWT_SECRET=3123123213123
       - JWT_REFRESH_SECRET=75756756756
-      - FRONTEND_URL=${FRONTEND_URL:-http://app.localhost}
-      - URL_BACKEND=${URL_BACKEND:-http://api.localhost}
+      - FRONTEND_URL=${FRONTEND_URL:-http://app.meudominio.com}
+      - URL_BACKEND=${URL_BACKEND:-http://api.meudominio.com}
       - PORT=8080
       - NODE_OPTIONS=--max-old-space-size=800
       - DEFAULT_TENANT_UUID=550e8400-e29b-41d4-a716-446655440000
@@ -36,12 +36,12 @@ services:
           memory: 1024M
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.backend-api.rule=Host(`${DOMAIN_BACKEND:-api.localhost}`) && PathPrefix(`/api`)"
+        - "traefik.http.routers.backend-api.rule=Host(`${DOMAIN_BACKEND:-api.meudominio.com}`) && PathPrefix(`/api`)"
         - "traefik.http.routers.backend-api.entrypoints=web"
         - "traefik.http.routers.backend-api.middlewares=backend-strip"
         - "traefik.http.middlewares.backend-strip.stripprefix.prefixes=/api"
         - "traefik.http.routers.backend-api.service=backend"
-        - "traefik.http.routers.backend-root.rule=Host(`${DOMAIN_BACKEND:-api.localhost}`)"
+        - "traefik.http.routers.backend-root.rule=Host(`${DOMAIN_BACKEND:-api.meudominio.com}`)"
         - "traefik.http.routers.backend-root.entrypoints=web"
         - "traefik.http.routers.backend-root.service=backend"
         - "traefik.http.services.backend.loadbalancer.server.port=8080"
@@ -51,7 +51,7 @@ services:
     image: watink/frontend:latest
     environment:
       - URL_BACKEND=backend:8080
-      - VITE_BACKEND_URL=${URL_BACKEND:-http://api.localhost/}
+      - VITE_BACKEND_URL=${URL_BACKEND:-http://api.meudominio.com/}
       - VITE_PLUGIN_MANAGER_URL=/plugins/
       - VITE_HOURS_CLOSE_TICKETS_AUTO=24
 
@@ -64,7 +64,7 @@ services:
       replicas: 1
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.frontend.rule=Host(`${DOMAIN_FRONTEND:-app.localhost}`)"
+        - "traefik.http.routers.frontend.rule=Host(`${DOMAIN_FRONTEND:-app.meudominio.com}`)"
         - "traefik.http.routers.frontend.entrypoints=web"
         - "traefik.http.routers.frontend.service=frontend"
         - "traefik.http.services.frontend.loadbalancer.server.port=80"
