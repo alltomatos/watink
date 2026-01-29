@@ -83,7 +83,6 @@ const UserModal = ({ open, onClose, userId }) => {
 		name: "",
 		email: "",
 		password: "",
-		profile: "user",
 		groupIds: []
 	};
 
@@ -223,35 +222,7 @@ const UserModal = ({ open, onClose, userId }) => {
 										margin="dense"
 										fullWidth
 									/>
-									<FormControl
-										variant="outlined"
-										className={classes.formControl}
-										margin="dense"
-									>
-										<Can
-											role={loggedInUser.profile}
-											perform="user-modal:editProfile"
-											yes={() => (
-												<>
-													<InputLabel id="profile-selection-input-label">
-														{i18n.t("userModal.form.profile")}
-													</InputLabel>
-
-													<Field
-														as={Select}
-														label={i18n.t("userModal.form.profile")}
-														name="profile"
-														labelId="profile-selection-label"
-														id="profile-selection"
-														required
-													>
-														<MenuItem value="admin">Admin</MenuItem>
-														<MenuItem value="user">User</MenuItem>
-													</Field>
-												</>
-											)}
-										/>
-									</FormControl>
+									{/* Removed Profile Selection - Legacy Field */}
 								</div>
 								<div className={classes.multFieldLine}>
 									<FormControl
@@ -285,7 +256,6 @@ const UserModal = ({ open, onClose, userId }) => {
 									</FormControl>
 								</div>
 								<Can
-									role={loggedInUser.profile}
 									perform="user-modal:editQueues"
 									yes={() => (
 										<QueueSelect
@@ -295,7 +265,6 @@ const UserModal = ({ open, onClose, userId }) => {
 									)}
 								/>
 								<Can
-									role={loggedInUser.profile}
 									perform="user-modal:editQueues"
 									yes={() => (!loading &&
 										<FormControl variant="outlined" margin="dense" className={classes.maxWidth} fullWidth>

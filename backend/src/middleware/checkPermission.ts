@@ -27,12 +27,6 @@ const checkPermission = (resourceAction: string) => {
             const result = await PermissionService.check(parseInt(id.toString()), tenantId, resource, action);
 
             if (!result.authorized) {
-                // Check for Super Admin bypass via Profile ONLY for migration safety
-                // Ideally this should be removed once Roles are fully populated
-                if (req.user.profile === "superadmin") { // legacy fallback
-                    return next();
-                }
-
                 throw new AppError("ERR_NO_PERMISSION", 403);
             }
 

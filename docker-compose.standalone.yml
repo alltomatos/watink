@@ -113,7 +113,7 @@ services:
       - redis_data:/data
 
   postgres:
-    image: ronaldodavi/pgvectorgis:latest
+    image: watink/postgres-postgis-pgvector:16-optimized
     ports:
       - "5432:5432"
     environment:

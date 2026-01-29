@@ -6,7 +6,6 @@ import authConfig from "../config/auth";
 interface TokenPayload {
   id: string;
   username: string;
-  profile: string;
   tenantId: string | number;
   iat: number;
   exp: number;
@@ -23,16 +22,15 @@ const isSaasAuth = async (req: Request, res: Response, next: NextFunction): Prom
 
   try {
     const decoded = verify(token, authConfig.secret);
-    const { id, profile, tenantId } = decoded as TokenPayload;
+    const { id, tenantId } = decoded as TokenPayload;
 
-    console.log(`[SaaS Auth] Authenticated SaaS request for user ${id} (Tenant: ${tenantId}, Profile: ${profile})`);
+    console.log(`[SaaS Auth] Authenticated SaaS request for user ${id} (Tenant: ${tenantId})`);
 
     // SaaS Token usually has ID 999999 or similar, which might not exist in DB.
     // Since we verified the signature with our secret, we trust the claims.
 
     req.user = {
       id,
-      profile,
       tenantId: tenantId.toString()
     };
   } catch (err) {

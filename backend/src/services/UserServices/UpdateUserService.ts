@@ -11,19 +11,15 @@ interface UserData {
   email?: string;
   password?: string;
   name?: string;
-  profile?: string;
   queueIds?: number[];
   whatsappId?: number;
   groupIds?: number[];
   groupId?: number;
-  permissionIds?: number[];
-  permissions?: number[];
   profileImage?: string;
 }
 
 interface RequestUser {
   id: string | number;
-  profile: string;
   tenantId: string | number;
 }
 
@@ -37,7 +33,6 @@ interface Response {
   id: number;
   name: string;
   email: string;
-  profile: string;
 }
 
 const UpdateUserService = async ({
@@ -54,76 +49,61 @@ const UpdateUserService = async ({
   const schema = Yup.object().shape({
     name: Yup.string().min(2),
     email: Yup.string().email(),
-    profile: Yup.string(),
     password: Yup.string()
   });
 
   const {
     email,
     password,
-    profile,
     name,
     queueIds = [],
     whatsappId,
     groupIds = [],
     groupId,
-    permissionIds = [],
-    permissions = [],
     profileImage
   } = userData;
 
-  console.log("UpdateUserService: Payload received", { userId, groupId, groupIds, permissionIds, permissions });
+  console.log("UpdateUserService: Payload received", { userId, groupId, groupIds });
 
-  const finalPermissionIds = permissionIds.length > 0 ? permissionIds : permissions;
-  
   // Compatibility: Frontend sends groupId (singular) but backend expects groupIds (plural)
   const finalGroupIds = [...groupIds];
   if (groupId) {
-     const gid = Number(groupId);
-     if (!isNaN(gid) && !finalGroupIds.includes(gid)) {
-        finalGroupIds.push(gid);
-     }
+    const gid = Number(groupId);
+    if (!isNaN(gid) && !finalGroupIds.includes(gid)) {
+      finalGroupIds.push(gid);
+    }
   }
 
-  console.log("UpdateUserService: Processing", { finalGroupIds, finalPermissionIds });
+  console.log("UpdateUserService: Processing", { finalGroupIds });
 
   try {
-    await schema.validate({ email, password, profile, name });
+    await schema.validate({ email, password, name });
   } catch (err) {
     throw new AppError(err.message);
-  }
-
-  // Protection: prevent editing superadmin if not self
-  if (user.profile === "superadmin" && user.id.toString() !== requestUser.id.toString()) {
-    throw new AppError("ERR_NO_PERMISSION", 403);
   }
 
   await user.update({
     email,
     password,
-    profile,
     name,
     whatsappId: whatsappId ? whatsappId : null,
     profileImage
   });
 
   try {
-      console.log("UpdateUserService: Setting queues...");
-      await user.$set("queues", queueIds);
-      
-      console.log("UpdateUserService: Setting groups...", finalGroupIds);
-      await user.$set("groups", finalGroupIds, { through: { tenantId: requestUser.tenantId } });
-      
-      console.log("UpdateUserService: Setting permissions...", finalPermissionIds);
-      await user.$set("permissions", finalPermissionIds, { through: { tenantId: requestUser.tenantId } });
+    console.log("UpdateUserService: Setting queues...");
+    await user.$set("queues", queueIds);
 
-      // Invalidate Permission Cache
-      console.log("UpdateUserService: Invalidating cache...");
-      const redis = RedisService.getInstance();
-      await redis.delValue(`perms:${requestUser.tenantId}:${userId}`);
+    console.log("UpdateUserService: Setting groups...", finalGroupIds);
+    await user.$set("groups", finalGroupIds, { through: { tenantId: requestUser.tenantId } });
+
+    // Invalidate Permission Cache
+    console.log("UpdateUserService: Invalidating cache...");
+    const redis = RedisService.getInstance();
+    await redis.delValue(`perms:${requestUser.tenantId}:${userId}`);
   } catch (error) {
-      console.error("UpdateUserService: Error during associations/cache", error);
-      throw new AppError("INTERNAL_ERROR_UPDATE_USER_RELATIONS", 500);
+    console.error("UpdateUserService: Error during associations/cache", error);
+    throw new AppError("INTERNAL_ERROR_UPDATE_USER_RELATIONS", 500);
   }
 
 

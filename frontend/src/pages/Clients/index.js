@@ -125,7 +125,7 @@ const Clients = () => {
     return (
         <Can
             user={user}
-            perform="view_clients"
+            perform="clients:read"
             yes={() => (
                 <Container maxWidth="lg" className={classes.root}>
                     <Paper elevation={0} style={{ padding: 24 }}>
@@ -133,7 +133,7 @@ const Clients = () => {
                             <Typography variant="h4">👥 Clientes</Typography>
                             <Can
                                 user={user}
-                                perform="edit_clients"
+                                perform="clients:write"
                                 yes={() => (
                                     <Button
                                         variant="contained"
@@ -208,7 +208,7 @@ const Clients = () => {
                                                     <TableCell align="right">
                                                     <Can
                                                             user={user}
-                                                            perform="edit_clients"
+                                                            perform="clients:write"
                                                             yes={() => (
                                                                 <>
                                                                     <IconButton
@@ -219,7 +219,7 @@ const Clients = () => {
                                                                     </IconButton>
                                                                     <Can
                                                                         user={user}
-                                                                        perform="delete_clients"
+                                                                        perform="clients:delete"
                                                                         yes={() => (
                                                                             <IconButton
                                                                                 size="small"

@@ -39,19 +39,12 @@ class PermissionService {
                         model: Permission,
                         as: "permissions"
                     }]
-                },
-                {
-                    model: Permission,
-                    as: "permissions",
-                    through: {
-                        where: { tenantId }
-                    }
                 }
             ]
         });
 
         if (user) {
-            // 1. Get permissions from Roles
+            // Get permissions from Roles
             if (user.roles) {
                 const isAdmin = user.roles.some(r => r.name === "Admin");
 
@@ -79,18 +72,6 @@ class PermissionService {
                             });
                         });
                     }
-                });
-            }
-
-            // 2. Get direct permissions
-            if (user.permissions) {
-                user.permissions.forEach(permission => {
-                    permissions.push({
-                        resource: permission.resource,
-                        action: permission.action,
-                        scope: (permission as any).UserPermission?.scope,
-                        conditions: (permission as any).UserPermission?.conditions
-                    });
                 });
             }
         }

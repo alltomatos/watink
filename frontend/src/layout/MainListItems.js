@@ -130,7 +130,7 @@ const MainListItems = (props) => {
     <div onClick={drawerClose}>
       <Can
         user={user}
-        perform="view_dashboard"
+        perform="dashboard:read"
         yes={() => (
           <ListItemLink
             to="/"
@@ -143,7 +143,7 @@ const MainListItems = (props) => {
       />
       <Can
         user={user}
-        perform="view_pipelines"
+        perform="pipelines:read"
         yes={() => (
           <ListItemLink
             to="/pipelines"
@@ -171,7 +171,7 @@ const MainListItems = (props) => {
       />
       <Can
         user={user}
-        perform="view_quick_answers"
+        perform="quick_answers:read"
         yes={() => (
           <ListItemLink
             to="/quickAnswers"
@@ -185,7 +185,7 @@ const MainListItems = (props) => {
 
       <Can
         user={user}
-        perform="view_flows"
+        perform="flows:read"
         yes={() => (
           <ListItemLink
             to="/flowbuilder"
@@ -199,22 +199,34 @@ const MainListItems = (props) => {
 
       {/* Dynamic Plugins */}
       {activePlugins.includes("clientes") && (
-        <ListItemLink
-          to="/clients"
-          primary={i18n.t("mainDrawer.listItems.clients")}
-          icon={<PersonOutlineIcon />}
-          iconColor={googleColors.blue}
-          collapsed={collapsed}
+        <Can
+          user={user}
+          perform="clients:read"
+          yes={() => (
+            <ListItemLink
+              to="/clients"
+              primary={i18n.t("mainDrawer.listItems.clients")}
+              icon={<PersonOutlineIcon />}
+              iconColor={googleColors.blue}
+              collapsed={collapsed}
+            />
+          )}
         />
       )}
 
       {activePlugins.includes("helpdesk") && (
-        <ListItemLink
-          to="/helpdesk"
-          primary={i18n.t("mainDrawer.listItems.helpdesk")}
-          icon={<HeadsetMicIcon />}
-          iconColor={googleColors.red}
-          collapsed={collapsed}
+        <Can
+          user={user}
+          perform="helpdesk:read"
+          yes={() => (
+            <ListItemLink
+              to="/helpdesk"
+              primary={i18n.t("mainDrawer.listItems.helpdesk")}
+              icon={<HeadsetMicIcon />}
+              iconColor={googleColors.red}
+              collapsed={collapsed}
+            />
+          )}
         />
       )}
 
@@ -227,7 +239,7 @@ const MainListItems = (props) => {
 
       <Can
         user={user}
-        perform="tags:view"
+        perform="tags:read"
         yes={() => (
           <ListItemLink
             to="/tags"
@@ -241,7 +253,7 @@ const MainListItems = (props) => {
 
       <Can
         user={user}
-        perform="view_groups"
+        perform="groups:read"
         yes={() => (
           <ListItemLink
             to="/groups"
@@ -257,7 +269,7 @@ const MainListItems = (props) => {
 
       <Can
         user={user}
-        perform="view_connections"
+        perform="connections:read"
         yes={() => (
           <ListItemLink
             to="/connections"
@@ -275,7 +287,7 @@ const MainListItems = (props) => {
 
       <Can
         user={user}
-        perform="view_users"
+        perform="users:read"
         yes={() => (
           <ListItemLink
             to="/users"
@@ -289,7 +301,7 @@ const MainListItems = (props) => {
 
       <Can
         user={user}
-        perform="view_admin_queues"
+        perform="queues:read"
         yes={() => (
           <ListItemLink
             to="/queues"
@@ -303,7 +315,7 @@ const MainListItems = (props) => {
 
       <Can
         user={user}
-        perform="view_knowledge_bases"
+        perform="knowledge_bases:read"
         yes={() => (
           <ListItemLink
             to="/knowledge-bases"
@@ -317,7 +329,7 @@ const MainListItems = (props) => {
 
       <Can
         user={user}
-        perform="view_admin_settings"
+        perform="settings:read"
         yes={() => (
           <ListItemLink
             to="/settings"
@@ -331,7 +343,7 @@ const MainListItems = (props) => {
 
       <Can
         user={user}
-        perform="view_swagger"
+        perform="swagger:read"
         yes={() => (
           <ListItemLink
             to="/swagger"

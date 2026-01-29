@@ -218,7 +218,7 @@ const PluginDetail = () => {
     return (
         <Can
             user={user}
-            perform="view_marketplace"
+            perform="marketplace:read"
             yes={() => (
                 <Container maxWidth="lg" className={classes.root}>
                     <Button

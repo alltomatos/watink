@@ -141,10 +141,16 @@ class TicketDistributionService {
 
         // Check if user is not an auditor
         const user = await User.findByPk(contact.walletUserId, {
-            attributes: ["id", "name", "profile"]
+            attributes: ["id", "name"],
+            include: [{
+                model: require("../../models/Role").default,
+                as: "roles",
+                where: { name: "Auditor" },
+                required: false
+            }]
         });
 
-        if (!user || user.profile === "auditor") {
+        if (!user || (user as any).roles?.length > 0) {
             return {
                 user: null,
                 strategy: DISTRIBUTION_STRATEGIES.MANUAL,
@@ -250,15 +256,20 @@ class TicketDistributionService {
             };
         }
 
-        // Filter out auditors
+        // Filter out auditors (those with 'Auditor' role)
         const eligibleUsers = await User.findAll({
             where: {
-                id: { [Op.in]: onlineUserIds },
-                profile: { [Op.ne]: "auditor" }
+                id: { [Op.in]: onlineUserIds }
             },
+            include: [{
+                model: require("../../models/Role").default,
+                as: "roles",
+                where: { name: "Auditor" },
+                required: false
+            }],
             attributes: ["id", "name"],
             order: [["id", "ASC"]]
-        });
+        }).then(users => users.filter(u => !(u as any).roles || (u as any).roles.length === 0));
 
         if (eligibleUsers.length === 0) {
             return {

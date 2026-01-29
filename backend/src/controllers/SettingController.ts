@@ -9,9 +9,7 @@ import UpdateSettingService from "../services/SettingServices/UpdateSettingServi
 import ListSettingsService from "../services/SettingServices/ListSettingsService";
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
-  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
-    throw new AppError("ERR_NO_PERMISSION", 403);
-  }
+
 
   const { tenantId } = req.user;
   const settings = await ListSettingsService({ tenantId });
@@ -43,9 +41,7 @@ export const update = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
-    throw new AppError("ERR_NO_PERMISSION", 403);
-  }
+
   const { settingKey: key } = req.params;
   const { value } = req.body;
   const { tenantId } = req.user;
@@ -69,9 +65,7 @@ export const uploadLogo = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
-    throw new AppError("ERR_NO_PERMISSION", 403);
-  }
+
 
   if (!req.file) {
     throw new AppError("ERR_NO_FILE_UPLOADED", 400);
@@ -117,9 +111,7 @@ export const uploadFavicon = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
-    throw new AppError("ERR_NO_PERMISSION", 403);
-  }
+
 
   if (!req.file) {
     throw new AppError("ERR_NO_FILE_UPLOADED", 400);
@@ -160,9 +152,7 @@ export const uploadMobileLogo = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
-    throw new AppError("ERR_NO_PERMISSION", 403);
-  }
+
 
   if (!req.file) {
     throw new AppError("ERR_NO_FILE_UPLOADED", 400);
@@ -203,9 +193,7 @@ export const uploadLoginImage = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
-    throw new AppError("ERR_NO_PERMISSION", 403);
-  }
+
 
   if (!req.file) {
     throw new AppError("ERR_NO_FILE_UPLOADED", 400);

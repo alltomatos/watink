@@ -42,8 +42,7 @@ import UserRole from "../models/UserRole";
 import GroupRole from "../models/GroupRole";
 import Step from "../models/Step";
 import EmailTemplate from "../models/EmailTemplate";
-import UserPermission from "../models/UserPermission";
-import GroupPermission from "../models/GroupPermission";
+
 
 // eslint-disable-next-line
 const dbConfig = require("../config/database");
@@ -93,9 +92,7 @@ const models = [
   UserRole,
   GroupRole,
   Step,
-  EmailTemplate,
-  UserPermission,
-  GroupPermission
+  EmailTemplate
 ];
 
 sequelize.addModels(models);

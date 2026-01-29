@@ -22,9 +22,9 @@ async function runTest() {
     const token = authRes.data.token;
     console.log('   Authenticated. Token received.');
 
-    const headers = { 
-        ...AXIOS_CONFIG.headers,
-        Authorization: `Bearer ${token}` 
+    const headers = {
+      ...AXIOS_CONFIG.headers,
+      Authorization: `Bearer ${token}`
     };
 
     // 2. Create a Group (Function)
@@ -45,7 +45,6 @@ async function runTest() {
       name: 'Test User',
       email: userEmail,
       password: 'password123',
-      profile: 'user',
       groupId: group.id // The fix allows sending groupId directly
     }, { headers });
     const user = userRes.data;
@@ -55,19 +54,19 @@ async function runTest() {
     console.log('4. Verifying User Group assignment...');
     const showUserRes = await axios.get(`${API_URL}/users/${user.id}`, { headers });
     const fetchedUser = showUserRes.data;
-    
+
     console.log('   Fetched User Data:', JSON.stringify(fetchedUser, null, 2));
 
     if (fetchedUser.groupId === group.id) {
       console.log('   SUCCESS: User has the correct groupId.');
     } else {
       console.error(`   FAILURE: Expected groupId ${group.id}, got ${fetchedUser.groupId}`);
-      
+
       // Check groups array if present
       if (fetchedUser.groups && fetchedUser.groups.length > 0) {
         console.log(`   User has groups: ${fetchedUser.groups.map((g: any) => g.id).join(', ')}`);
         if (fetchedUser.groups.some((g: any) => g.id === group.id)) {
-             console.log('   (User has the group in "groups" array, but "groupId" field might be missing/wrong in response)');
+          console.log('   (User has the group in "groups" array, but "groupId" field might be missing/wrong in response)');
         }
       }
     }

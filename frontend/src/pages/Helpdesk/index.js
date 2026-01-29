@@ -166,7 +166,7 @@ const Helpdesk = () => {
     return (
         <Can
             role={user.profile}
-            perform="view_helpdesk"
+            perform="helpdesk:read"
             yes={() => (
                 <Container maxWidth="lg" className={classes.root}>
                     <Paper elevation={0} style={{ padding: 24 }}>
@@ -196,7 +196,7 @@ const Helpdesk = () => {
                                         </Button>
                                         <Can
                                             role={user.profile}
-                                            perform="edit_helpdesk"
+                                            perform="helpdesk:write"
                                             yes={() => (
                                                 <Button
                                                     variant="contained"
@@ -323,7 +323,7 @@ const Helpdesk = () => {
                                                             <TableCell align="right">
                                                                 <Can
                                                                     role={user.profile}
-                                                                    perform="edit_helpdesk"
+                                                                    perform="helpdesk:write"
                                                                     yes={() => (
                                                                         <IconButton
                                                                             size="small"

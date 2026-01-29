@@ -12,7 +12,6 @@ let io: SocketIO;
 interface TokenPayload {
   id: number;
   username: string;
-  profile: string;
   iat: number;
   exp: number;
 }
@@ -38,11 +37,11 @@ export const initIO = (httpServer: Server): SocketIO => {
     }
 
     if (!token && socket.handshake.headers?.authorization) {
-        const authHeader = socket.handshake.headers.authorization;
-        if (authHeader.startsWith("Bearer ")) {
-            token = authHeader.substring(7);
-            logger.info(`[Socket Debug] Token found in Authorization header`);
-        }
+      const authHeader = socket.handshake.headers.authorization;
+      if (authHeader.startsWith("Bearer ")) {
+        token = authHeader.substring(7);
+        logger.info(`[Socket Debug] Token found in Authorization header`);
+      }
     }
 
     logger.info(`[Socket Debug] Final Token provided: ${token ? "YES" : "NO"}`);

@@ -39,10 +39,6 @@ module.exports = {
     },
 
     down: async (queryInterface: QueryInterface) => {
-        await queryInterface.dropTable("UserPermissions");
-        await queryInterface.removeColumn("Users", "groupId");
-        await queryInterface.dropTable("GroupPermissions");
-        await queryInterface.dropTable("Permissions");
         await queryInterface.dropTable("Groups");
     }
 };

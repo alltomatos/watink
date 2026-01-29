@@ -320,7 +320,7 @@ const Marketplace = () => {
     return (
         <Can
             user={user}
-            perform="view_marketplace"
+            perform="marketplace:read"
             yes={() => (
                 <Container maxWidth="lg" className={classes.root}>
                     <Paper elevation={0} style={{ padding: 24 }}>

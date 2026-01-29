@@ -189,9 +189,8 @@ services:
           memory: 512M
 
   watink_postgres:
-    image: ronaldodavi/pgvectorgis:latest
+    image: watink/postgres-postgis-pgvector:16-optimized
     labels:
-      - com.docker.compose.project=${STACK_NAME:-watinkdev}
       - com.docker.compose.service=watink_postgres
     environment:
       - POSTGRES_DB=watink

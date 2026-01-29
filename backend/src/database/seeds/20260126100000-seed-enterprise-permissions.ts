@@ -18,6 +18,7 @@ module.exports = {
             // Users
             { resource: "users", action: "read", description: "View users" },
             { resource: "users", action: "write", description: "Manage users" },
+            { resource: "users", action: "delete", description: "Delete users" },
 
             // Queues
             { resource: "queues", action: "read", description: "View queues" },

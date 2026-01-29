@@ -11,7 +11,11 @@ const getPluginApiBaseUrl = () => {
     try {
       const url = new URL(backendUrl);
       // Append /plugins to the backend URL path
-      const cleanPath = url.pathname.endsWith('/') ? url.pathname.slice(0, -1) : url.pathname;
+      // Ensure we don't duplicate if path already contains /plugins
+      let cleanPath = url.pathname.endsWith('/') ? url.pathname.slice(0, -1) : url.pathname;
+      if (cleanPath.endsWith('/plugins')) {
+        cleanPath = cleanPath.replace(/\/plugins$/, '');
+      }
       const baseUrl = `${url.protocol}//${url.host}${cleanPath}/plugins`;
       return baseUrl;
     } catch (e) {

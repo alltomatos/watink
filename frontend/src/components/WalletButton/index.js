@@ -114,7 +114,9 @@ const WalletButton = ({ contact, onWalletUpdate }) => {
     const isMyClient = contact.walletUserId === user.id;
     const hasOwner = !!contact.walletUserId;
     const ownerName = contact.walletUser?.name || "";
-    const isAdmin = user.profile === "admin";
+
+    // Instead of isAdmin = profile === "admin", we'll check for transfer permission
+    const canSteal = user.permissions?.includes("contacts:transfer");
 
     const handleAddToWallet = async () => {
         setLoading(true);
@@ -175,7 +177,7 @@ const WalletButton = ({ contact, onWalletUpdate }) => {
             handleRemoveFromWallet();
         } else if (!hasOwner) {
             handleAddToWallet();
-        } else if (isAdmin) {
+        } else if (canSteal) {
             setStealDialogOpen(true);
         }
         // For non-admin users with other's client, do nothing
@@ -233,7 +235,7 @@ const WalletButton = ({ contact, onWalletUpdate }) => {
                     <IconButton
                         className={classes.walletButton}
                         onClick={handleClick}
-                        disabled={loading || (!isMyClient && hasOwner && !isAdmin)}
+                        disabled={loading || (!isMyClient && hasOwner && !canSteal)}
                         size="small"
                     >
                         {renderIcon()}

@@ -22,11 +22,7 @@ module.exports = {
         type: DataTypes.STRING,
         allowNull: false
       },
-      profile: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        defaultValue: "admin"
-      },
+
       tokenVersion: {
         type: DataTypes.INTEGER,
         allowNull: false,

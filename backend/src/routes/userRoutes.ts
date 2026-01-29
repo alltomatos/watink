@@ -8,21 +8,23 @@ import * as UserController from "../controllers/UserController";
 const userRoutes = Router();
 const upload = multer(uploadConfig);
 
-userRoutes.get("/", isAuth, UserController.index);
+import checkPermission from "../middleware/checkPermission";
 
-userRoutes.post("/", isAuth, UserController.store);
+userRoutes.get("/", isAuth, checkPermission("users:read"), UserController.index);
 
-userRoutes.put("/:userId", isAuth, upload.single("profileImage"), UserController.update);
+userRoutes.post("/", isAuth, checkPermission("users:write"), UserController.store);
 
-userRoutes.get("/:userId", isAuth, UserController.show);
+userRoutes.put("/:userId", isAuth, checkPermission("users:write"), upload.single("profileImage"), UserController.update);
 
-userRoutes.delete("/:userId", isAuth, UserController.remove);
+userRoutes.get("/:userId", isAuth, checkPermission("users:read"), UserController.show);
 
-userRoutes.post("/:userId/toggle-status", isAuth, UserController.toggleStatus);
+userRoutes.delete("/:userId", isAuth, checkPermission("users:delete"), UserController.remove);
 
-userRoutes.post("/:userId/resend-welcome", isAuth, UserController.resendWelcomeEmail);
+userRoutes.post("/:userId/toggle-status", isAuth, checkPermission("users:write"), UserController.toggleStatus);
 
-userRoutes.post("/:userId/manual-verify", isAuth, UserController.manualVerify);
+userRoutes.post("/:userId/resend-welcome", isAuth, checkPermission("users:write"), UserController.resendWelcomeEmail);
+
+userRoutes.post("/:userId/manual-verify", isAuth, checkPermission("users:write"), UserController.manualVerify);
 
 
 export default userRoutes;

@@ -16,7 +16,7 @@ module.exports = {
             name: "Super Admin",
             email: "admin@admin.com",
             passwordHash,
-            profile: "superadmin",
+
             tokenVersion: 0,
             emailVerified: true,
             createdAt: new Date(),

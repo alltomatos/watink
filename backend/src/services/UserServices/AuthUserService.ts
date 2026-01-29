@@ -19,7 +19,6 @@ interface SerializedUser {
   id: number;
   name: string;
   email: string;
-  profile: string;
   queues: Queue[];
   tenantId: number | string;
   tenant?: Tenant;

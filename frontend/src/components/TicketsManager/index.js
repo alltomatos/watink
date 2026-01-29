@@ -114,7 +114,7 @@ const TicketsManager = () => {
   });
 
   useEffect(() => {
-    if (user.profile.toUpperCase() === "ADMIN") {
+    if (user.profile && user.profile.toUpperCase() === "ADMIN") {
       const saved = localStorage.getItem("showAllTickets");
       if (saved === null) {
         setShowAllTickets(true);

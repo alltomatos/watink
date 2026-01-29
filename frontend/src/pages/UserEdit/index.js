@@ -282,17 +282,6 @@ const UserEdit = () => {
 
     const isNew = userId === "new";
 
-    const initialState = {
-        name: "",
-        email: "",
-        password: "",
-        profile: "user",
-        groupId: ""
-    };
-
-    const { user: loggedInUser } = useContext(AuthContext);
-    const { loading: loadingWhats, whatsApps } = useWhatsApps();
-
     const UserSchema = Yup.object().shape({
         name: Yup.string()
             .min(2, "Too Short!")
@@ -577,18 +566,21 @@ const UserEdit = () => {
                                                     {i18n.t("userModal.buttons.sendResetPassword")}
                                                 </Button>
 
-                                                {(loggedInUser.profile === "admin" || loggedInUser.profile === "superadmin") && !user.emailVerified && (
-                                                    <Button
-                                                        variant="outlined"
-                                                        color="secondary"
-                                                        startIcon={verifyingEmail ? <CircularProgress size={18} /> : <VerifiedUser />}
-                                                        className={classes.actionButton}
-                                                        onClick={handleManualVerify}
-                                                        disabled={verifyingEmail || saving}
-                                                    >
-                                                        {i18n.t("userModal.buttons.manualVerify")}
-                                                    </Button>
-                                                )}
+                                                <Can
+                                                    perform="users:verify"
+                                                    yes={() => !user.emailVerified && (
+                                                        <Button
+                                                            variant="outlined"
+                                                            color="secondary"
+                                                            startIcon={verifyingEmail ? <CircularProgress size={18} /> : <VerifiedUser />}
+                                                            className={classes.actionButton}
+                                                            onClick={handleManualVerify}
+                                                            disabled={verifyingEmail || saving}
+                                                        >
+                                                            {i18n.t("userModal.buttons.manualVerify")}
+                                                        </Button>
+                                                    )}
+                                                />
                                             </>
                                         )}
                                         <Button
@@ -689,27 +681,7 @@ const UserEdit = () => {
                                                         }}
                                                     />
 
-                                                    <FormControl
-                                                        variant="outlined"
-                                                        fullWidth
-                                                        className={classes.fieldSpacing}
-                                                    >
-                                                        <InputLabel id="profile-selection-input-label">
-                                                            {i18n.t("userModal.form.profile")}
-                                                        </InputLabel>
-                                                        <Field
-                                                            as={Select}
-                                                            label={i18n.t("userModal.form.profile")}
-                                                            name="profile"
-                                                            labelId="profile-selection-label"
-                                                            id="profile-selection"
-                                                            style={{ borderRadius: 12 }}
-                                                        >
-                                                            <MenuItem value="admin">Admin</MenuItem>
-                                                            <MenuItem value="supervisor">Supervisor</MenuItem>
-                                                            <MenuItem value="user">User</MenuItem>
-                                                        </Field>
-                                                    </FormControl>
+
 
                                                     <FormControl
                                                         variant="outlined"

@@ -12,22 +12,15 @@ interface Request {
   password: string;
   name: string;
   queueIds?: number[];
-  profile?: string;
   whatsappId?: number;
   groupIds?: number[];
   groupId?: number;
-  permissionIds?: number[];
-  permissions?: number[];
   tenantId?: number | string;
 }
 
 import Tenant from "../../models/Tenant";
-import TenantSmtpSettings from "../../models/TenantSmtpSettings";
 import PluginInstallation from "../../models/PluginInstallation";
 import Plugin from "../../models/Plugin";
-import EmailTemplate from "../../models/EmailTemplate";
-import RabbitMQService from "../RabbitMQService";
-import { getPremiumWelcomeEmail } from "../../helpers/EmailTemplates";
 import { Op } from "sequelize";
 import SendVerificationEmailService from "./SendVerificationEmailService";
 
@@ -35,7 +28,6 @@ interface Response {
   email: string;
   name: string;
   id: number;
-  profile: string;
 }
 
 const CreateUserService = async ({
@@ -43,20 +35,16 @@ const CreateUserService = async ({
   password,
   name,
   queueIds = [],
-  profile = "admin",
   whatsappId,
   groupIds = [],
   groupId,
-  permissionIds = [],
-  permissions = [],
   tenantId
 }: Request): Promise<Response> => {
   let finalGroupIds = [...groupIds];
   if (groupId && !finalGroupIds.includes(groupId)) {
     finalGroupIds.push(groupId);
   }
-  
-  const finalPermissionIds = permissionIds.length > 0 ? permissionIds : permissions;
+
   const schema = Yup.object().shape({
     name: Yup.string().required().min(2),
     email: Yup.string()
@@ -85,7 +73,6 @@ const CreateUserService = async ({
   /*
    * Check if SMTP Plugin is active.
    * If NOT active, we simply create the user as verified and don't send the email.
-   * "if the smtp plugin is not active the system must behave as if they do not exist"
    */
   let emailVerified = false;
 
@@ -114,10 +101,6 @@ const CreateUserService = async ({
       emailVerified = true;
     }
   } else {
-    // If no tenant (e.g. superadmin creation?), default behavior?
-    // Usually superadmin is created seeded.
-    // Use default false or true? If no SMTP context, maybe true?
-    // Let's assume true for safety if no tenant context exists for SMTP.
     emailVerified = true;
   }
 
@@ -136,7 +119,6 @@ const CreateUserService = async ({
       email,
       password,
       name,
-      profile,
       whatsappId: whatsappId ? whatsappId : null,
       tenantId,
       emailVerified
@@ -144,15 +126,8 @@ const CreateUserService = async ({
     { include: ["queues", "whatsapp"] }
   );
 
-  if (profile === "superadmin") {
-    // Superadmin logic handled by Roles seeding or direct Role assignment
-    // const allPermissions = await Permission.findAll();
-    // await user.$set("permissions", allPermissions);
-  } else {
-    await user.$set("queues", queueIds);
-    await user.$set("groups", finalGroupIds, { through: { tenantId } });
-    await user.$set("permissions", finalPermissionIds, { through: { tenantId } });
-  }
+  await user.$set("queues", queueIds);
+  await user.$set("groups", finalGroupIds, { through: { tenantId } });
 
   // Send Verification Email (Async)
   if (tenantId && !emailVerified) {

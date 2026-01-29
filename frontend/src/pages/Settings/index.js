@@ -31,11 +31,13 @@ import FormControlLabel from "@material-ui/core/FormControlLabel";
 import { toast } from "react-toastify";
 
 import api from "../../services/api";
+import pluginApi from "../../services/pluginApi";
 import { i18n } from "../../translate/i18n.js";
 import toastError from "../../errors/toastError";
 import { useThemeContext } from "../../context/DarkMode";
 import { getBackendUrl } from "../../helpers/urlUtils";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { Can } from "../../components/Can";
 import SmtpSettingsForm from "../Marketplace/SmtpSettingsForm";
 
 const AI_MODELS = {
@@ -151,7 +153,7 @@ const Settings = () => {
 			try {
 				// Use authenticated 'api' instance that includes session cookies
 				// The route /plugins/version requires authentication via isAuth middleware
-				const { data } = await api.get("/plugins/version");
+				const { data } = await pluginApi.get("/version");
 				if (data && data.version) {
 					setMarketplaceVisible(true);
 				} else {
@@ -1093,17 +1095,23 @@ const Settings = () => {
 						</ListItem>
 					)}
 
-					{["admin", "superadmin"].includes(user?.profile) && marketplaceVisible && (
-						<ListItem
-							button
-							onClick={() => history.push("/admin/settings/marketplace")}
-							className={classes.menuItem}
-						>
-							<ListItemIcon>
-								<ExtensionIcon />
-							</ListItemIcon>
-							<ListItemText primary="Marketplace" />
-						</ListItem>
+					{marketplaceVisible && (
+						<Can
+							user={user}
+							perform="marketplace:read"
+							yes={() => (
+								<ListItem
+									button
+									onClick={() => history.push("/admin/settings/marketplace")}
+									className={classes.menuItem}
+								>
+									<ListItemIcon>
+										<ExtensionIcon />
+									</ListItemIcon>
+									<ListItemText primary="Marketplace" />
+								</ListItem>
+							)}
+						/>
 					)}
 				</List>
 			</Box>
