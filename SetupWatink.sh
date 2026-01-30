@@ -932,6 +932,7 @@ full_cleanup() {
     # 6. Limpar Arquivos
     echo -e "${AMARELO}6/6 - Removendo arquivos de dados e logs...${RESET}"
     rm -rf "$DADOS_DIR"
+    rm -rf dados_vps
     rm -f "$LOG_FILE"
     rm -f docker-compose.standalone.yml watink.yaml traefik_stack.yaml portainer_stack.yaml
     
