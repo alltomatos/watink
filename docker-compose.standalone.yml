@@ -118,6 +118,7 @@ services:
       - "5432:5432"
     environment:
       - POSTGRES_DB=watink
+      - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
     volumes:
       - db_data:/var/lib/postgresql/data
