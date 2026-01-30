@@ -41,9 +41,9 @@ Acesse seu servidor via SSH como `root` e execute o comando abaixo:
 curl -sL https://raw.githubusercontent.com/alltomatos/watink/master/SetupWatink.sh -o SetupWatink.sh && chmod +x SetupWatink.sh && ./SetupWatink.sh
 ```
 
-Siga as instruções do menu interativo para escolher entre o modo **Traefik (Domínio)** ou **Standalone (IP)**.
+Siga as instruções do menu interativo. O script detectará automaticamente se é necessário instalar a infraestrutura (Docker, Swarm) e guiará você passo-a-passo. Você poderá escolher entre o modo **Cluster (Swarm + Traefik + Portainer)** ou **Standalone (Docker Puro)**.
 
-> **Nota:** É altamente recomendável ter um ambiente com Portainer já instalado para gerenciar suas stacks visualmente, embora o script auxilie na integração.
+> **Nota:** Se você escolher o modo Cluster, o SetupWatink instalará e configurará o **Portainer** e **Traefik** automaticamente para você.
 
 ---
 

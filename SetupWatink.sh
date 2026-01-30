@@ -25,7 +25,7 @@ header() {
     echo -e "${AMARELO}##                                         SETUP WATINK                                        ##${RESET}"
     echo -e "${AMARELO}## // ## // ## // ## // ## // ## // ## // ## //## // ## // ## // ## // ## // ## // ## // ## // ##${RESET}"
     echo ""
-    echo -e "                                   ${BRANCO}Versão do SetupWatink: ${VERDE}v. 2.0.9${RESET}                "
+    echo -e "                                   ${BRANCO}Versão do SetupWatink: ${VERDE}v. 2.1.0${RESET}                "
     echo -e "${VERDE}                ${BRANCO}<----- Desenvolvido por AllTomatos ----->     ${VERDE}github.com/alltomatos/watink${RESET}"
     echo ""
 }
@@ -71,151 +71,343 @@ install_deps() {
     done
 }
 
-# --- Gestão Portainer (Orion Compatible) ---
+validar_senha() { 
+    local senha=$1
+    local tamanho_minimo=$2
+    local tem_erro=0
+    local mensagem_erro=""
+
+    if [ ${#senha} -lt $tamanho_minimo ]; then
+        mensagem_erro+="\n- Senha precisa ter no mínimo $tamanho_minimo caracteres"
+        tem_erro=1
+    fi
+    if ! [[ $senha =~ [A-Z] ]]; then
+        mensagem_erro+="\n- Falta pelo menos uma letra maiúscula"
+        tem_erro=1
+    fi
+    if ! [[ $senha =~ [a-z] ]]; then
+        mensagem_erro+="\n- Falta pelo menos uma letra minúscula"
+        tem_erro=1
+    fi
+    if ! [[ $senha =~ [0-9] ]]; then
+        mensagem_erro+="\n- Falta pelo menos um número"
+        tem_erro=1
+    fi
+    if ! [[ $senha =~ [@_] ]]; then
+        mensagem_erro+="\n- Falta pelo menos um caractere especial (@ ou _)"
+        tem_erro=1
+    fi
+    if [[ $senha =~ [^A-Za-z0-9@_] ]]; then
+        mensagem_erro+="\n- Contém caracteres especiais não permitidos (use apenas @ ou _)"
+        tem_erro=1
+    fi
+
+    if [ $tem_erro -eq 1 ]; then
+        echo -e "${VERMELHO}Senha inválida! Corrija os seguintes problemas:${RESET}$mensagem_erro"
+        return 1
+    fi
+    return 0
+}
+
+wait_stack() {
+    local service_name="$1"
+    log_info "Aguardando serviço $service_name..."
+    local counter=0
+    local max_retries=60 # 60 * 5s = 5 minutos
+
+    while [ $counter -lt $max_retries ]; do
+        if docker service ls --format '{{.Name}}' | grep -q "$service_name"; then
+            # Verifica se tem replicas rodando (ex: 1/1)
+            local replicas=$(docker service ls --filter "name=$service_name" --format '{{.Replicas}}')
+            if [[ "$replicas" == *"1/1"* ]]; then
+                log_success "Serviço $service_name está online!"
+                return 0
+            fi
+        fi
+        echo -n "."
+        sleep 5
+        counter=$((counter+1))
+    done
+    log_error "Timeout aguardando serviço $service_name."
+    return 1
+}
+
+# --- Infraestrutura ---
+
+install_docker() {
+    if ! command -v docker &> /dev/null; then
+        log_info "Instalando Docker..."
+        curl -fsSL https://get.docker.com | sh
+        log_success "Docker instalado."
+    else
+        log_info "Docker já instalado."
+    fi
+}
+
+init_swarm() {
+    if ! docker info 2>/dev/null | grep -q "Swarm: active"; then
+        log_info "Inicializando Docker Swarm..."
+        local ip_addr=$(hostname -I | awk '{print $1}')
+        docker swarm init --advertise-addr "$ip_addr"
+        log_success "Swarm inicializado."
+    else
+        log_info "Swarm já ativo."
+    fi
+}
+
+setup_infra_wizard() {
+    header
+    echo -e "${BRANCO}Bem-vindo ao SetupWatink!${RESET}"
+    echo ""
+    
+    # Check Docker
+    if ! command -v docker &> /dev/null; then
+        echo -e "${AMARELO}Docker não detectado.${RESET}"
+        read -p "Deseja instalar a infraestrutura agora? (y/n) " -n 1 -r
+        echo ""
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            log_error "Docker é necessário. Abortando."
+            exit 1
+        fi
+    else
+        # Se Docker existe, mas usuário quer reconfigurar infra
+        echo -e "${VERDE}Docker detectado.${RESET}"
+        # Se swarm não ativo e usuário quer cluster, ou se quer standalone
+    fi
+
+    echo -e "${BRANCO}Escolha o modo de operação da VPS:${RESET}"
+    echo -e "${VERDE}1${BRANCO} - Standalone (Sem Swarm, Apenas Docker)${RESET}"
+    echo -e "${VERDE}2${BRANCO} - Cluster (Swarm + Traefik + Portainer)${RESET}"
+    echo ""
+    read -p "Opção: " INFRA_OPT
+
+    case $INFRA_OPT in
+        1)
+            install_docker
+            # Garante que Swarm NÃO está ativo (se user quiser standalone puro)
+            if docker info 2>/dev/null | grep -q "Swarm: active"; then
+                echo -e "${AMARELO}Aviso: Swarm está ativo, mas modo Standalone foi selecionado.${RESET}"
+                echo -e "${AMARELO}Isso não impede o funcionamento, mas o deploy será via 'docker compose'.${RESET}"
+            fi
+            ;;
+        2)
+            install_docker
+            init_swarm
+            setup_traefik_portainer
+            ;;
+        *)
+            echo "Opção inválida."
+            exit 1
+            ;;
+    esac
+}
+
+setup_traefik_portainer() {
+    log_info "Configurando Cluster (Traefik + Portainer)..."
+
+    # Inputs
+    header
+    echo -e "${BRANCO}Configuração do Portainer e Traefik${RESET}"
+    echo ""
+    read -p "Domínio do Portainer (ex: portainer.meudominio.com): " PORTAINER_DOMAIN
+    PORTAINER_DOMAIN=$(echo "$PORTAINER_DOMAIN" | sed 's|https://||g' | sed 's|http://||g' | sed 's|/||g')
+    
+    read -p "Usuário Admin Portainer (ex: admin): " PORTAINER_USER
+    
+    while true; do
+        read -s -p "Senha Admin Portainer (Min 12 chars, Maiusc, Minusc, Num, @/_): " PORTAINER_PASS
+        echo ""
+        if validar_senha "$PORTAINER_PASS" 12; then
+            break
+        fi
+    done
+
+    read -p "Nome da Rede Interna (padrão: public_net): " REDE_INTERNA
+    REDE_INTERNA=${REDE_INTERNA:-public_net}
+
+    read -p "Email para SSL (LetsEncrypt): " EMAIL_SSL
+
+    # Criar Rede
+    if ! docker network ls --format '{{.Name}}' | grep -q "^$REDE_INTERNA$"; then
+        docker network create --driver=overlay --attachable "$REDE_INTERNA"
+        log_success "Rede $REDE_INTERNA criada."
+    fi
+
+    # Deploy Traefik
+    log_info "Criando stack Traefik..."
+    cat > traefik_stack.yaml <<EOF
+version: '3.8'
+
+services:
+  traefik:
+    image: traefik:v3.4
+    command:
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.swarmMode=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencryptresolver.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencryptresolver.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencryptresolver.acme.email=$EMAIL_SSL"
+      - "--certificatesresolvers.letsencryptresolver.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "traefik-certificates:/letsencrypt"
+    networks:
+      - $REDE_INTERNA
+    deploy:
+      mode: global
+      placement:
+        constraints:
+          - node.role == manager
+
+volumes:
+  traefik-certificates:
+
+networks:
+  $REDE_INTERNA:
+    external: true
+EOF
+    docker stack deploy -c traefik_stack.yaml traefik
+    wait_stack "traefik_traefik"
+
+    # Deploy Portainer
+    log_info "Criando stack Portainer..."
+    cat > portainer_stack.yaml <<EOF
+version: '3.8'
+
+services:
+  agent:
+    image: portainer/agent:2.19.4
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/docker/volumes:/var/lib/docker/volumes
+    networks:
+      - $REDE_INTERNA
+    deploy:
+      mode: global
+      placement:
+        constraints: [node.platform.os == linux]
+
+  portainer:
+    image: portainer/portainer-ce:2.19.4
+    command: -H tcp://tasks.agent:9001 --tlsskipverify
+    volumes:
+      - portainer_data:/data
+    networks:
+      - $REDE_INTERNA
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.portainer.rule=Host(\`$PORTAINER_DOMAIN\`)"
+        - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+        - "traefik.http.routers.portainer.tls.certresolver=letsencryptresolver"
+        - "traefik.http.routers.portainer.service=portainer"
+        - "traefik.docker.network=$REDE_INTERNA"
+        - "traefik.http.routers.portainer.entrypoints=websecure"
+
+volumes:
+  portainer_data:
+
+networks:
+  $REDE_INTERNA:
+    external: true
+EOF
+    docker stack deploy -c portainer_stack.yaml portainer
+    wait_stack "portainer_portainer"
+    
+    # Configurar Admin Portainer
+    log_info "Criando conta Admin no Portainer..."
+    sleep 10
+    local max_retries=5
+    local conta_criada=false
+    
+    for i in $(seq 1 $max_retries); do
+        RESPONSE=$(curl -k -s -X POST "https://$PORTAINER_DOMAIN/api/users/admin/init" \
+            -H "Content-Type: application/json" \
+            -d "{\"Username\": \"$PORTAINER_USER\", \"Password\": \"$PORTAINER_PASS\"}")
+        
+        if echo "$RESPONSE" | grep -q "\"Username\":\"$PORTAINER_USER\""; then
+            log_success "Conta admin criada!"
+            conta_criada=true
+            break
+        else
+            echo "Tentativa $i/$max_retries..."
+            sleep 5
+        fi
+    done
+
+    # Gerar Token
+    local token=""
+    if [ "$conta_criada" = true ]; then
+        token=$(curl -k -s -X POST "https://$PORTAINER_DOMAIN/api/auth" \
+            -H "Content-Type: application/json" \
+            -d "{\"username\":\"$PORTAINER_USER\",\"password\":\"$PORTAINER_PASS\"}" | jq -r .jwt)
+    fi
+
+    # Salvar Credenciais
+    mkdir -p "$DADOS_DIR"
+    cat > "$DADOS_PORTAINER" <<EOF
+[ PORTAINER ]
+Dominio do portainer: $PORTAINER_DOMAIN
+Usuario: $PORTAINER_USER
+Senha: $PORTAINER_PASS
+Token: $token
+Rede: $REDE_INTERNA
+EOF
+    log_success "Infraestrutura configurada com sucesso!"
+    echo -e "${VERDE}Credenciais salvas em $DADOS_PORTAINER${RESET}"
+    read -p "Pressione ENTER para continuar..."
+}
+
+# --- Gestão Portainer (Helpers) ---
 
 verificar_credenciais_portainer() {
-    mkdir -p "$DADOS_DIR"
-    
-    # Se não existe arquivo, cria
     if [ ! -f "$DADOS_PORTAINER" ]; then
-        header
-        echo -e "${AMARELO}Credenciais do Portainer não encontradas.${RESET}"
-        echo -e "${BRANCO}Por favor, informe os dados do seu Portainer:${RESET}"
-        echo ""
-        read -p "Domínio do Portainer (sem https://, ex: portainer.meudominio.com): " PORTAINER_DOMAIN
-        # Remove https:// se usuário colocar
-        PORTAINER_DOMAIN=$(echo "$PORTAINER_DOMAIN" | sed 's|https://||g' | sed 's|http://||g' | sed 's|/||g')
-        
-        read -p "Usuário (ex: admin): " PORTAINER_USER
-        read -s -p "Senha: " PORTAINER_PASS
-        echo ""
-        
-        # Salva dados iniciais (serão validados)
-        echo -e "[ PORTAINER ]\nDominio do portainer: $PORTAINER_DOMAIN\n\nUsuario: $PORTAINER_USER\n\nSenha: $PORTAINER_PASS" > "$DADOS_PORTAINER"
-    fi
-
-    # Lê arquivo
-    PORTAINER_DOMAIN=$(grep "Dominio do portainer:" "$DADOS_PORTAINER" | awk '{print $4}' | sed 's|https://||g')
-    PORTAINER_USER=$(grep "Usuario:" "$DADOS_PORTAINER" | awk '{print $2}')
-    PORTAINER_PASS=$(grep "Senha:" "$DADOS_PORTAINER" | awk '{print $2}')
-    PORTAINER_TOKEN=$(grep "Token:" "$DADOS_PORTAINER" | awk '{print $2}')
-
-    # Valida Token Existente
-    if [ -n "$PORTAINER_TOKEN" ] && [ "$PORTAINER_TOKEN" != "null" ]; then
-        local check=$(curl -s -o /dev/null -w "%{http_code}" -k -H "Authorization: Bearer $PORTAINER_TOKEN" "https://$PORTAINER_DOMAIN/api/endpoints")
-        if [ "$check" == "200" ]; then
-            log_success "Token do Portainer válido."
-            return 0
-        fi
-    fi
-
-    # Gera Novo Token
-    log_info "Gerando novo token do Portainer..."
-    local response=$(curl -s -k -X POST "https://$PORTAINER_DOMAIN/api/auth" -H "Content-Type: application/json" -d "{\"username\":\"$PORTAINER_USER\",\"password\":\"$PORTAINER_PASS\"}")
-    local jwt=$(echo "$response" | jq -r .jwt)
-
-    if [ -n "$jwt" ] && [ "$jwt" != "null" ]; then
-        PORTAINER_TOKEN="$jwt"
-        # Atualiza arquivo mantendo formato Orion (Token no final)
-        echo -e "[ PORTAINER ]\nDominio do portainer: $PORTAINER_DOMAIN\n\nUsuario: $PORTAINER_USER\n\nSenha: $PORTAINER_PASS\n\nToken: $PORTAINER_TOKEN" > "$DADOS_PORTAINER"
-        log_success "Novo token gerado e salvo."
-    else
-        log_error "Falha ao autenticar no Portainer: $response"
-        rm "$DADOS_PORTAINER" # Remove para forçar nova entrada na próxima vez
-        echo -e "${VERMELHO}Verifique suas credenciais e tente novamente.${RESET}"
+        log_error "Credenciais do Portainer não encontradas. Execute o Setup de Infraestrutura (Opção 2 do Wizard Inicial) ou crie o arquivo manualmente."
         exit 1
+    fi
+    PORTAINER_DOMAIN=$(grep "Dominio do portainer:" "$DADOS_PORTAINER" | awk '{print $4}' | sed 's|https://||g')
+    PORTAINER_TOKEN=$(grep "Token:" "$DADOS_PORTAINER" | awk '{print $2}')
+    
+    # Check Token Validity
+    local check=$(curl -s -o /dev/null -w "%{http_code}" -k -H "Authorization: Bearer $PORTAINER_TOKEN" "https://$PORTAINER_DOMAIN/api/endpoints")
+    if [ "$check" != "200" ]; then
+        # Tenta renovar
+        PORTAINER_USER=$(grep "Usuario:" "$DADOS_PORTAINER" | awk '{print $2}')
+        PORTAINER_PASS=$(grep "Senha:" "$DADOS_PORTAINER" | awk '{print $2}')
+        local response=$(curl -s -k -X POST "https://$PORTAINER_DOMAIN/api/auth" -H "Content-Type: application/json" -d "{\"username\":\"$PORTAINER_USER\",\"password\":\"$PORTAINER_PASS\"}")
+        local jwt=$(echo "$response" | jq -r .jwt)
+        if [ -n "$jwt" ] && [ "$jwt" != "null" ]; then
+            PORTAINER_TOKEN="$jwt"
+            # Atualiza token no arquivo (hacky sed replacement)
+            sed -i "s|Token: .*|Token: $PORTAINER_TOKEN|" "$DADOS_PORTAINER"
+        else
+            log_error "Falha ao autenticar no Portainer."
+            exit 1
+        fi
     fi
 }
 
 obter_swarm_info() {
-    # Pega Endpoint ID (Environment ID)
     PORTAINER_ENDPOINT_ID=$(curl -s -k -H "Authorization: Bearer $PORTAINER_TOKEN" "https://$PORTAINER_DOMAIN/api/endpoints" | jq '.[0].Id')
-    
-    # Pega Swarm ID (Cluster ID) - Fix: Usar endpoint /docker/swarm igual Orion
     PORTAINER_SWARM_ID=$(curl -s -k -H "Authorization: Bearer $PORTAINER_TOKEN" "https://$PORTAINER_DOMAIN/api/endpoints/$PORTAINER_ENDPOINT_ID/docker/swarm" | jq -r '.ID')
-    
-    if [ -z "$PORTAINER_SWARM_ID" ] || [ "$PORTAINER_SWARM_ID" == "null" ]; then
-        log_error "Não foi possível identificar o cluster Swarm via Portainer. Verifique se o ambiente é Swarm."
-        exit 1
-    fi
-    log_info "Ambiente detectado: Endpoint $PORTAINER_ENDPOINT_ID / Swarm $PORTAINER_SWARM_ID"
-}
-
-# --- Detecção de Ambiente ---
-
-detectar_ambiente() {
-    log_info "Analisando ambiente..."
-    
-    # 1. Docker Swarm Check
-    if ! docker info 2>/dev/null | grep -q "Swarm: active"; then
-        echo -e "${AMARELO}Docker Swarm não está ativo.${RESET}"
-        read -p "Deseja inicializar o Swarm neste nó? (y/n) " -n 1 -r
-        echo ""
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            docker swarm init >/dev/null 2>&1
-            log_success "Swarm inicializado."
-        else
-            log_error "Swarm é necessário para este setup. Abortando."
-            exit 1
-        fi
-    fi
-
-    # 2. Check Traefik Service
-    TRAEFIK_DETECTED=false
-    if docker service ls --format '{{.Name}}' | grep -q "traefik"; then
-        TRAEFIK_DETECTED=true
-        log_success "Serviço Traefik detectado."
-    fi
-
-    # 3. Check Network
-    # Procura redes comuns de proxy
-    POSSIBLE_NETS=("proxy" "traefik_public" "traefik-public" "public" "web")
-    DETECTED_NET=""
-    
-    for net in "${POSSIBLE_NETS[@]}"; do
-        if docker network ls --format '{{.Name}}' | grep -q "^${net}$"; then
-            DETECTED_NET="$net"
-            break
-        fi
-    done
-    
-    # Se achou Traefik mas nao rede, tenta achar rede usada pelo traefik
-    if [ "$TRAEFIK_DETECTED" = true ] && [ -z "$DETECTED_NET" ]; then
-        # Tenta inspecionar o serviço traefik pra ver networks
-        DETECTED_NET=$(docker service inspect traefik --format='{{range .Spec.TaskTemplate.Networks}}{{print .Target}}{{end}}' | head -n 1)
-    fi
-
-    # 4. Check Internal Network (watink_network)
-    WATINK_NET_EXTERNAL="false"
-    if docker network ls --format '{{.Name}}' | grep -q "^watink_network$"; then
-        log_info "Rede interna 'watink_network' pré-existente detectada. Será reutilizada."
-        WATINK_NET_EXTERNAL="true"
-    fi
 }
 
 # --- Geradores de Stack ---
 
-generate_net_block() {
-    if [ "$WATINK_NET_EXTERNAL" == "true" ]; then
-        cat <<EOF
-  watink_network:
-    external: true
-    name: watink_network
-EOF
-    else
-        cat <<EOF
-  watink_network:
-    driver: overlay
-    name: watink_network
-EOF
-    fi
-}
-
 generate_stack_standalone() {
-    # Captura bloco de rede dinâmico
-    local NET_BLOCK=$(generate_net_block)
-
-    cat <<EOF > watink.yaml
+    # Para standalone usamos docker-compose standard
+    cat <<EOF > docker-compose.standalone.yml
 version: '3.8'
 
 services:
@@ -241,15 +433,10 @@ services:
       - REDIS_URL=redis://redis:6379
     volumes:
       - ./backend/public:/app/public
-    networks:
-      - watink_network
     depends_on:
       - watink_postgres
       - redis
       - rabbitmq
-    deploy:
-      mode: replicated
-      replicas: 1
 
   frontend:
     image: watink/frontend:latest
@@ -260,13 +447,8 @@ services:
       - VITE_BACKEND_URL=$URL_BACKEND/
       - VITE_PLUGIN_MANAGER_URL=/plugins/
       - VITE_HOURS_CLOSE_TICKETS_AUTO=24
-    networks:
-      - watink_network
     depends_on:
       - backend
-    deploy:
-      mode: replicated
-      replicas: 1
 
   whaileys-engine:
     image: watink/engine:latest
@@ -279,15 +461,10 @@ services:
       - DB_USER=postgres
       - DB_PASS=$DB_PASS
       - DB_NAME=watink
-    networks:
-      - watink_network
     depends_on:
       - rabbitmq
       - redis
       - watink_postgres
-    deploy:
-      mode: replicated
-      replicas: 1
 
   flow-worker:
     image: watink/backend:latest
@@ -302,15 +479,10 @@ services:
       - AMQP_URL=amqp://guest:guest@rabbitmq:5672
       - REDIS_URL=redis://redis:6379
       - DEFAULT_TENANT_UUID=550e8400-e29b-41d4-a716-446655440000
-    networks:
-      - watink_network
     depends_on:
       - watink_postgres
       - rabbitmq
       - redis
-    deploy:
-      mode: replicated
-      replicas: 1
 
   watink-guard:
     image: watink/guard:latest
@@ -318,38 +490,23 @@ services:
       - DATABASE_URL=postgres://postgres:$DB_PASS@watink_postgres:5432/watink
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
       - WATINK_MASTER_KEY=${MASTER_KEY:-change_me_in_production}
-    networks:
-      - watink_network
     depends_on:
       - watink_postgres
       - rabbitmq
-    deploy:
-      mode: replicated
-      replicas: 1
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
     ports:
       - "15672:15672"
       - "5672:5672"
-    networks:
-      - watink_network
-    deploy:
-      mode: replicated
-      replicas: 1
 
   redis:
     image: redis:alpine
     command: [ "redis-server", "--appendonly", "yes" ]
     ports:
       - "6379:6379"
-    networks:
-      - watink_network
     volumes:
       - redis_data:/data
-    deploy:
-      mode: replicated
-      replicas: 1
 
   watink_postgres:
     image: watink/postgres-postgis-pgvector:16-optimized
@@ -360,14 +517,6 @@ services:
       - POSTGRES_PASSWORD=$DB_PASS
     volumes:
       - db_data:/var/lib/postgresql/data
-    networks:
-      - watink_network
-    deploy:
-      mode: replicated
-      replicas: 1
-
-networks:
-$NET_BLOCK
 
 volumes:
   db_data:
@@ -376,7 +525,12 @@ EOF
 }
 
 generate_stack_traefik() {
-    local NET_BLOCK=$(generate_net_block)
+    # Tenta ler rede do arquivo de portainer, senao default
+    local NET_PROXY="public_net"
+    if [ -f "$DADOS_PORTAINER" ]; then
+        local saved_net=$(grep "Rede:" "$DADOS_PORTAINER" | awk '{print $2}')
+        if [ -n "$saved_net" ]; then NET_PROXY="$saved_net"; fi
+    fi
 
     cat <<EOF > watink.yaml
 version: '3.8'
@@ -408,9 +562,6 @@ services:
     deploy:
       mode: replicated
       replicas: 1
-      update_config:
-        parallelism: 1
-        delay: 10s
       labels:
         - "traefik.enable=true"
         - "traefik.http.routers.backend-api.rule=Host(\`$DOMAIN_BACKEND\`) && PathPrefix(\`/api\`)"
@@ -500,7 +651,6 @@ services:
       - watink_network
     depends_on:
       - watink_postgres
-      - rabbitmq
     deploy:
       mode: replicated
       replicas: 1
@@ -544,7 +694,9 @@ networks:
   watink_proxy:
     external: true
     name: $NET_PROXY
-$NET_BLOCK
+  watink_network:
+    driver: overlay
+    name: watink_network
 
 volumes:
   db_data:
@@ -563,13 +715,11 @@ deploy_stack_swarm() {
         exit 1
     fi
     
-    # Valida credenciais e pega IDs
     verificar_credenciais_portainer
     obter_swarm_info
     
     log_info "Enviando stack $stack_name para o Portainer..."
     
-    # Curl Multipart Upload (estilo Orion)
     local response_file=$(mktemp)
     local http_code=$(curl -s -o "$response_file" -w "%{http_code}" -k -X POST \
         -H "Authorization: Bearer $PORTAINER_TOKEN" \
@@ -581,41 +731,47 @@ deploy_stack_swarm() {
     
     local body=$(cat "$response_file")
     rm "$response_file"
-    rm "$file_path" # Limpa arquivo gerado
+    rm "$file_path"
     
     if [ "$http_code" == "200" ]; then
-        if echo "$body" | grep -q "\"Id\""; then
-            log_success "Deploy concluído com sucesso!"
-            return 0
-        else
-            log_error "Resposta inesperada do Portainer: $body"
-            return 1
-        fi
-    elif [ "$http_code" == "409" ]; then # Conflict
-        log_error "Stack $stack_name já existe. Remova antes ou use outro nome."
-        echo "Dica: Use a opção de remover stack no menu."
-        return 1
+        log_success "Deploy concluído com sucesso!"
+        return 0
     else
         log_error "Falha no deploy (HTTP $http_code): $body"
         return 1
     fi
 }
 
-remover_stack() {
-    local stack_name="watink"
-    verificar_credenciais_portainer
-    obter_swarm_info
-    
-    # Busca Stack ID pelo nome
-    local stack_id=$(curl -s -k -H "Authorization: Bearer $PORTAINER_TOKEN" "https://$PORTAINER_DOMAIN/api/stacks" | jq -r ".[] | select(.Name == \"$stack_name\") | .Id")
-    
-    if [ -n "$stack_id" ] && [ "$stack_id" != "null" ]; then
-        log_info "Removendo stack $stack_name (ID: $stack_id)..."
-        curl -s -k -X DELETE -H "Authorization: Bearer $PORTAINER_TOKEN" "https://$PORTAINER_DOMAIN/api/stacks/$stack_id?endpointId=$PORTAINER_ENDPOINT_ID" >/dev/null
-        log_success "Stack removida."
+deploy_standalone() {
+    log_info "Iniciando deploy Standalone..."
+    docker compose -f docker-compose.standalone.yml up -d
+    if [ $? -eq 0 ]; then
+        log_success "Containers iniciados."
     else
-        log_error "Stack $stack_name não encontrada."
+        log_error "Falha ao iniciar containers."
     fi
+}
+
+remover_stack() {
+    read -p "Qual stack deseja remover? (padrão: watink): " stack_name
+    stack_name=${stack_name:-watink}
+    
+    # Tenta remover via Portainer (se credenciais existirem)
+    if [ -f "$DADOS_PORTAINER" ]; then
+        verificar_credenciais_portainer
+        obter_swarm_info
+        local stack_id=$(curl -s -k -H "Authorization: Bearer $PORTAINER_TOKEN" "https://$PORTAINER_DOMAIN/api/stacks" | jq -r ".[] | select(.Name == \"$stack_name\") | .Id")
+        if [ -n "$stack_id" ] && [ "$stack_id" != "null" ]; then
+             curl -s -k -X DELETE -H "Authorization: Bearer $PORTAINER_TOKEN" "https://$PORTAINER_DOMAIN/api/stacks/$stack_id?endpointId=$PORTAINER_ENDPOINT_ID" >/dev/null
+             log_success "Stack removida via Portainer."
+             return
+        fi
+    fi
+
+    # Fallback para docker compose (standalone)
+    log_info "Tentando remover via docker compose..."
+    docker compose -f docker-compose.standalone.yml down 2>/dev/null || docker stack rm "$stack_name" 2>/dev/null
+    log_success "Comandos de remoção executados."
 }
 
 # --- Menu Principal ---
@@ -636,47 +792,23 @@ menu_principal() {
         case $OPCAO in
             1)
                 check_root
-                install_deps
-                detectar_ambiente
-                
-                # Configuração Traefik
-                if [ -z "$DETECTED_NET" ]; then
-                    echo -e "${AMARELO}Rede do Traefik não detectada automaticamente.${RESET}"
-                    read -p "Digite o nome da rede externa do Traefik (ex: proxy): " NET_PROXY
-                else
-                    echo -e "${VERDE}Rede detectada: $DETECTED_NET${RESET}"
-                    read -p "Confirmar uso desta rede? (y/n) " -n 1 -r
-                    echo ""
-                    if [[ $REPLY =~ ^[Yy]$ ]]; then
-                        NET_PROXY="$DETECTED_NET"
-                    else
-                        read -p "Digite o nome da rede correta: " NET_PROXY
-                    fi
-                fi
-                
                 read -p "Domínio Frontend (ex: app.meudominio.com): " DOMAIN_FRONTEND
                 read -p "Domínio Backend (ex: api.meudominio.com): " DOMAIN_BACKEND
                 
-                # Gera Senhas
                 DB_PASS=$(openssl rand -hex 12)
                 MASTER_KEY=$(openssl rand -hex 16 | tr -d '\n')
                 
                 generate_stack_traefik
                 deploy_stack_swarm "watink"
                 
-                # Salva dados
                 mkdir -p "$DADOS_DIR"
                 echo -e "[ WATINK ]\nMode: Traefik\nFrontend: https://$DOMAIN_FRONTEND\nBackend: https://$DOMAIN_BACKEND\nDB Pass: $DB_PASS\nMaster Key: $MASTER_KEY" > "$DADOS_WATINK"
-                
                 cat "$DADOS_WATINK"
                 read -p "Pressione ENTER para continuar..."
                 ;;
             
             2)
                 check_root
-                install_deps
-                detectar_ambiente # Standalone tambem precisa de swarm
-                
                 echo -e "${AMARELO}Modo Standalone: Portas 3000 e 8080 serão expostas.${RESET}"
                 read -p "IP/URL Frontend (para CORS, ex: http://localhost:3000): " FRONTEND_URL
                 read -p "IP/URL Backend (para API, ex: http://localhost:8080): " URL_BACKEND
@@ -685,18 +817,16 @@ menu_principal() {
                 MASTER_KEY=$(openssl rand -hex 16 | tr -d '\n')
                 
                 generate_stack_standalone
-                deploy_stack_swarm "watink" # Usa a mesma funcao, mas com watink.yaml gerado diferente
+                deploy_standalone
                 
                 mkdir -p "$DADOS_DIR"
                 echo -e "[ WATINK ]\nMode: Standalone\nFrontend: $FRONTEND_URL\nBackend: $URL_BACKEND\nDB Pass: $DB_PASS\nMaster Key: $MASTER_KEY" > "$DADOS_WATINK"
-                
                 cat "$DADOS_WATINK"
                 read -p "Pressione ENTER para continuar..."
                 ;;
                 
             3)
                 check_root
-                install_deps
                 remover_stack
                 read -p "Pressione ENTER para continuar..."
                 ;;
@@ -712,5 +842,13 @@ menu_principal() {
     done
 }
 
-# Início
+# Start Logic
+check_root
+install_deps
+# Check infra and run wizard if needed
+if ! command -v docker &> /dev/null || [ "$1" == "--setup-infra" ]; then
+    setup_infra_wizard
+fi
+
+# Show Main Menu
 menu_principal
