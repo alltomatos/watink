@@ -710,7 +710,7 @@ services:
       - DEFAULT_TENANT_UUID=550e8400-e29b-41d4-a716-446655440000
       - REDIS_URL=redis://redis:6379
     volumes:
-      - ./backend/public:/app/public
+      - backend_public_data:/app/public
     depends_on:
       - watink_postgres
       - redis
@@ -828,6 +828,7 @@ services:
 volumes:
   db_data:
   redis_data:
+  backend_public_data:
 EOF
 }
 
@@ -862,7 +863,7 @@ services:
       - DEFAULT_TENANT_UUID=550e8400-e29b-41d4-a716-446655440000
       - REDIS_URL=redis://redis:6379
     volumes:
-      - ./backend/public:/app/public
+      - backend_public_data:/app/public
     networks:
       - watink_proxy
       - watink_network
@@ -1034,6 +1035,7 @@ networks:
 volumes:
   db_data:
   redis_data:
+  backend_public_data:
 EOF
 }
 
