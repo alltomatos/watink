@@ -61,7 +61,7 @@ check_root() {
 
 install_deps() {
     log_info "Verificando dependências..."
-    local deps=("curl" "jq" "openssl" "sed" "awk" "grep")
+    local deps=("curl" "jq" "openssl" "sed" "awk" "grep" "net-tools")
     for dep in "${deps[@]}"; do
         if ! command -v "$dep" &> /dev/null; then
             log_info "Instalando $dep..."
@@ -135,6 +135,11 @@ wait_stack() {
         counter=$((counter+1))
     done
     log_error "Timeout aguardando serviço $service_name."
+    # Diagnóstico de erro
+    echo -e "${VERMELHO}--- Diagnóstico de Falha ($service_name) ---${RESET}"
+    docker service ps "$service_name" --no-trunc | head -n 5
+    echo -e "${VERMELHO}--- Logs do Serviço ---${RESET}"
+    docker service logs "$service_name" | tail -n 20
     return 1
 }
 
@@ -262,12 +267,19 @@ setup_traefik_portainer() {
 
     # Deploy Traefik
     log_info "Criando stack Traefik..."
+    # Verificação de portas antes de iniciar
+    if netstat -tuln | grep -E ':80 |:443 '; then
+        log_error "Portas 80 ou 443 já estão em uso. O Traefik não poderá subir."
+        log_error "Por favor, libere as portas ou pare serviços conflitantes (apache, nginx, etc)."
+        exit 1
+    fi
+
     cat > traefik_stack.yaml <<EOF
 version: '3.8'
 
 services:
   traefik:
-    image: traefik:v3.4
+    image: traefik:v2.11
     command:
       - "--api.dashboard=true"
       - "--providers.docker=true"
