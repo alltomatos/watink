@@ -116,11 +116,17 @@ wait_stack() {
     local max_retries=60 # 60 * 5s = 5 minutos
 
     while [ $counter -lt $max_retries ]; do
+        # Verifica se o serviço existe
         if docker service ls --format '{{.Name}}' | grep -q "$service_name"; then
-            # Verifica se tem replicas rodando (ex: 1/1)
+            # Obtém réplicas atuais e desejadas (ex: 1/1)
             local replicas=$(docker service ls --filter "name=$service_name" --format '{{.Replicas}}')
-            if [[ "$replicas" == *"1/1"* ]]; then
-                log_success "Serviço $service_name está online!"
+            local current=$(echo "$replicas" | cut -d'/' -f1)
+            local desired=$(echo "$replicas" | cut -d'/' -f2)
+            
+            # Se current > 0 e igual a desired, está ok
+            if [ -n "$current" ] && [ "$current" -gt 0 ] && [ "$current" -eq "$desired" ]; then
+                log_success "Serviço $service_name está online ($replicas)!"
+                sleep 5 # Espera extra para estabilização da aplicação
                 return 0
             fi
         fi
@@ -130,6 +136,27 @@ wait_stack() {
     done
     log_error "Timeout aguardando serviço $service_name."
     return 1
+}
+
+wait_for_portainer_api() {
+    local domain="$1"
+    log_info "Aguardando API do Portainer em https://$domain..."
+    local counter=0
+    local max_retries=30 # 2.5 minutos
+
+    while [ $counter -lt $max_retries ]; do
+        # Tenta acessar o endpoint de status ou public
+        if curl -k -s --connect-timeout 5 "https://$domain/api/status" > /dev/null; then
+            log_success "API do Portainer respondendo!"
+            return 0
+        fi
+        echo -n "."
+        sleep 5
+        counter=$((counter+1))
+    done
+    log_error "Portainer API não respondeu em https://$domain após tentativas."
+    # Não retorna erro fatal, tenta prosseguir com o loop de criação de conta que também tem retries
+    return 0 
 }
 
 # --- Infraestrutura ---
@@ -325,10 +352,13 @@ EOF
     docker stack deploy -c portainer_stack.yaml portainer
     wait_stack "portainer_portainer"
     
+    # Aguardar API do Portainer estar pronta
+    wait_for_portainer_api "$PORTAINER_DOMAIN"
+
     # Configurar Admin Portainer
     log_info "Criando conta Admin no Portainer..."
-    sleep 10
-    local max_retries=5
+    sleep 5
+    local max_retries=10 # Aumentado para 10 tentativas
     local conta_criada=false
     
     for i in $(seq 1 $max_retries); do
