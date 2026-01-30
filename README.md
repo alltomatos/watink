@@ -24,6 +24,29 @@ Para rodar o projeto localmente de forma simplificada, utilize o script automát
 
 ---
 
+## ☁️ Instalação em VPS (Produção)
+
+Para facilitar o deploy em servidores VPS (Ubuntu/Debian), criamos o **SetupWatink**, um script automatizado que configura todo o ambiente utilizando Docker Swarm e integra-se nativamente com o Portainer.
+
+### ✨ O que o SetupWatink faz:
+*   Instala dependências (Docker, Traefik, etc).
+*   Configura o ambiente Docker Swarm.
+*   Gera e implanta a Stack completa (Frontend, Backend, Engine, Redis, RabbitMQ, Postgres).
+*   Configura proxy reverso com SSL automático (via Traefik).
+
+### 🚀 Como usar:
+Acesse seu servidor via SSH como `root` e execute o comando abaixo:
+
+```bash
+curl -sL https://raw.githubusercontent.com/alltomatos/watink/master/SetupWatink.sh -o SetupWatink.sh && chmod +x SetupWatink.sh && ./SetupWatink.sh
+```
+
+Siga as instruções do menu interativo para escolher entre o modo **Traefik (Domínio)** ou **Standalone (IP)**.
+
+> **Nota:** É altamente recomendável ter um ambiente com Portainer já instalado para gerenciar suas stacks visualmente, embora o script auxilie na integração.
+
+---
+
 ## 🔥 Diferenciais Técnicos e Funcionalidades
 
 O Watink OpenCore entrega nativamente tudo o que é essencial para uma operação de alto nível:
