@@ -690,7 +690,7 @@ version: '3.8'
 
 services:
   backend:
-    image: watink/backend:latest
+    image: watink/backend:1.3.414
     ports:
       - "8080:8080"
     environment:
@@ -722,7 +722,7 @@ services:
           memory: 1024M
 
   frontend:
-    image: watink/frontend:latest
+    image: watink/frontend:0.7.308
     ports:
       - "3000:80"
     environment:
@@ -734,7 +734,7 @@ services:
       - backend
 
   whaileys-engine:
-    image: watink/engine:latest
+    image: watink/engine:1.0.118
     environment:
       - AMQP_URL=amqp://guest:guest@rabbitmq:5672
       - REDIS_URL=redis://redis:6379
@@ -755,7 +755,7 @@ services:
           memory: 2048M
 
   flow-worker:
-    image: watink/backend:latest
+    image: watink/backend:1.3.414
     command: [ "node", "dist/flow-worker.js" ]
     environment:
       - DB_DIALECT=postgres
@@ -778,7 +778,7 @@ services:
           memory: 512M
 
   watink-guard:
-    image: watink/guard:latest
+    image: watink/guard:1.0.2
     environment:
       - DATABASE_URL=postgres://postgres:$DB_PASS@watink_postgres:5432/watink
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
@@ -844,7 +844,7 @@ version: '3.8'
 
 services:
   backend:
-    image: watink/backend:latest
+    image: watink/backend:1.3.414
     environment:
       - DB_DIALECT=postgres
       - DB_HOST=watink_postgres
@@ -892,7 +892,7 @@ services:
         - "traefik.docker.network=$NET_PROXY"
 
   frontend:
-    image: watink/frontend:latest
+    image: watink/frontend:0.7.308
     environment:
       - URL_BACKEND=backend:8080
       - VITE_BACKEND_URL=https://$DOMAIN_BACKEND/
@@ -914,7 +914,7 @@ services:
         - "traefik.docker.network=$NET_PROXY"
 
   whaileys-engine:
-    image: watink/engine:latest
+    image: watink/engine:1.0.118
     environment:
       - AMQP_URL=amqp://guest:guest@rabbitmq:5672
       - REDIS_URL=redis://redis:6379
@@ -938,7 +938,7 @@ services:
           memory: 2048M
 
   flow-worker:
-    image: watink/backend:latest
+    image: watink/backend:1.3.414
     command: [ "node", "dist/flow-worker.js" ]
     environment:
       - DB_DIALECT=postgres
@@ -964,7 +964,7 @@ services:
           memory: 512M
 
   watink-guard:
-    image: watink/guard:latest
+    image: watink/guard:1.0.2
     environment:
       - DATABASE_URL=postgres://postgres:$DB_PASS@watink_postgres:5432/watink
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/

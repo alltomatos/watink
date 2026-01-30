@@ -19,7 +19,6 @@ services:
       - NODE_OPTIONS=--max-old-space-size=800
       - DEFAULT_TENANT_UUID=550e8400-e29b-41d4-a716-446655440000
       - REDIS_URL=redis://redis:6379
-      - TENANTS=True
 
     volumes:
       - ./backend/public:/app/public
