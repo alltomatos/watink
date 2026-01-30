@@ -1,0 +1,139 @@
+version: '3.8'
+
+services:
+  backend:
+    image: watink/backend:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_DIALECT=postgres
+      - DB_HOST=watink_postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASS=${DB_PASS:-postgres}
+      - DB_NAME=watink
+      - AMQP_URL=amqp://guest:guest@rabbitmq:5672
+      - JWT_SECRET=3123123213123
+      - JWT_REFRESH_SECRET=75756756756
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - URL_BACKEND=${URL_BACKEND:-http://localhost:8080}
+      - PORT=8080
+      - NODE_OPTIONS=--max-old-space-size=800
+      - DEFAULT_TENANT_UUID=550e8400-e29b-41d4-a716-446655440000
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - backend_public_data:/app/public
+    depends_on:
+      - watink_postgres
+      - redis
+      - rabbitmq
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 1024M
+
+  frontend:
+    image: watink/frontend:latest
+    ports:
+      - "3000:80"
+    environment:
+      - URL_BACKEND=backend:8080
+      - VITE_BACKEND_URL=${URL_BACKEND:-http://localhost:8080}/
+      - VITE_PLUGIN_MANAGER_URL=/plugins/
+      - VITE_HOURS_CLOSE_TICKETS_AUTO=24
+    depends_on:
+      - backend
+
+  whaileys-engine:
+    image: watink/engine:latest
+    environment:
+      - AMQP_URL=amqp://guest:guest@rabbitmq:5672
+      - REDIS_URL=redis://redis:6379
+      - DB_DIALECT=postgres
+      - DB_HOST=watink_postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASS=${DB_PASS:-postgres}
+      - DB_NAME=watink
+    depends_on:
+      - rabbitmq
+      - redis
+      - watink_postgres
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 2048M
+
+  flow-worker:
+    image: watink/backend:latest
+    command: [ "node", "dist/flow-worker.js" ]
+    environment:
+      - DB_DIALECT=postgres
+      - DB_HOST=watink_postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASS=${DB_PASS:-postgres}
+      - DB_NAME=watink
+      - AMQP_URL=amqp://guest:guest@rabbitmq:5672
+      - REDIS_URL=redis://redis:6379
+      - DEFAULT_TENANT_UUID=550e8400-e29b-41d4-a716-446655440000
+    depends_on:
+      - watink_postgres
+      - rabbitmq
+      - redis
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+
+  watink-guard:
+    image: watink/guard:latest
+    environment:
+      - DATABASE_URL=postgres://postgres:${DB_PASS:-postgres}@watink_postgres:5432/watink
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - WATINK_MASTER_KEY=${MASTER_KEY:-change_me_in_production}
+    depends_on:
+      - watink_postgres
+      - rabbitmq
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+
+  redis:
+    image: redis:alpine
+    command: [ "redis-server", "--appendonly", "yes" ]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  watink_postgres:
+    image: watink/postgres-postgis-pgvector:16-optimized
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=watink
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${DB_PASS:-postgres}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+volumes:
+  db_data:
+  redis_data:
+  backend_public_data:
