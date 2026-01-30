@@ -441,8 +441,41 @@ verificar_credenciais_portainer() {
 }
 
 obter_swarm_info() {
-    PORTAINER_ENDPOINT_ID=$(curl -s -k -H "Authorization: Bearer $PORTAINER_TOKEN" "https://$PORTAINER_DOMAIN/api/endpoints" | jq '.[0].Id')
+    log_info "Obtendo informações do Swarm via Portainer..."
+    
+    # Debug: Listar endpoints para ver o que está retornando
+    local endpoints_response=$(curl -s -k -H "Authorization: Bearer $PORTAINER_TOKEN" "https://$PORTAINER_DOMAIN/api/endpoints")
+    
+    # Tenta pegar o ID do primeiro endpoint (geralmente o local/primary)
+    PORTAINER_ENDPOINT_ID=$(echo "$endpoints_response" | jq '.[0].Id')
+    
+    # Validação rigorosa
+    if [ "$PORTAINER_ENDPOINT_ID" == "null" ] || [ -z "$PORTAINER_ENDPOINT_ID" ]; then
+        log_error "Não foi possível obter o ID do Endpoint do Portainer."
+        log_error "Resposta da API: $endpoints_response"
+        
+        # Tentativa de fallback: buscar pelo nome "local" ou "primary"
+        PORTAINER_ENDPOINT_ID=$(echo "$endpoints_response" | jq -r '.[] | select(.Name=="local" or .Name=="primary") | .Id' | head -n 1)
+        
+        if [ -z "$PORTAINER_ENDPOINT_ID" ]; then
+             log_error "Falha crítica: Nenhum endpoint válido encontrado no Portainer."
+             exit 1
+        fi
+    fi
+    
+    log_info "Endpoint ID detectado: $PORTAINER_ENDPOINT_ID"
+
+    # Obter Swarm ID
     PORTAINER_SWARM_ID=$(curl -s -k -H "Authorization: Bearer $PORTAINER_TOKEN" "https://$PORTAINER_DOMAIN/api/endpoints/$PORTAINER_ENDPOINT_ID/docker/swarm" | jq -r '.ID')
+    
+    if [ "$PORTAINER_SWARM_ID" == "null" ] || [ -z "$PORTAINER_SWARM_ID" ]; then
+        log_error "Não foi possível obter o Swarm ID."
+        # Em alguns casos o deploy funciona sem SwarmID se for stack compose, mas para swarm mode precisa.
+        # Vamos tentar continuar mas avisando
+        log_error "Continuando sem Swarm ID (pode falhar se for stack Swarm)..."
+    else
+        log_info "Swarm ID detectado: $PORTAINER_SWARM_ID"
+    fi
 }
 
 # --- Geradores de Stack ---
