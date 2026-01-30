@@ -816,6 +816,79 @@ remover_stack() {
     log_success "Comandos de remoção executados."
 }
 
+full_cleanup() {
+    clear
+    echo -e "${VERMELHO}###############################################################${RESET}"
+    echo -e "${VERMELHO}#                     PERIGO: ZONA DESTRUTIVA                 #${RESET}"
+    echo -e "${VERMELHO}###############################################################${RESET}"
+    echo ""
+    echo -e "${AMARELO}Você solicitou a REMOÇÃO TOTAL de todo o ambiente Watink e Docker.${RESET}"
+    echo -e "${BRANCO}Esta ação fará o seguinte:${RESET}"
+    echo -e "1. Parar e remover ${VERMELHO}TODOS${RESET} os containers do sistema."
+    echo -e "2. Remover ${VERMELHO}TODOS${RESET} os volumes (banco de dados, redis, etc)."
+    echo -e "3. Remover ${VERMELHO}TODAS${RESET} as imagens Docker baixadas."
+    echo -e "4. Desfazer o Swarm e remover redes."
+    echo -e "5. Desinstalar o Docker Engine e CLI."
+    echo -e "6. Apagar pastas de dados ($DADOS_DIR) e logs."
+    echo ""
+    echo -e "${VERMELHO}A VPS ficará como se fosse recém-formatada (em relação ao Docker/Watink).${RESET}"
+    echo -e "${VERMELHO}ESTA AÇÃO É IRREVERSÍVEL!${RESET}"
+    echo ""
+    
+    read -p "Tem certeza absoluta que deseja continuar? Digite 'DESTRUIR' para confirmar: " CONFIRMACAO
+    
+    if [ "$CONFIRMACAO" != "DESTRUIR" ]; then
+        log_info "Limpeza cancelada pelo usuário."
+        echo -e "${VERDE}Operação cancelada. Nada foi alterado.${RESET}"
+        read -p "Pressione ENTER para voltar..."
+        return
+    fi
+    
+    echo ""
+    log_info "Iniciando limpeza total do sistema..."
+    
+    # 1. Remover Stacks e Containers
+    echo -e "${AMARELO}1/6 - Removendo containers e stacks...${RESET}"
+    docker stack rm watink traefik portainer 2>/dev/null
+    docker compose -f docker-compose.standalone.yml down -v 2>/dev/null
+    docker rm -f $(docker ps -a -q) 2>/dev/null
+    
+    # 2. Leave Swarm
+    echo -e "${AMARELO}2/6 - Saindo do Docker Swarm...${RESET}"
+    docker swarm leave --force 2>/dev/null
+    
+    # 3. Prune System (Volumes, Networks, Images)
+    echo -e "${AMARELO}3/6 - Limpando volumes, redes e imagens...${RESET}"
+    docker system prune -a --volumes -f 2>/dev/null
+    
+    # 4. Parar Docker
+    echo -e "${AMARELO}4/6 - Parando serviço Docker...${RESET}"
+    systemctl stop docker 2>/dev/null
+    systemctl stop docker.socket 2>/dev/null
+    
+    # 5. Desinstalar Docker
+    echo -e "${AMARELO}5/6 - Desinstalando Docker...${RESET}"
+    apt-get purge -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin docker-ce-rootless-extras 2>/dev/null
+    rm -rf /var/lib/docker
+    rm -rf /var/lib/containerd
+    
+    # 6. Limpar Arquivos
+    echo -e "${AMARELO}6/6 - Removendo arquivos de dados e logs...${RESET}"
+    rm -rf "$DADOS_DIR"
+    rm -f "$LOG_FILE"
+    rm -f docker-compose.standalone.yml watink.yaml traefik_stack.yaml portainer_stack.yaml
+    
+    log_success "Limpeza total concluída."
+    echo ""
+    echo -e "${VERDE}###############################################################${RESET}"
+    echo -e "${VERDE}#                 SISTEMA LIMPO COM SUCESSO                   #${RESET}"
+    echo -e "${VERDE}###############################################################${RESET}"
+    echo ""
+    echo -e "O Docker e todos os dados do Watink foram removidos."
+    read -p "Pressione ENTER para sair..."
+    exit 0
+}
+
 # --- Menu Principal ---
 
 menu_principal() {
@@ -875,6 +948,10 @@ menu_principal() {
             0)
                 clear
                 exit 0
+                ;;
+            99)
+                check_root
+                full_cleanup
                 ;;
             *)
                 echo "Opção inválida"
