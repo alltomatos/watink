@@ -10,12 +10,14 @@ type StoreGroupData = {
     name: string;
     roleIds?: number[];
     userIds?: number[];
+    permissions?: number[];
 };
 
 type UpdateGroupData = {
     name: string;
     roleIds?: number[];
     userIds?: number[];
+    permissions?: number[];
 };
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
@@ -25,7 +27,8 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
         where: { tenantId },
         include: [
             { model: Role, as: "roles", attributes: ["id", "name"] },
-            { model: User, as: "users", attributes: ["id", "name"] }
+            { model: User, as: "users", attributes: ["id", "name"] },
+            { model: Permission, as: "permissions", attributes: ["id", "resource", "action"] }
         ]
     });
 
@@ -61,12 +64,16 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
         await group.$set("users", users);
     }
 
-
+    if (data.permissions && data.permissions.length > 0) {
+        const permissions = await Permission.findAll({ where: { id: data.permissions } });
+        await group.$set("permissions", permissions, { through: { tenantId } });
+    }
 
     await group.reload({
         include: [
             { model: Role, as: "roles" },
-            { model: User, as: "users" }
+            { model: User, as: "users" },
+            { model: Permission, as: "permissions" }
         ]
     });
 
@@ -81,7 +88,8 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
         where: { id: groupId, tenantId },
         include: [
             { model: Role, as: "roles" },
-            { model: User, as: "users", attributes: ["id", "name", "email"] }
+            { model: User, as: "users", attributes: ["id", "name", "email"] },
+            { model: Permission, as: "permissions" }
         ]
     });
 
@@ -127,12 +135,16 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
         await group.$set("users", users);
     }
 
-
+    if (data.permissions) {
+        const permissions = await Permission.findAll({ where: { id: data.permissions } });
+        await group.$set("permissions", permissions, { through: { tenantId } });
+    }
 
     await group.reload({
         include: [
             { model: Role, as: "roles" },
-            { model: User, as: "users" }
+            { model: User, as: "users" },
+            { model: Permission, as: "permissions" }
         ]
     });
 

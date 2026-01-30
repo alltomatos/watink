@@ -1,6 +1,13 @@
 const messages = {
   pt: {
     translations: {
+      role: {
+        permissions: {
+          available: "Permissões Disponíveis",
+          assigned: "Permissões Atribuídas",
+          noPermissions: "Nenhuma permissão encontrada",
+        },
+      },
       signup: {
         title: "Cadastre-se",
         toasts: {

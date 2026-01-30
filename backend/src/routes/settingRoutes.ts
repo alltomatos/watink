@@ -15,18 +15,18 @@ settingRoutes.get("/public-settings", SettingController.getPublicSettings); // [
 // routes.get("/settings/:settingKey", isAuth, SettingsController.show);
 
 // change setting key to key in future
-settingRoutes.put("/settings/:settingKey", isAuth, checkPermission("settings:edit"), SettingController.update);
+settingRoutes.put("/settings/:settingKey", isAuth, checkPermission("settings:write"), SettingController.update);
 
 // Logo upload route
-settingRoutes.post("/settings/logo", isAuth, checkPermission("settings:edit"), upload.single("logo"), SettingController.uploadLogo);
+settingRoutes.post("/settings/logo", isAuth, checkPermission("settings:write"), upload.single("logo"), SettingController.uploadLogo);
 
 // Favicon upload route
-settingRoutes.post("/settings/favicon", isAuth, checkPermission("settings:edit"), upload.single("favicon"), SettingController.uploadFavicon);
+settingRoutes.post("/settings/favicon", isAuth, checkPermission("settings:write"), upload.single("favicon"), SettingController.uploadFavicon);
 
 // Login Image upload route
-settingRoutes.post("/settings/loginImage", isAuth, checkPermission("settings:edit"), upload.single("loginImage"), SettingController.uploadLoginImage);
+settingRoutes.post("/settings/loginImage", isAuth, checkPermission("settings:write"), upload.single("loginImage"), SettingController.uploadLoginImage);
 
 // Mobile Logo upload route
-settingRoutes.post("/settings/mobileLogo", isAuth, checkPermission("settings:edit"), upload.single("mobileLogo"), SettingController.uploadMobileLogo);
+settingRoutes.post("/settings/mobileLogo", isAuth, checkPermission("settings:write"), upload.single("mobileLogo"), SettingController.uploadMobileLogo);
 
 export default settingRoutes;

@@ -279,8 +279,20 @@ const UserEdit = () => {
     const classes = useStyles();
     const { userId } = useParams();
     const history = useHistory();
+    const { user: loggedInUser } = useContext(AuthContext);
+    const { loading: loadingWhats, whatsApps } = useWhatsApps();
 
     const isNew = userId === "new";
+
+    const initialState = {
+        name: "",
+        email: "",
+        password: "",
+        profile: "user",
+        groupIds: [],
+        queues: [],
+        whatsappId: ""
+    };
 
     const UserSchema = Yup.object().shape({
         name: Yup.string()
@@ -307,87 +319,30 @@ const UserEdit = () => {
 
     // Data lists
     const [groups, setGroups] = useState([]);
-    const [allPermissions, setAllPermissions] = useState([]);
+
 
     // Selected values
     const [selectedQueueIds, setSelectedQueueIds] = useState([]);
     const [whatsappId, setWhatsappId] = useState("");
-    const [selectedPermissions, setSelectedPermissions] = useState([]);
-    const [searchParam, setSearchParam] = useState("");
 
-    const [expandedCategories, setExpandedCategories] = useState({});
 
-    const categorizePermissions = useCallback((permissions) => {
-        const categories = {
-            "contacts": "Contatos",
-            "tickets": "Tickets",
-            "users": "Usuários",
-            "groups": "Grupos",
-            "quick_answers": "Respostas Rápidas",
-            "flows": "Flow Builder",
-            "knowledge_bases": "Base de Conhecimento",
-            "connections": "Conexões",
-            "queues": "Filas",
-            "settings": "Configurações",
-            "dashboard": "Dashboard",
-            "pipelines": "Pipelines",
-            "swagger": "Desenvolvedor",
-            "clients": "Clientes",
-            "helpdesk": "Helpdesk",
-            "marketplace": "Marketplace"
-        };
 
-        const grouped = {};
 
-        permissions.forEach(permission => {
-            const permName = permission.name || permission.resource;
-            if (!permission || !permName) return;
-            let category = "Outros";
-            for (const [key, label] of Object.entries(categories)) {
-                if (permName.includes(key) || permName.includes(key.replace("es", ""))) {
-                    category = label;
-                    if (permName.includes("admin_queues")) category = "Filas";
-                    if (permName.includes("admin_settings")) category = "Configurações";
-                    break;
-                }
-            }
 
-            if (permName.includes("admin_queues")) category = "Filas";
-            if (permName.includes("admin_settings")) category = "Configurações";
 
-            if (!grouped[category]) {
-                grouped[category] = [];
-            }
-            grouped[category].push(permission);
-        });
-
-        return grouped;
-    }, []);
 
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true);
             try {
-                const [groupsRes, permissionsRes] = await Promise.all([
-                    api.get("/groups"),
-                    api.get("/permissions")
-                ]);
-
-                setGroups(groupsRes.data);
-                setAllPermissions(permissionsRes.data);
-
-                // Expand all categories by default
-                const grouped = categorizePermissions(permissionsRes.data);
-                const expanded = {};
-                Object.keys(grouped).forEach(cat => expanded[cat] = true);
-                setExpandedCategories(expanded);
+                const { data: groupsData } = await api.get("/groups");
+                setGroups(groupsData);
 
                 if (!isNew) {
                     const { data } = await api.get(`/users/${userId}`);
                     setUser(prevState => ({ ...prevState, ...data, groupId: data.groupId || "" }));
                     setSelectedQueueIds(data.queues?.map(q => q.id) || []);
                     setWhatsappId(data.whatsappId || "");
-                    setSelectedPermissions(data.permissions?.map(p => p.id) || []);
                 }
             } catch (err) {
                 toastError(err);
@@ -397,7 +352,7 @@ const UserEdit = () => {
         };
 
         fetchData();
-    }, [userId, isNew, categorizePermissions]);
+    }, [userId, isNew]);
 
     // Check if SMTP plugin is active
     useEffect(() => {
@@ -420,7 +375,7 @@ const UserEdit = () => {
             ...values,
             whatsappId,
             queueIds: selectedQueueIds,
-            permissions: selectedPermissions
+            permissions: []
         };
 
         try {
@@ -439,31 +394,7 @@ const UserEdit = () => {
         }
     };
 
-    const handlePermissionChange = (permissionId) => {
-        setSelectedPermissions(prev => {
-            if (prev.includes(permissionId)) {
-                return prev.filter(id => id !== permissionId);
-            }
-            return [...prev, permissionId];
-        });
-    };
 
-    const handleCategoryToggle = (category) => {
-        setExpandedCategories(prev => ({
-            ...prev,
-            [category]: !prev[category]
-        }));
-    };
-
-    const handleSelectAllCategory = (categoryPermissions, isAllSelected) => {
-        const categoryIds = categoryPermissions.map(p => p.id);
-        setSelectedPermissions(prev => {
-            if (isAllSelected) {
-                return prev.filter(id => !categoryIds.includes(id));
-            }
-            return [...new Set([...prev, ...categoryIds])];
-        });
-    };
 
     const handleToggleStatus = async () => {
         setTogglingStatus(true);
@@ -503,12 +434,7 @@ const UserEdit = () => {
         }
     };
 
-    const filteredPermissions = allPermissions.filter(p =>
-        ((p.name || p.resource) && (p.name || p.resource).toLowerCase().includes(searchParam.toLowerCase())) ||
-        (p.description && p.description.toLowerCase().includes(searchParam.toLowerCase()))
-    );
 
-    const groupedPermissions = categorizePermissions(filteredPermissions);
 
     if (loading) {
         return (
@@ -597,288 +523,172 @@ const UserEdit = () => {
                                 </div>
 
                                 <Grid container spacing={3}>
-                                    {/* Coluna 1: Dados e Configurações */}
-                                    <Grid item xs={12} md={4}>
-                                        <Grid container spacing={3}>
-                                            {/* Dados do Usuário */}
-                                            <Grid item xs={12}>
-                                                <Paper className={classes.card}>
-                                                    <div className={classes.cardHeader}>
-                                                        <div className={`${classes.cardIcon} ${classes.cardIconUser}`}>
-                                                            <Person />
-                                                        </div>
-                                                        <Typography className={classes.cardTitle}>
-                                                            Dados do Usuário
-                                                        </Typography>
-                                                    </div>
-
-                                                    <Field
-                                                        as={TextField}
-                                                        label={i18n.t("userModal.form.name")}
-                                                        name="name"
-                                                        variant="outlined"
-                                                        fullWidth
-                                                        error={touched.name && Boolean(errors.name)}
-                                                        helperText={touched.name && errors.name}
-                                                        className={classes.fieldSpacing}
-                                                        InputProps={{
-                                                            startAdornment: (
-                                                                <InputAdornment position="start">
-                                                                    <Person color="action" fontSize="small" />
-                                                                </InputAdornment>
-                                                            ),
-                                                            style: { borderRadius: 12 }
-                                                        }}
-                                                    />
-
-                                                    <Field
-                                                        as={TextField}
-                                                        label={i18n.t("userModal.form.email")}
-                                                        name="email"
-                                                        variant="outlined"
-                                                        fullWidth
-                                                        error={touched.email && Boolean(errors.email)}
-                                                        helperText={touched.email && errors.email}
-                                                        className={classes.fieldSpacing}
-                                                        InputProps={{
-                                                            startAdornment: (
-                                                                <InputAdornment position="start">
-                                                                    <Email color="action" fontSize="small" />
-                                                                </InputAdornment>
-                                                            ),
-                                                            style: { borderRadius: 12 }
-                                                        }}
-                                                    />
-
-                                                    <Field
-                                                        as={TextField}
-                                                        name="password"
-                                                        variant="outlined"
-                                                        label={i18n.t("userModal.form.password")}
-                                                        error={touched.password && Boolean(errors.password)}
-                                                        helperText={touched.password && errors.password}
-                                                        type={showPassword ? "text" : "password"}
-                                                        fullWidth
-                                                        className={classes.fieldSpacing}
-                                                        InputProps={{
-                                                            startAdornment: (
-                                                                <InputAdornment position="start">
-                                                                    <Lock color="action" fontSize="small" />
-                                                                </InputAdornment>
-                                                            ),
-                                                            endAdornment: (
-                                                                <InputAdornment position="end">
-                                                                    <IconButton
-                                                                        aria-label="toggle password visibility"
-                                                                        onClick={() => setShowPassword((e) => !e)}
-                                                                        size="small"
-                                                                    >
-                                                                        {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
-                                                                    </IconButton>
-                                                                </InputAdornment>
-                                                            ),
-                                                            style: { borderRadius: 12 }
-                                                        }}
-                                                    />
-
-
-
-                                                    <FormControl
-                                                        variant="outlined"
-                                                        fullWidth
-                                                    >
-                                                        <InputLabel id="group-selection-input-label">
-                                                            {i18n.t("userModal.form.group")}
-                                                        </InputLabel>
-                                                        <Field
-                                                            as={Select}
-                                                            label={i18n.t("userModal.form.group")}
-                                                            name="groupId"
-                                                            labelId="group-selection-label"
-                                                            id="group-selection"
-                                                            style={{ borderRadius: 12 }}
-                                                        >
-                                                            <MenuItem value=""><em>None</em></MenuItem>
-                                                            {groups.map(group => (
-                                                                <MenuItem key={group.id} value={group.id}>{group.name}</MenuItem>
-                                                            ))}
-                                                        </Field>
-                                                    </FormControl>
-
-                                                </Paper>
-                                            </Grid>
-
-                                            {/* Configurações Adicionais */}
-                                            <Grid item xs={12}>
-                                                <Paper className={classes.card}>
-                                                    <div className={classes.cardHeader}>
-                                                        <div className={`${classes.cardIcon} ${classes.cardIconSettings}`}>
-                                                            <Settings />
-                                                        </div>
-                                                        <Typography className={classes.cardTitle}>
-                                                            Configurações
-                                                        </Typography>
-                                                    </div>
-
-                                                    <div className={classes.fieldSpacing}>
-                                                        <QueueSelect
-                                                            selectedQueueIds={selectedQueueIds}
-                                                            onChange={(values) => setSelectedQueueIds(values)}
-                                                        />
-                                                    </div>
-
-                                                    <Can
-                                                        role={loggedInUser.profile}
-                                                        perform="user-modal:editQueues"
-                                                        yes={() => (
-                                                            !loadingWhats && (
-                                                                <FormControl
-                                                                    variant="outlined"
-                                                                    fullWidth
-                                                                >
-                                                                    <InputLabel>{i18n.t("userModal.form.whatsapp")}</InputLabel>
-                                                                    <Field
-                                                                        as={Select}
-                                                                        value={whatsappId}
-                                                                        onChange={(e) => setWhatsappId(e.target.value)}
-                                                                        label={i18n.t("userModal.form.whatsapp")}
-                                                                        style={{ borderRadius: 12 }}
-                                                                    >
-                                                                        <MenuItem value={""}>&nbsp;</MenuItem>
-                                                                        {whatsApps.map((whatsapp) => (
-                                                                            <MenuItem key={whatsapp.id} value={whatsapp.id}>
-                                                                                {whatsapp.name}
-                                                                            </MenuItem>
-                                                                        ))}
-                                                                    </Field>
-                                                                </FormControl>
-                                                            )
-                                                        )}
-                                                    />
-
-                                                </Paper>
-                                            </Grid>
-                                        </Grid>
-                                    </Grid>
-
-                                    {/* Coluna 2: Permissões */}
+                                    {/* Dados do Usuário */}
                                     <Grid item xs={12} md={8}>
                                         <Paper className={classes.card}>
                                             <div className={classes.cardHeader}>
-                                                <div className={`${classes.cardIcon} ${classes.cardIconPermissions}`}>
-                                                    <Security />
+                                                <div className={`${classes.cardIcon} ${classes.cardIconUser}`}>
+                                                    <Person />
                                                 </div>
                                                 <Typography className={classes.cardTitle}>
-                                                    Permissões
+                                                    Dados do Usuário
                                                 </Typography>
-                                                <Chip
-                                                    size="small"
-                                                    label={`${selectedPermissions.length}/${allPermissions.length}`}
-                                                    className={classes.chip}
-                                                    color="primary"
+                                            </div>
+
+                                            <Field
+                                                as={TextField}
+                                                label={i18n.t("userModal.form.name")}
+                                                name="name"
+                                                variant="outlined"
+                                                fullWidth
+                                                error={touched.name && Boolean(errors.name)}
+                                                helperText={touched.name && errors.name}
+                                                className={classes.fieldSpacing}
+                                                InputProps={{
+                                                    startAdornment: (
+                                                        <InputAdornment position="start">
+                                                            <Person color="action" fontSize="small" />
+                                                        </InputAdornment>
+                                                    ),
+                                                    style: { borderRadius: 12 }
+                                                }}
+                                            />
+
+                                            <Field
+                                                as={TextField}
+                                                label={i18n.t("userModal.form.email")}
+                                                name="email"
+                                                variant="outlined"
+                                                fullWidth
+                                                error={touched.email && Boolean(errors.email)}
+                                                helperText={touched.email && errors.email}
+                                                className={classes.fieldSpacing}
+                                                InputProps={{
+                                                    startAdornment: (
+                                                        <InputAdornment position="start">
+                                                            <Email color="action" fontSize="small" />
+                                                        </InputAdornment>
+                                                    ),
+                                                    style: { borderRadius: 12 }
+                                                }}
+                                            />
+
+                                            <Field
+                                                as={TextField}
+                                                name="password"
+                                                variant="outlined"
+                                                label={i18n.t("userModal.form.password")}
+                                                error={touched.password && Boolean(errors.password)}
+                                                helperText={touched.password && errors.password}
+                                                type={showPassword ? "text" : "password"}
+                                                fullWidth
+                                                className={classes.fieldSpacing}
+                                                InputProps={{
+                                                    startAdornment: (
+                                                        <InputAdornment position="start">
+                                                            <Lock color="action" fontSize="small" />
+                                                        </InputAdornment>
+                                                    ),
+                                                    endAdornment: (
+                                                        <InputAdornment position="end">
+                                                            <IconButton
+                                                                aria-label="toggle password visibility"
+                                                                onClick={() => setShowPassword((e) => !e)}
+                                                                size="small"
+                                                            >
+                                                                {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                                                            </IconButton>
+                                                        </InputAdornment>
+                                                    ),
+                                                    style: { borderRadius: 12 }
+                                                }}
+                                            />
+
+                                            <FormControl
+                                                variant="outlined"
+                                                fullWidth
+                                            >
+                                                <InputLabel id="group-selection-input-label">
+                                                    {i18n.t("userModal.form.group")}
+                                                </InputLabel>
+                                                <Field
+                                                    as={Select}
+                                                    label={i18n.t("userModal.form.group")}
+                                                    name="groupId"
+                                                    labelId="group-selection-label"
+                                                    id="group-selection"
+                                                    style={{ borderRadius: 12 }}
+                                                >
+                                                    <MenuItem value=""><em>None</em></MenuItem>
+                                                    {groups.map(group => (
+                                                        <MenuItem key={group.id} value={group.id}>{group.name}</MenuItem>
+                                                    ))}
+                                                </Field>
+                                            </FormControl>
+
+                                        </Paper>
+                                    </Grid>
+
+                                    {/* Configurações Adicionais */}
+                                    <Grid item xs={12} md={4}>
+                                        <Paper className={classes.card}>
+                                            <div className={classes.cardHeader}>
+                                                <div className={`${classes.cardIcon} ${classes.cardIconSettings}`}>
+                                                    <Settings />
+                                                </div>
+                                                <Typography className={classes.cardTitle}>
+                                                    Configurações
+                                                </Typography>
+                                            </div>
+
+                                            <div className={classes.fieldSpacing}>
+                                                <QueueSelect
+                                                    selectedQueueIds={selectedQueueIds}
+                                                    onChange={(values) => setSelectedQueueIds(values)}
                                                 />
                                             </div>
 
                                             <Can
                                                 role={loggedInUser.profile}
-                                                perform="user-modal:editProfile"
+                                                perform="user-modal:editQueues"
                                                 yes={() => (
-                                                    <div className={classes.permissionsContainer}>
-                                                        <div className={classes.searchContainer}>
-                                                            <Search className={classes.searchIcon} />
-                                                            <InputBase
-                                                                className={classes.searchInput}
-                                                                placeholder="Buscar permissões..."
-                                                                value={searchParam}
-                                                                onChange={(e) => setSearchParam(e.target.value)}
-                                                            />
-                                                        </div>
-
-                                                        {Object.entries(groupedPermissions).map(([category, permissions]) => {
-                                                            const CategoryIcon = categoryIcons[category] || Settings;
-                                                            const selectedCount = permissions.filter(p =>
-                                                                selectedPermissions.includes(p.id)
-                                                            ).length;
-                                                            const isAllSelected = selectedCount === permissions.length;
-
-                                                            return (
-                                                                <div key={category} className={classes.categorySection}>
-                                                                    <div
-                                                                        className={classes.categoryHeader}
-                                                                        onClick={() => handleCategoryToggle(category)}
-                                                                    >
-                                                                        <div className={classes.categoryHeaderLeft}>
-                                                                            <Switch
-                                                                                checked={isAllSelected}
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
-                                                                                    handleSelectAllCategory(permissions, isAllSelected);
-                                                                                }}
-                                                                                color="primary"
-                                                                                size="small"
-                                                                                inputProps={{ 'aria-label': 'secondary checkbox' }}
-                                                                            />
-                                                                            <CategoryIcon className={classes.categoryIcon} />
-                                                                            <Typography className={classes.categoryName}>
-                                                                                {category}
-                                                                            </Typography>
-                                                                            <Chip
-                                                                                size="small"
-                                                                                label={`${selectedCount}/${permissions.length}`}
-                                                                                className={classes.categoryBadge}
-                                                                                variant="outlined"
-                                                                                color={selectedCount > 0 ? "primary" : "default"}
-                                                                            />
-                                                                        </div>
-                                                                        {expandedCategories[category] ? <ExpandLess /> : <ExpandMore />}
-                                                                    </div>
-
-                                                                    <Collapse in={expandedCategories[category]}>
-                                                                        <div style={{ paddingLeft: 24 }}>
-                                                                            <Grid container spacing={1}>
-                                                                                {permissions.map(permission => (
-                                                                                    <Grid item xs={12} sm={6} key={permission.id}>
-                                                                                        <FormControlLabel
-                                                                                            control={
-                                                                                                <Switch
-                                                                                                    checked={selectedPermissions.includes(permission.id)}
-                                                                                                    onChange={() => handlePermissionChange(permission.id)}
-                                                                                                    color="primary"
-                                                                                                    size="small"
-                                                                                                />
-                                                                                            }
-                                                                                            label={
-                                                                                                <Typography className={classes.permissionLabel}>
-                                                                                                    {permission.description || permission.name || permission.resource}
-                                                                                                </Typography>
-                                                                                            }
-                                                                                            className={classes.permissionItem}
-                                                                                        />
-                                                                                    </Grid>
-                                                                                ))}
-                                                                            </Grid>
-                                                                        </div>
-                                                                    </Collapse>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                )}
-                                                no={() => (
-                                                    <Typography variant="h6" color="error" align="center">
-                                                        Você não tem permissão para editar permissões.
-                                                    </Typography>
+                                                    !loadingWhats && (
+                                                        <FormControl
+                                                            variant="outlined"
+                                                            fullWidth
+                                                        >
+                                                            <InputLabel>{i18n.t("userModal.form.whatsapp")}</InputLabel>
+                                                            <Field
+                                                                as={Select}
+                                                                value={whatsappId}
+                                                                onChange={(e) => setWhatsappId(e.target.value)}
+                                                                label={i18n.t("userModal.form.whatsapp")}
+                                                                style={{ borderRadius: 12 }}
+                                                            >
+                                                                <MenuItem value={""}>&nbsp;</MenuItem>
+                                                                {whatsApps.map((whatsapp) => (
+                                                                    <MenuItem key={whatsapp.id} value={whatsapp.id}>
+                                                                        {whatsapp.name}
+                                                                    </MenuItem>
+                                                                ))}
+                                                            </Field>
+                                                        </FormControl>
+                                                    )
                                                 )}
                                             />
+
                                         </Paper>
                                     </Grid>
+
+
+
                                 </Grid>
-                            </div>
-                        </Fade>
-                    </Form>
+                            </div >
+                        </Fade >
+                    </Form >
                 )}
-            </Formik>
-        </MainContainer>
+            </Formik >
+        </MainContainer >
     );
 };
 

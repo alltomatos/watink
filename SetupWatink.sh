@@ -525,7 +525,7 @@ services:
       replicas: 1
 
   watink_postgres:
-    image: ronaldodavi/pgvectorgis:latest
+    image: watink/postgres-postgis-pgvector:16-optimized
     environment:
       - POSTGRES_DB=watink
       - POSTGRES_PASSWORD=$DB_PASS

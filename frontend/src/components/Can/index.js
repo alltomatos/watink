@@ -1,15 +1,25 @@
-const check = (user, action, data) => {
-	const userPermissions = user?.permissions || [];
+import rules from "../../rules";
 
-	if (userPermissions.includes(action)) {
+const check = (role, action, permissions) => {
+	const permissionsToCheck = permissions || [];
+
+	if (permissionsToCheck.includes(action)) {
+		return true;
+	}
+
+	const staticPermissions = rules[role]?.static || [];
+	if (staticPermissions.includes(action)) {
 		return true;
 	}
 
 	return false;
 };
 
-const Can = ({ user, perform, data, yes, no }) => {
-	return check(user, perform, data) ? yes() : no();
+const Can = ({ role, perform, data, yes, no, user }) => {
+	const permissions = user?.permissions || [];
+	const userRole = role || user?.profile;
+
+	return check(userRole, perform, permissions) ? yes() : no();
 };
 
 Can.defaultProps = {

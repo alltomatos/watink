@@ -17,6 +17,8 @@ import Role from "./Role";
 import GroupRole from "./GroupRole";
 import Tenant from "./Tenant";
 import UserGroup from "./UserGroup";
+import Permission from "./Permission";
+import GroupPermission from "./GroupPermission";
 
 
 @Table
@@ -42,6 +44,9 @@ class Group extends Model<Group> {
 
     @BelongsToMany(() => Role, () => GroupRole)
     roles: Role[];
+
+    @BelongsToMany(() => Permission, () => GroupPermission)
+    permissions: Permission[];
 
 
 

@@ -301,6 +301,20 @@ const MainListItems = (props) => {
 
       <Can
         user={user}
+        perform="roles:read"
+        yes={() => (
+          <ListItemLink
+            to="/roles"
+            primary={i18n.t("mainDrawer.listItems.roles") || "Roles"}
+            icon={<AccountTreeOutlinedIcon />}
+            iconColor={googleColors.orange}
+            collapsed={collapsed}
+          />
+        )}
+      />
+
+      <Can
+        user={user}
         perform="queues:read"
         yes={() => (
           <ListItemLink

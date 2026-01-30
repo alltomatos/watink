@@ -12,9 +12,6 @@ import {
     TextField,
     Button,
     IconButton,
-    Checkbox,
-    FormControlLabel,
-    Collapse,
     CircularProgress,
     Avatar,
     List,
@@ -24,45 +21,27 @@ import {
     ListItemSecondaryAction,
     InputAdornment,
     Chip,
-    Divider,
     Dialog,
     DialogTitle,
     DialogContent,
     DialogActions,
     Tooltip,
-    Badge,
     Fade,
 } from "@material-ui/core";
 
 import {
     ArrowBack,
     Save,
-    ExpandMore,
-    ExpandLess,
     Search,
     PersonAdd,
     Delete,
     Security,
     Group,
     Edit,
-    ContactMail,
-    ConfirmationNumber,
-    Settings,
-    Dashboard,
-    QuestionAnswer,
-    AccountTree,
-    MenuBook,
-    Phone,
-    QueuePlayNext,
-    Code,
-    Business,
-    Storefront,
-    Headset,
 } from "@material-ui/icons";
-import Switch from "@material-ui/core/Switch";
-import InputBase from "@material-ui/core/InputBase";
 
 import MainContainer from "../../components/MainContainer";
+import PermissionTransferList from "../../components/PermissionTransferList";
 import MainHeader from "../../components/MainHeader";
 import Title from "../../components/Title";
 import api from "../../services/api";
@@ -73,6 +52,14 @@ const useStyles = makeStyles((theme) => ({
     root: {
         padding: theme.spacing(2),
         animation: "$fadeIn 0.4s ease-out",
+        height: "100%",
+        overflowY: "auto",
+        ...theme.scrollbarStyles,
+    },
+    formContainer: {
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
     },
     "@keyframes fadeIn": {
         from: { opacity: 0, transform: "translateY(10px)" },
@@ -145,46 +132,7 @@ const useStyles = makeStyles((theme) => ({
         fontWeight: 600,
         fontSize: "1.1rem",
     },
-    categorySection: {
-        marginBottom: theme.spacing(1),
-    },
-    categoryHeader: {
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: theme.spacing(1, 1.5),
-        borderRadius: 10,
-        cursor: "pointer",
-        transition: "background 0.2s ease",
-        "&:hover": {
-            background: theme.palette.action.hover,
-        },
-    },
-    categoryHeaderLeft: {
-        display: "flex",
-        alignItems: "center",
-        gap: theme.spacing(1),
-    },
-    categoryIcon: {
-        fontSize: 20,
-        opacity: 0.8,
-    },
-    categoryName: {
-        fontWeight: 500,
-        fontSize: "0.95rem",
-    },
-    categoryBadge: {
-        marginLeft: theme.spacing(1),
-    },
-    permissionItem: {
-        paddingLeft: theme.spacing(4),
-    },
-    permissionCheckbox: {
-        padding: theme.spacing(0.5),
-    },
-    permissionLabel: {
-        fontSize: "0.875rem",
-    },
+
     userList: {
         maxHeight: 350,
         overflowY: "auto",
@@ -255,11 +203,6 @@ const useStyles = makeStyles((theme) => ({
             transform: "translateX(4px)",
         },
     },
-    permissionsContainer: {
-        maxHeight: 500,
-        overflowY: "auto",
-        ...theme.scrollbarStyles,
-    },
 }));
 
 const GroupSchema = Yup.object().shape({
@@ -268,27 +211,6 @@ const GroupSchema = Yup.object().shape({
         .max(50, "Nome muito longo!")
         .required("Nome é obrigatório"),
 });
-
-// Mapa de ícones por categoria
-const categoryIcons = {
-    "Contatos": ContactMail,
-    "Tickets": ConfirmationNumber,
-    "Usuários": Group,
-    "Grupos": Security,
-    "Respostas Rápidas": QuestionAnswer,
-    "Flow Builder": AccountTree,
-    "Base de Conhecimento": MenuBook,
-    "Conexões": Phone,
-    "Filas": QueuePlayNext,
-    "Configurações": Settings,
-    "Dashboard": Dashboard,
-    "Pipelines": AccountTree,
-    "Desenvolvedor": Code,
-    "Clientes": Business,
-    "Marketplace": Storefront,
-    "Helpdesk": Headset,
-    "Outros": Settings,
-};
 
 const GroupEdit = () => {
     const classes = useStyles();
@@ -304,58 +226,9 @@ const GroupEdit = () => {
     const [allUsers, setAllUsers] = useState([]);
     const [selectedPermissions, setSelectedPermissions] = useState([]);
     const [groupUsers, setGroupUsers] = useState([]);
-    const [expandedCategories, setExpandedCategories] = useState({});
     const [userSearchTerm, setUserSearchTerm] = useState("");
     const [addUserDialogOpen, setAddUserDialogOpen] = useState(false);
     const [availableUserSearch, setAvailableUserSearch] = useState("");
-    const [permissionSearchTerm, setPermissionSearchTerm] = useState("");
-
-    const categorizePermissions = useCallback((permissions) => {
-        const categories = {
-            "contacts": "Contatos",
-            "tickets": "Tickets",
-            "users": "Usuários",
-            "groups": "Grupos",
-            "quick_answers": "Respostas Rápidas",
-            "flows": "Flow Builder",
-            "knowledge_bases": "Base de Conhecimento",
-            "connections": "Conexões",
-            "queues": "Filas",
-            "settings": "Configurações",
-            "dashboard": "Dashboard",
-            "pipelines": "Pipelines",
-            "swagger": "Desenvolvedor",
-            "clients": "Clientes",
-            "helpdesk": "Helpdesk",
-            "marketplace": "Marketplace"
-        };
-
-        const grouped = {};
-
-        permissions.forEach(permission => {
-            const permName = permission.name || permission.resource;
-            if (!permission || !permName) return;
-            let category = "Outros";
-            for (const [key, label] of Object.entries(categories)) {
-                if (permName.includes(key) || permName.includes(key.replace("es", ""))) {
-                    category = label;
-                    if (permName.includes("admin_queues")) category = "Filas";
-                    if (permName.includes("admin_settings")) category = "Configurações";
-                    break;
-                }
-            }
-
-            if (permName.includes("admin_queues")) category = "Filas";
-            if (permName.includes("admin_settings")) category = "Configurações";
-
-            if (!grouped[category]) {
-                grouped[category] = [];
-            }
-            grouped[category].push(permission);
-        });
-
-        return grouped;
-    }, []);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -378,12 +251,6 @@ const GroupEdit = () => {
                     const [permissionsRes, usersRes] = responses;
                     setAllPermissions(permissionsRes.data);
                     setAllUsers(usersRes.data.users || usersRes.data || []);
-
-                    // Expand all categories by default
-                    const grouped = categorizePermissions(permissionsRes.data);
-                    const expanded = {};
-                    Object.keys(grouped).forEach(cat => expanded[cat] = true);
-                    setExpandedCategories(expanded);
                 } else {
                     // Editing existing group
                     const [groupRes, permissionsRes, usersRes] = responses;
@@ -392,12 +259,6 @@ const GroupEdit = () => {
                     setGroupUsers(groupRes.data.users || []);
                     setAllPermissions(permissionsRes.data);
                     setAllUsers(usersRes.data.users || usersRes.data || []);
-
-                    // Expand all categories by default
-                    const grouped = categorizePermissions(permissionsRes.data);
-                    const expanded = {};
-                    Object.keys(grouped).forEach(cat => expanded[cat] = true);
-                    setExpandedCategories(expanded);
                 }
             } catch (err) {
                 toastError(err);
@@ -408,7 +269,7 @@ const GroupEdit = () => {
         };
 
         fetchData();
-    }, [groupId, history, categorizePermissions, isNew]);
+    }, [groupId, history, isNew]);
 
     const handleSave = async (values) => {
         setSaving(true);
@@ -434,30 +295,8 @@ const GroupEdit = () => {
         }
     };
 
-    const handlePermissionChange = (permissionId) => {
-        setSelectedPermissions(prev => {
-            if (prev.includes(permissionId)) {
-                return prev.filter(id => id !== permissionId);
-            }
-            return [...prev, permissionId];
-        });
-    };
-
-    const handleCategoryToggle = (category) => {
-        setExpandedCategories(prev => ({
-            ...prev,
-            [category]: !prev[category]
-        }));
-    };
-
-    const handleSelectAllCategory = (categoryPermissions, isAllSelected) => {
-        const categoryIds = categoryPermissions.map(p => p.id);
-        setSelectedPermissions(prev => {
-            if (isAllSelected) {
-                return prev.filter(id => !categoryIds.includes(id));
-            }
-            return [...new Set([...prev, ...categoryIds])];
-        });
+    const handlePermissionChange = (newSelectedIds) => {
+        setSelectedPermissions(newSelectedIds);
     };
 
     const handleRemoveUser = (userId) => {
@@ -480,13 +319,6 @@ const GroupEdit = () => {
             .join("")
             .toUpperCase();
     };
-
-    const filteredPermissions = allPermissions.filter(p =>
-        ((p.name || p.resource) && (p.name || p.resource).toLowerCase().includes(permissionSearchTerm.toLowerCase())) ||
-        (p.description && p.description.toLowerCase().includes(permissionSearchTerm.toLowerCase()))
-    );
-
-    const groupedPermissions = categorizePermissions(filteredPermissions);
 
     const filteredGroupUsers = groupUsers.filter(user =>
         user.name.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
@@ -518,7 +350,7 @@ const GroupEdit = () => {
                 onSubmit={handleSave}
             >
                 {({ touched, errors, isSubmitting, values }) => (
-                    <Form>
+                    <Form className={classes.formContainer}>
                         <Fade in timeout={400}>
                             <div className={classes.root}>
                                 {/* Header */}
@@ -556,7 +388,7 @@ const GroupEdit = () => {
                                 {/* Grid de Conteúdo */}
                                 <Grid container spacing={3}>
                                     {/* Coluna 1: Dados do Grupo */}
-                                    <Grid item xs={12} md={3}>
+                                    <Grid item xs={12} md={6}>
                                         <Paper className={classes.card}>
                                             <div className={classes.cardHeader}>
                                                 <div className={`${classes.cardIcon} ${classes.cardIconData}`}>
@@ -604,111 +436,8 @@ const GroupEdit = () => {
                                         </Paper>
                                     </Grid>
 
-                                    {/* Coluna 2: Permissões */}
-                                    <Grid item xs={12} md={5}>
-                                        <Paper className={classes.card}>
-                                            <div className={classes.cardHeader}>
-                                                <div className={`${classes.cardIcon} ${classes.cardIconPermissions}`}>
-                                                    <Security />
-                                                </div>
-                                                <Typography className={classes.cardTitle}>
-                                                    Permissões
-                                                </Typography>
-                                                <Chip
-                                                    size="small"
-                                                    label={`${selectedPermissions.length}/${allPermissions.length}`}
-                                                    className={classes.chip}
-                                                    color="primary"
-                                                />
-                                            </div>
-
-                                            <div className={classes.searchContainer}>
-                                                <div className={classes.searchWrapper}>
-                                                    <Search className={classes.searchIcon} />
-                                                    <InputBase
-                                                        className={classes.searchInput}
-                                                        placeholder="Buscar permissões..."
-                                                        value={permissionSearchTerm}
-                                                        onChange={(e) => setPermissionSearchTerm(e.target.value)}
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            <div className={classes.permissionsContainer}>
-                                                {Object.entries(groupedPermissions).map(([category, permissions]) => {
-                                                    const CategoryIcon = categoryIcons[category] || Settings;
-                                                    const selectedCount = permissions.filter(p =>
-                                                        selectedPermissions.includes(p.id)
-                                                    ).length;
-                                                    const isAllSelected = selectedCount === permissions.length && permissions.length > 0;
-                                                    const isPartialSelected = selectedCount > 0 && selectedCount < permissions.length;
-
-                                                    return (
-                                                        <div key={category} className={classes.categorySection}>
-                                                            <div
-                                                                className={classes.categoryHeader}
-                                                                onClick={() => handleCategoryToggle(category)}
-                                                            >
-                                                                <div className={classes.categoryHeaderLeft}>
-                                                                    <Switch
-                                                                        checked={isAllSelected}
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            handleSelectAllCategory(permissions, isAllSelected);
-                                                                        }}
-                                                                        color="primary"
-                                                                        size="small"
-                                                                    />
-                                                                    <CategoryIcon className={classes.categoryIcon} />
-                                                                    <Typography className={classes.categoryName}>
-                                                                        {category}
-                                                                    </Typography>
-                                                                    <Chip
-                                                                        size="small"
-                                                                        label={`${selectedCount}/${permissions.length}`}
-                                                                        className={classes.categoryBadge}
-                                                                        variant="outlined"
-                                                                        color={selectedCount > 0 ? "primary" : "default"}
-                                                                    />
-                                                                </div>
-                                                                {expandedCategories[category] ? <ExpandLess /> : <ExpandMore />}
-                                                            </div>
-
-                                                            <Collapse in={expandedCategories[category]}>
-                                                                <div style={{ paddingLeft: 24 }}>
-                                                                    <Grid container spacing={1}>
-                                                                        {permissions.map(permission => (
-                                                                            <Grid item xs={12} sm={6} key={permission.id}>
-                                                                                <FormControlLabel
-                                                                                    control={
-                                                                                        <Switch
-                                                                                            checked={selectedPermissions.includes(permission.id)}
-                                                                                            onChange={() => handlePermissionChange(permission.id)}
-                                                                                            color="primary"
-                                                                                            size="small"
-                                                                                        />
-                                                                                    }
-                                                                                    label={
-                                                                                        <Typography className={classes.permissionLabel}>
-                                                                                            {permission.description || permission.name || permission.resource}
-                                                                                        </Typography>
-                                                                                    }
-                                                                                    className={classes.permissionItem}
-                                                                                />
-                                                                            </Grid>
-                                                                        ))}
-                                                                    </Grid>
-                                                                </div>
-                                                            </Collapse>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        </Paper>
-                                    </Grid>
-
-                                    {/* Coluna 3: Usuários */}
-                                    <Grid item xs={12} md={4}>
+                                    {/* Coluna 2: Usuários (moved to right) */}
+                                    <Grid item xs={12} md={6}>
                                         <Paper className={classes.card}>
                                             <div className={classes.cardHeader}>
                                                 <div className={`${classes.cardIcon} ${classes.cardIconUsers}`}>
@@ -789,6 +518,32 @@ const GroupEdit = () => {
                                             >
                                                 Adicionar Usuário
                                             </Button>
+                                        </Paper>
+                                    </Grid>
+
+                                    {/* Coluna 3: Permissões (Full Width) */}
+                                    <Grid item xs={12}>
+                                        <Paper className={classes.card}>
+                                            <div className={classes.cardHeader}>
+                                                <div className={`${classes.cardIcon} ${classes.cardIconPermissions}`}>
+                                                    <Security />
+                                                </div>
+                                                <Typography className={classes.cardTitle}>
+                                                    Permissões
+                                                </Typography>
+                                                <Chip
+                                                    size="small"
+                                                    label={`${selectedPermissions.length}/${allPermissions.length}`}
+                                                    className={classes.chip}
+                                                    color="primary"
+                                                />
+                                            </div>
+
+                                            <PermissionTransferList
+                                                allPermissions={allPermissions}
+                                                selectedPermissions={selectedPermissions}
+                                                onChange={handlePermissionChange}
+                                            />
                                         </Paper>
                                     </Grid>
                                 </Grid>

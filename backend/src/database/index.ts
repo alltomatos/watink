@@ -40,6 +40,7 @@ import Role from "../models/Role";
 import RolePermission from "../models/RolePermission";
 import UserRole from "../models/UserRole";
 import GroupRole from "../models/GroupRole";
+import GroupPermission from "../models/GroupPermission";
 import Step from "../models/Step";
 import EmailTemplate from "../models/EmailTemplate";
 
@@ -91,6 +92,7 @@ const models = [
   RolePermission,
   UserRole,
   GroupRole,
+  GroupPermission,
   Step,
   EmailTemplate
 ];
