@@ -169,8 +169,46 @@ wait_for_portainer_api() {
 install_docker() {
     if ! command -v docker &> /dev/null; then
         log_info "Instalando Docker..."
-        curl -fsSL https://get.docker.com | sh
-        log_success "Docker instalado."
+        
+        # Tentativa 1: Script oficial
+        if curl -fsSL https://get.docker.com | bash; then
+            log_success "Docker instalado via script oficial."
+        else
+            log_info "Falha na instalação via script. Tentando método manual..."
+            
+            # Tentativa 2: Manual (Ubuntu/Debian)
+            apt-get update -qq >/dev/null 2>&1
+            apt-get install -y ca-certificates curl gnupg lsb-release >/dev/null 2>&1
+            mkdir -p /etc/apt/keyrings
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | tee /etc/apt/keyrings/docker.asc > /dev/null
+            chmod a+r /etc/apt/keyrings/docker.asc
+            
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+            
+            apt-get update -qq >/dev/null 2>&1
+            apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin >/dev/null 2>&1
+            
+            if command -v docker &> /dev/null; then
+                 log_success "Docker instalado via método manual."
+            else
+                 log_error "Falha crítica ao instalar Docker."
+                 exit 1
+            fi
+        fi
+        
+        systemctl enable docker >/dev/null 2>&1
+        systemctl start docker >/dev/null 2>&1
+        
+        # Aplicar correção DOCKER_MIN_API_VERSION=1.24 (SetupOrion Pattern)
+        mkdir -p /etc/systemd/system/docker.service.d
+        cat > /etc/systemd/system/docker.service.d/override.conf <<EOF
+[Service]
+Environment=DOCKER_MIN_API_VERSION=1.24
+EOF
+        systemctl daemon-reload >/dev/null 2>&1
+        systemctl restart docker >/dev/null 2>&1
+        log_success "Correção DOCKER_MIN_API_VERSION aplicada."
+        
     else
         log_info "Docker já instalado."
     fi
@@ -180,8 +218,22 @@ init_swarm() {
     if ! docker info 2>/dev/null | grep -q "Swarm: active"; then
         log_info "Inicializando Docker Swarm..."
         local ip_addr=$(hostname -I | awk '{print $1}')
-        docker swarm init --advertise-addr "$ip_addr"
-        log_success "Swarm inicializado."
+        local max_attempts=3
+        local attempt=1
+        
+        while [ $attempt -le $max_attempts ]; do
+            if docker swarm init --advertise-addr "$ip_addr"; then
+                log_success "Swarm inicializado."
+                return 0
+            else
+                log_error "Falha ao iniciar Swarm (Tentativa $attempt/$max_attempts)."
+                attempt=$((attempt + 1))
+                sleep 5
+            fi
+        done
+        
+        log_error "Não foi possível iniciar o Swarm após $max_attempts tentativas."
+        exit 1
     else
         log_info "Swarm já ativo."
     fi
@@ -370,7 +422,8 @@ EOF
     # Configurar Admin Portainer
     log_info "Criando conta Admin no Portainer..."
     sleep 5
-    local max_retries=10 # Aumentado para 10 tentativas
+    local max_retries=4
+    local delay=15
     local conta_criada=false
     
     for i in $(seq 1 $max_retries); do
@@ -378,13 +431,18 @@ EOF
             -H "Content-Type: application/json" \
             -d "{\"Username\": \"$PORTAINER_USER\", \"Password\": \"$PORTAINER_PASS\"}")
         
+        # SetupOrion check pattern
         if echo "$RESPONSE" | grep -q "\"Username\":\"$PORTAINER_USER\""; then
-            log_success "Conta admin criada!"
+            log_success "Conta admin criada com sucesso!"
             conta_criada=true
             break
         else
-            echo "Tentativa $i/$max_retries..."
-            sleep 5
+            log_info "Tentativa $i/$max_retries - Aguardando Portainer..."
+            if [ $i -eq $max_retries ]; then
+                 log_error "Não foi possível criar a conta de administrador após $max_retries tentativas."
+                 log_error "Erro retornado: $RESPONSE"
+            fi
+            sleep $delay
         fi
     done
 
@@ -392,31 +450,22 @@ EOF
     local token=""
     if [ "$conta_criada" = true ]; then
         log_info "Autenticando para gerar token..."
+        sleep 5
+        
+        # SetupOrion Auth Pattern
         local auth_response=$(curl -k -s -X POST "https://$PORTAINER_DOMAIN/api/auth" \
             -H "Content-Type: application/json" \
             -d "{\"username\":\"$PORTAINER_USER\",\"password\":\"$PORTAINER_PASS\"}")
-        
-        # Tenta extrair token
+            
         token=$(echo "$auth_response" | jq -r .jwt 2>/dev/null)
         
-        if [ "$token" == "null" ] || [ -z "$token" ]; then
+        if [ -n "$token" ] && [ "$token" != "null" ]; then
+             log_success "Token gerado com sucesso."
+        else
              log_error "Falha ao gerar token de autenticação."
              log_error "Resposta da API Auth: $auth_response"
-             # Se falhar a autenticação logo após criar, pode ser delay. Vamos tentar mais uma vez com sleep.
-             sleep 5
-             auth_response=$(curl -k -s -X POST "https://$PORTAINER_DOMAIN/api/auth" \
-                -H "Content-Type: application/json" \
-                -d "{\"username\":\"$PORTAINER_USER\",\"password\":\"$PORTAINER_PASS\"}")
-             token=$(echo "$auth_response" | jq -r .jwt 2>/dev/null)
-             
-             if [ "$token" == "null" ] || [ -z "$token" ]; then
-                 log_error "Segunda tentativa de autenticação falhou."
-                 log_error "Resposta: $auth_response"
-             else
-                 log_success "Token gerado com sucesso (após retry)."
-             fi
-        else
-             log_success "Token gerado com sucesso."
+             # Não abortamos fatalmente aqui para permitir que o usuário tente acessar manualmente,
+             # mas o script falhará nos próximos passos se depender do token.
         fi
     fi
 
