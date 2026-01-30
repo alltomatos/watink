@@ -391,9 +391,33 @@ EOF
     # Gerar Token
     local token=""
     if [ "$conta_criada" = true ]; then
-        token=$(curl -k -s -X POST "https://$PORTAINER_DOMAIN/api/auth" \
+        log_info "Autenticando para gerar token..."
+        local auth_response=$(curl -k -s -X POST "https://$PORTAINER_DOMAIN/api/auth" \
             -H "Content-Type: application/json" \
-            -d "{\"username\":\"$PORTAINER_USER\",\"password\":\"$PORTAINER_PASS\"}" | jq -r .jwt)
+            -d "{\"username\":\"$PORTAINER_USER\",\"password\":\"$PORTAINER_PASS\"}")
+        
+        # Tenta extrair token
+        token=$(echo "$auth_response" | jq -r .jwt 2>/dev/null)
+        
+        if [ "$token" == "null" ] || [ -z "$token" ]; then
+             log_error "Falha ao gerar token de autenticação."
+             log_error "Resposta da API Auth: $auth_response"
+             # Se falhar a autenticação logo após criar, pode ser delay. Vamos tentar mais uma vez com sleep.
+             sleep 5
+             auth_response=$(curl -k -s -X POST "https://$PORTAINER_DOMAIN/api/auth" \
+                -H "Content-Type: application/json" \
+                -d "{\"username\":\"$PORTAINER_USER\",\"password\":\"$PORTAINER_PASS\"}")
+             token=$(echo "$auth_response" | jq -r .jwt 2>/dev/null)
+             
+             if [ "$token" == "null" ] || [ -z "$token" ]; then
+                 log_error "Segunda tentativa de autenticação falhou."
+                 log_error "Resposta: $auth_response"
+             else
+                 log_success "Token gerado com sucesso (após retry)."
+             fi
+        else
+             log_success "Token gerado com sucesso."
+        fi
     fi
 
     # Salvar Credenciais
