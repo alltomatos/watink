@@ -572,7 +572,7 @@ services:
 
   portainer:
     image: portainer/portainer-ce:latest ## Versão do Portainer
-    command: -H tcp://tasks.agent:9001 --tlsskipverify
+    command: -H tcp://tasks.agent:9001 --tlsskipverify --session-timeout 8h
 
     volumes:
       - portainer_data:/data
@@ -1066,7 +1066,7 @@ deploy_stack_swarm() {
     
     local body=$(cat "$response_file")
     rm "$response_file"
-    rm "$file_path"
+    # rm "$file_path"  <-- Mantido para debug/referência futura
     
     if [ "$http_code" == "200" ]; then
         log_success "Deploy concluído com sucesso!"
