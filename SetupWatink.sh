@@ -572,7 +572,7 @@ services:
 
   portainer:
     image: portainer/portainer-ce:latest ## Versão do Portainer
-    command: -H tcp://tasks.agent:9001 --tlsskipverify --session-timeout 8h
+    command: -H tcp://tasks.agent:9001 --tlsskipverify
 
     volumes:
       - portainer_data:/data
