@@ -107,23 +107,42 @@ pluginRoutes.use(
         pathRewrite: {
             "^/plugins": "", // remove /plugins prefix when forwarding
         },
-        onProxyReq: (proxyReq: any, req: any) => {
-            try {
-                const tenantId = req.user?.tenantId;
-                const profile = req.user?.profile;
-                if (tenantId) {
-                    proxyReq.setHeader("x-tenant-id", tenantId.toString());
+        on: {
+            proxyReq: (proxyReq: any, req: any) => {
+                try {
+                    // DEBUG LOGS
+                    console.log("[PluginProxy] onProxyReq - User:", JSON.stringify(req.user));
+                    console.log("[PluginProxy] onProxyReq - Headers:", JSON.stringify(req.headers));
+
+                    let tenantId = req.user?.tenantId;
+                    const profile = req.user?.profile;
+
+                    // For Super Admin without tenant context, use Default Tenant
+                    if (!tenantId && profile === "admin") {
+                        // Try to get from header first (if frontend sends it)
+                        const headerTenant = req.headers["x-tenant-id"] || req.headers["tenantid"];
+                        if (headerTenant) {
+                            tenantId = headerTenant;
+                        } else {
+                            // Fallback to Default Tenant UUID
+                            tenantId = process.env.DEFAULT_TENANT_UUID || "550e8400-e29b-41d4-a716-446655440000";
+                        }
+                    }
+
+                    if (tenantId) {
+                        proxyReq.setHeader("x-tenant-id", tenantId.toString());
+                    }
+                    if (profile) {
+                        proxyReq.setHeader("x-user-profile", profile.toString());
+                    }
+                } catch (err) {
+                    console.error("Error in onProxyReq:", err);
                 }
-                if (profile) {
-                    proxyReq.setHeader("x-user-profile", profile.toString());
-                }
-            } catch (err) {
-                console.error("Error in onProxyReq:", err);
+            },
+            error: (err: any, req: any, res: any) => {
+                console.error("[PluginProxy] Proxy Error:", err);
+                res.status(502).json({ error: "Plugin Manager Unavailable" });
             }
-        },
-        onError: (err: any, req: any, res: any) => {
-            console.error("[PluginProxy] Proxy Error:", err);
-            res.status(502).json({ error: "Plugin Manager Unavailable" });
         }
     } as any)
 );
