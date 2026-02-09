@@ -4,7 +4,6 @@ import { Link as RouterLink } from "react-router-dom";
 import ListItem from "@material-ui/core/ListItem";
 import ListItemIcon from "@material-ui/core/ListItemIcon";
 import ListItemText from "@material-ui/core/ListItemText";
-import ListSubheader from "@material-ui/core/ListSubheader";
 import Divider from "@material-ui/core/Divider";
 import { Badge, Tooltip } from "@material-ui/core";
 import DashboardOutlinedIcon from "@material-ui/icons/DashboardOutlined";
@@ -252,11 +251,7 @@ const MainListItems = (props) => {
       )}
 
       <Divider />
-      {!collapsed && (
-        <ListSubheader inset>
-          {i18n.t("mainDrawer.listItems.administration")}
-        </ListSubheader>
-      )}
+
 
       <Can
         user={user}
