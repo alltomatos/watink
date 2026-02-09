@@ -3,7 +3,13 @@ import rules from "../../rules";
 const check = (role, action, permissions) => {
 	const permissionsToCheck = permissions || [];
 
-	if (permissionsToCheck.includes(action)) {
+	if (permissionsToCheck.includes(action) || permissionsToCheck.includes("*:*")) {
+		return true;
+	}
+
+	// Support for resource:* (e.g. helpdesk:*)
+	const [resource] = action.split(":");
+	if (resource && permissionsToCheck.includes(`${resource}:*`)) {
 		return true;
 	}
 

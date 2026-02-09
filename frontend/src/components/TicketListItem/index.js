@@ -28,17 +28,24 @@ import { getBackendUrl } from "../../helpers/urlUtils";
 const useStyles = makeStyles(theme => ({
 	ticket: {
 		position: "relative",
+		height: 90,
+		padding: "12px 16px",
+		borderBottom: "1px solid rgba(0, 0, 0, 0.04)",
+		"&:hover": {
+			backgroundColor: "rgba(0, 0, 0, 0.02)",
+		},
+		transition: "background-color 0.2s",
 	},
 
 	ticketSaas: {
 		paddingTop: "15px",
 		paddingBottom: "15px",
-		borderBottom: "1px solid #f0f0f0", // Weaker divider
+		borderBottom: "1px solid #f0f0f0", 
 	},
 
 	contactNameSaas: {
 		fontWeight: 600,
-		fontSize: "1rem", // Slightly larger
+		fontSize: "1rem",
 	},
 
 	pendingTicket: {
@@ -71,10 +78,13 @@ const useStyles = makeStyles(theme => ({
 	contactNameWrapper: {
 		display: "flex",
 		justifyContent: "space-between",
+		marginBottom: 4,
 	},
 
 	lastMessageTime: {
 		justifySelf: "flex-end",
+		fontSize: 11,
+		color: "#999",
 	},
 
 	closedBadge: {
@@ -86,6 +96,12 @@ const useStyles = makeStyles(theme => ({
 
 	contactLastMessage: {
 		paddingRight: 20,
+		color: "#757575",
+		fontSize: 13,
+		display: "-webkit-box",
+		"-webkit-line-clamp": 1,
+		"-webkit-box-orient": "vertical",
+		overflow: "hidden",
 	},
 
 	newMessagesCount: {
@@ -96,7 +112,9 @@ const useStyles = makeStyles(theme => ({
 
 	badgeStyle: {
 		color: "white",
-		backgroundColor: green[500],
+		backgroundColor: theme.palette.primary.main,
+		fontWeight: "bold",
+		boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
 	},
 
 	acceptButton: {
@@ -106,19 +124,20 @@ const useStyles = makeStyles(theme => ({
 
 	ticketQueueColor: {
 		flex: "none",
-		width: "8px",
-		height: "100%",
+		width: "6px",
+		height: "80%",
 		position: "absolute",
-		top: "0%",
-		left: "0%",
+		top: "10%",
+		left: "4px",
+		borderRadius: "4px",
 	},
 
 	ticketInfoWrapper: {
 		display: "flex",
 		justifyContent: "flex-end",
-		marginTop: 2,
+		marginTop: 6,
 		alignItems: "center",
-		gap: 4,
+		gap: 6,
 		flexWrap: "wrap",
 	},
 
@@ -127,20 +146,29 @@ const useStyles = makeStyles(theme => ({
 		color: "#ffffff",
 		border: "none",
 		boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-		padding: "1px 6px",
-		borderRadius: 10,
-		fontSize: "0.7em",
+		padding: "2px 8px",
+		borderRadius: 12,
+		fontSize: "0.65em",
 		fontWeight: "600",
-		whiteSpace: "nowrap"
+		whiteSpace: "nowrap",
+		textTransform: "uppercase",
+		letterSpacing: "0.5px",
 	},
 
 	tagChip: {
-		padding: "1px 6px",
-		borderRadius: 10,
-		fontSize: "0.7em",
+		padding: "2px 8px",
+		borderRadius: 12,
+		fontSize: "0.65em",
 		fontWeight: "600",
 		color: "#fff",
-		whiteSpace: "nowrap"
+		whiteSpace: "nowrap",
+		boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
+	},
+	
+	avatar: {
+		width: 50,
+		height: 50,
+		boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
 	}
 }));
 
@@ -206,7 +234,7 @@ const TicketListItem = ({ ticket }) => {
 					></span>
 				</Tooltip>
 				<ListItemAvatar>
-					<Avatar src={getBackendUrl(ticket?.contact?.profilePicUrl)} />
+					<Avatar src={getBackendUrl(ticket?.contact?.profilePicUrl)} className={classes.avatar} />
 				</ListItemAvatar>
 				<ListItemText
 					disableTypography

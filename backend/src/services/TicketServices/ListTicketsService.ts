@@ -21,6 +21,7 @@ interface Request {
   isGroup?: string;
   tenantId: string | number;
   tags?: number[];
+  profile?: string;
 }
 
 interface Response {
@@ -41,13 +42,49 @@ const ListTicketsService = async ({
   isGroup,
 
   tags,
-  tenantId
+  tenantId,
+  profile
 }: Request): Promise<Response> => {
   let whereCondition: Filterable["where"] = {
     [Op.or]: [{ userId }, { status: "pending" }],
-    queueId: { [Op.or]: [queueIds, null] },
     tenantId
   };
+
+  // --- Strict Queue Filtering Fix ---
+  // Fetch user to check roles and assigned queues securely
+  const user = await ShowUserService(userId);
+  const userQueueIds = user.queues.map(queue => queue.id);
+  const isAdmin = user.roles?.some(r => r.name === "admin") || profile === "admin"; // Check both role and profile (legacy)
+
+  if (isAdmin) {
+    // Admins can see everything based on request params
+    if (queueIds && queueIds.length > 0) {
+      whereCondition.queueId = { [Op.or]: [queueIds, null] };
+    }
+    // If no queueIds, admin sees all (standard behavior)
+  } else {
+    // Non-admin users are strictly limited to their assigned queues
+    let effectiveQueueIds: number[] = [];
+
+    if (queueIds && queueIds.length > 0) {
+      // Intersection: Only allow requested queues that the user actually belongs to
+      effectiveQueueIds = queueIds.filter(qId => userQueueIds.includes(+qId));
+    } else {
+      // Default: All user's queues
+      effectiveQueueIds = userQueueIds;
+    }
+
+    // If effective queues is empty (user has no queues or requested invalid ones), 
+    // they should see nothing (or only their own tickets explicitly). 
+    // Existing logic implies queueId match OR null. 
+    // We'll enforce the effective list. 
+    // Note: [Op.or]: [effectiveQueueIds, null] allows unassigned tickets if standard behavior desires it.
+    // Usually "null" means 'no queue', often handled by admins or initial flow.
+    // If regular users shouldn't see 'null' queue tickets unless assigned, we might remove null.
+    // However, preserving existing logic pattern:
+    whereCondition.queueId = { [Op.or]: [effectiveQueueIds.length > 0 ? effectiveQueueIds : [-1], null] };
+  }
+  // ----------------------------------
 
   let includeCondition: Includeable[];
 
@@ -94,7 +131,12 @@ const ListTicketsService = async ({
   }
 
   if (showAll === "true") {
-    whereCondition = { queueId: { [Op.or]: [queueIds, null] } };
+    // Maintain strict filter even when showAll is true
+    if (!isAdmin) {
+      whereCondition.queueId = { [Op.or]: [userQueueIds.length > 0 ? userQueueIds : [-1], null] };
+    } else {
+      whereCondition = { queueId: { [Op.or]: [queueIds, null] } };
+    }
   }
 
   if (status) {
@@ -157,9 +199,7 @@ const ListTicketsService = async ({
   }
 
   if (withUnreadMessages === "true") {
-    const user = await ShowUserService(userId);
-    const userQueueIds = user.queues.map(queue => queue.id);
-
+    // User already fetched above
     whereCondition = {
       [Op.or]: [{ userId }, { status: "pending" }],
       queueId: { [Op.or]: [userQueueIds, null] },
@@ -176,8 +216,11 @@ const ListTicketsService = async ({
       };
     } else {
       // Para grupos, ignorar filtros de status/userId e buscar todos os tickets de grupo
+      // AND maintain strict queue filter
       whereCondition = {
-        queueId: { [Op.or]: [queueIds, null] },
+        queueId: isAdmin
+          ? { [Op.or]: [queueIds, null] }
+          : { [Op.or]: [userQueueIds, null] },
         [Op.or]: [
           { isGroup: true },
           { "$contact.isGroup$": true }

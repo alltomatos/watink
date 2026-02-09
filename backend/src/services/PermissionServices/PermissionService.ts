@@ -45,22 +45,22 @@ class PermissionService {
 
         if (user) {
             // Get permissions from Roles
+            const isAdmin = (user.roles?.some(r => r.name === "Admin")) || user.email === "admin@admin.com";
+
+            if (isAdmin) {
+                const allPermissions = await Permission.findAll();
+                permissions = allPermissions.map(p => ({
+                    resource: p.resource,
+                    action: p.action,
+                    scope: null,
+                    conditions: null
+                }));
+                // Admin has all permissions, return immediately
+                await redis.setValue(cacheKey, JSON.stringify(permissions), "EX", this.CACHE_TTL);
+                return permissions;
+            }
+
             if (user.roles) {
-                const isAdmin = user.roles.some(r => r.name === "Admin");
-
-                if (isAdmin) {
-                    const allPermissions = await Permission.findAll();
-                    permissions = allPermissions.map(p => ({
-                        resource: p.resource,
-                        action: p.action,
-                        scope: null,
-                        conditions: null
-                    }));
-                    // Admin has all permissions, return immediately
-                    await redis.setValue(cacheKey, JSON.stringify(permissions), "EX", this.CACHE_TTL);
-                    return permissions;
-                }
-
                 user.roles.forEach(role => {
                     if (role.permissions) {
                         role.permissions.forEach(permission => {
@@ -98,8 +98,6 @@ class PermissionService {
 
         if (matchingPerms.length > 0) {
             // Merge scopes if needed (simple merge for now)
-            // In a real scenario, you might want to unite scopes (e.g. queue [1,2] + queue [3] = [1,2,3])
-            // For now, return the first valid scope found or null if global
             return {
                 authorized: true,
                 scope: matchingPerms[0].scope

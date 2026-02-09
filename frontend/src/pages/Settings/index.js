@@ -39,6 +39,7 @@ import { getBackendUrl } from "../../helpers/urlUtils";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { Can } from "../../components/Can";
 import SmtpSettingsForm from "../Marketplace/SmtpSettingsForm";
+import PapiSettingsForm from "../Marketplace/PapiSettingsForm";
 
 const AI_MODELS = {
 	openai: [
@@ -202,7 +203,7 @@ const Settings = () => {
 	useEffect(() => {
 		const fetchPlugins = async () => {
 			try {
-				const { data } = await api.get("/plugins/api/v1/plugins/installed");
+				const { data } = await pluginApi.get("/api/v1/plugins/installed");
 				setActivePlugins(data.active || []);
 			} catch (err) {
 				console.error("Failed to fetch plugins", err);
@@ -1058,6 +1059,19 @@ const Settings = () => {
 							<ListItemText primary="SMTP" />
 						</ListItem>
 					)}
+					{activePlugins.includes("engine-papi") && (
+						<ListItem
+							button
+							selected={activeSection === "papi"}
+							onClick={() => setActiveSection("papi")}
+							className={classes.menuItem}
+						>
+							<ListItemIcon>
+								<SettingsIcon />
+							</ListItemIcon>
+							<ListItemText primary="Engine PAPI" />
+						</ListItem>
+					)}
 					<ListItem
 						button
 						selected={activeSection === "customize"}
@@ -1307,6 +1321,14 @@ const Settings = () => {
 							{i18n.t("smtp.settingsTitle")}
 						</Typography>
 						<SmtpSettingsForm active={true} />
+					</>
+				)}
+				{activeSection === "papi" && activePlugins.includes("engine-papi") && (
+					<>
+						<Typography variant="h5" className={classes.sectionTitle}>
+							Engine PAPI
+						</Typography>
+						<PapiSettingsForm active={true} />
 					</>
 				)}
 			</Box>

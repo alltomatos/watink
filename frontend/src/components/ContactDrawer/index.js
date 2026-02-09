@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 
 import { makeStyles } from "@material-ui/core/styles";
 import Typography from "@material-ui/core/Typography";
@@ -32,8 +32,10 @@ import Tab from "@material-ui/core/Tab";
 import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
 import { toast } from "react-toastify";
+import { AuthContext } from "../../context/Auth/AuthContext";
 
 import ContactModal from "../ContactModal";
+import { Can } from "../Can";
 import ClientModal from "../../pages/Clients/ClientModal"; // Import ClientModal
 import ContactDrawerSkeleton from "../ContactDrawerSkeleton";
 import MarkdownWrapper from "../MarkdownWrapper";
@@ -137,6 +139,7 @@ const getStageColor = (index) => stageColors[index % stageColors.length];
 
 const ContactDrawer = ({ open, handleDrawerClose, contact, ticketId, loading, ticket }) => {
 	const classes = useStyles();
+	const { user } = useContext(AuthContext);
 
 	const [modalOpen, setModalOpen] = useState(false);
 	const [deals, setDeals] = useState([]);
@@ -505,20 +508,26 @@ const ContactDrawer = ({ open, handleDrawerClose, contact, ticketId, loading, ti
 
 							{/* Helpdesk - Protocolos Section */}
 							{activePlugins.includes("helpdesk") && (
-								<Paper square variant="outlined" className={classes.contactDetails}>
-									<Typography variant="subtitle1" style={{ marginBottom: 8 }}>
-										🎫 Helpdesk - Protocolos
-									</Typography>
-									<Button
-										variant="outlined"
-										color="primary"
-										startIcon={<AssignmentIcon />}
-										onClick={() => setProtocolDrawerOpen(true)}
-										fullWidth
-									>
-										Abrir Protocolo
-									</Button>
-								</Paper>
+								<Can
+									user={user}
+									perform="helpdesk:write"
+									yes={() => (
+										<Paper square variant="outlined" className={classes.contactDetails}>
+											<Typography variant="subtitle1" style={{ marginBottom: 8 }}>
+												🎫 Helpdesk - Protocolos
+											</Typography>
+											<Button
+												variant="outlined"
+												color="primary"
+												startIcon={<AssignmentIcon />}
+												onClick={() => setProtocolDrawerOpen(true)}
+												fullWidth
+											>
+												Abrir Protocolo
+											</Button>
+										</Paper>
+									)}
+								/>
 							)}
 
 							<Dialog open={pipelineModalOpen} onClose={() => setPipelineModalOpen(false)}>

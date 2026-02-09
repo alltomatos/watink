@@ -98,24 +98,15 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: "#ffffff",
     color: "#303030",
     alignSelf: "flex-start",
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 8,
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 8,
-    paddingLeft: 5,
-    paddingRight: 5,
-    paddingTop: 5,
-    paddingBottom: 0,
-    boxShadow: "0 1px 1px #b3b3b3",
+    borderRadius: "0px 12px 12px 12px",
+    padding: "8px 10px",
+    boxShadow: "0 2px 5px rgba(0,0,0,0.05)",
   },
 
   messageLeftSaas: {
     backgroundColor: "#f3f4f6",
     color: "#303030",
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-    borderBottomLeftRadius: 0, // Tail on bottom left
-    borderBottomRightRadius: 12,
+    borderRadius: "12px 12px 12px 0px",
     boxShadow: "none",
     border: "1px solid #e5e7eb",
   },
@@ -123,7 +114,7 @@ const useStyles = makeStyles((theme) => ({
   quotedContainerLeft: {
     margin: "-3px -80px 6px -6px",
     overflow: "hidden",
-    backgroundColor: "#f0f0f0",
+    backgroundColor: "#f5f5f5",
     borderRadius: "7.5px",
     display: "flex",
     position: "relative",
@@ -163,18 +154,12 @@ const useStyles = makeStyles((theme) => ({
     },
 
     whiteSpace: "pre-wrap",
-    backgroundColor: "#dcf8c6",
-    color: "#303030",
+    backgroundColor: "#5061db", // Premium Blue
+    color: "#ffffff",
     alignSelf: "flex-end",
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 0,
-    paddingLeft: 5,
-    paddingRight: 5,
-    paddingTop: 5,
-    paddingBottom: 0,
-    boxShadow: "0 1px 1px #b3b3b3",
+    borderRadius: "12px 12px 0px 12px",
+    padding: "8px 10px",
+    boxShadow: "0 2px 5px rgba(80, 97, 219, 0.3)",
   },
 
   messageRightSaas: {
@@ -190,7 +175,7 @@ const useStyles = makeStyles((theme) => ({
   quotedContainerRight: {
     margin: "-3px -80px 6px -6px",
     overflowY: "hidden",
-    backgroundColor: "#cfe9ba",
+    backgroundColor: "rgba(0, 0, 0, 0.2)",
     borderRadius: "7.5px",
     display: "flex",
     position: "relative",
@@ -201,12 +186,13 @@ const useStyles = makeStyles((theme) => ({
     maxWidth: 300,
     height: "auto",
     whiteSpace: "pre-wrap",
+    color: "#ffffff",
   },
 
   quotedSideColorRight: {
     flex: "none",
     width: "4px",
-    backgroundColor: "#35cd96",
+    backgroundColor: "#ffffff",
   },
 
   messageActionsButton: {
@@ -259,11 +245,12 @@ const useStyles = makeStyles((theme) => ({
     alignItems: "center",
     textAlign: "center",
     alignSelf: "center",
-    width: "110px",
-    backgroundColor: "#e1f3fb",
-    margin: "10px",
-    borderRadius: "10px",
-    boxShadow: "0 1px 1px #b3b3b3",
+    width: "auto",
+    padding: "0 12px",
+    backgroundColor: "#f5f7fa",
+    margin: "12px",
+    borderRadius: "20px",
+    boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
   },
 
   dailyTimestampText: {

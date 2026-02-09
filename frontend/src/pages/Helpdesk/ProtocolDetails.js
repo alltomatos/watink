@@ -21,6 +21,8 @@ import {
     Divider,
     Tooltip,
     IconButton,
+    Tabs,
+    Tab,
 } from "@material-ui/core";
 import {
     Create as CreateIcon,
@@ -36,6 +38,7 @@ import {
 } from "@material-ui/icons";
 import FileUploader from "../../components/FileUploader";
 import AttachmentsList from "../../components/AttachmentsList";
+import ActivityList from "./components/ActivityList";
 import { makeStyles } from "@material-ui/core/styles";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -81,6 +84,7 @@ const ProtocolDetails = () => {
         comment: "",
     });
     const [attachments, setAttachments] = useState([]);
+    const [tab, setTab] = useState(0);
     const [newFiles, setNewFiles] = useState([]);
     const [updateFiles, setUpdateFiles] = useState([]);
     const [uploadingFiles, setUploadingFiles] = useState(false);
@@ -266,78 +270,82 @@ const ProtocolDetails = () => {
                         <Typography variant="h6" gutterBottom>
                             Detalhes
                         </Typography>
-                        <Box mb={2}>
-                            <Typography variant="subtitle2" color="textSecondary">
-                                Assunto
-                            </Typography>
-                            <Typography variant="body1">{protocol.subject}</Typography>
-                        </Box>
-                        <Box mb={2}>
-                            <Typography variant="subtitle2" color="textSecondary">
-                                Descrição
-                            </Typography>
-                            <Typography variant="body1" style={{ whiteSpace: "pre-wrap" }}>
-                                {protocol.description}
-                            </Typography>
-                        </Box>
-                        <Box mb={2}>
-                            <Typography variant="subtitle2" color="textSecondary">
-                                Categoria
-                            </Typography>
-                            <Typography variant="body1">
-                                {protocol.category || "-"}
-                            </Typography>
-                        </Box>
-                        <Box mb={2}>
-                            <Typography variant="subtitle2" color="textSecondary">
-                                Contato
-                            </Typography>
-                            <Typography variant="body1">
-                                {protocol.contact ? protocol.contact.name : "-"}
-                            </Typography>
-                        </Box>
-                    </Paper>
+                        <Tabs
+                            value={tab}
+                            onChange={(e, v) => setTab(v)}
+                            indicatorColor="primary"
+                            textColor="primary"
+                            variant="fullWidth"
+                            style={{ marginBottom: 24, borderBottom: "1px solid #eee" }}
+                        >
+                            <Tab label="Dados Gerais" />
+                            <Tab label="Anexos" />
+                            <Tab label="Atividades / RAT" />
+                        </Tabs>
 
-                    {/* Attachments Section */}
-                    <Paper className={classes.paper}>
-                        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                            <Typography variant="h6">
-                                <AttachFileIcon style={{ marginRight: 8, verticalAlign: "middle" }} />
-                                Anexos ({attachments.length})
-                            </Typography>
-                        </Box>
-
-                        <AttachmentsList
-                            attachments={attachments}
-                            onDelete={handleDeleteAttachment}
-                            canDelete={true}
-                            showEmpty={false}
-                        />
-
-                        <Box mt={2}>
-                            <Typography variant="subtitle2" color="textSecondary" gutterBottom>
-                                Adicionar novos anexos
-                            </Typography>
-                            <FileUploader
-                                files={newFiles}
-                                onFilesChange={setNewFiles}
-                                maxFiles={10}
-                                disabled={uploadingFiles}
-                            />
-                            {newFiles.length > 0 && (
-                                <Box mt={2} display="flex" justifyContent="flex-end">
-                                    <Button
-                                        variant="contained"
-                                        color="primary"
-                                        startIcon={uploadingFiles ? <CircularProgress size={16} /> : <CloudUploadIcon />}
-                                        onClick={handleUploadFiles}
-                                        disabled={uploadingFiles}
-                                    >
-                                        {uploadingFiles ? "Enviando..." : "Enviar Arquivos"}
-                                    </Button>
+                        {tab === 0 && (
+                            <>
+                                <Box mb={2}>
+                                    <Typography variant="subtitle2" color="textSecondary">
+                                        Assunto
+                                    </Typography>
+                                    <Typography variant="body1">{protocol.subject}</Typography>
                                 </Box>
-                            )}
-                        </Box>
+                                <Box mb={2}>
+                                    <Typography variant="subtitle2" color="textSecondary">
+                                        Descrição
+                                    </Typography>
+                                    <Typography variant="body1" style={{ whiteSpace: "pre-wrap" }}>
+                                        {protocol.description}
+                                    </Typography>
+                                </Box>
+                                <Box mb={2}>
+                                    <Typography variant="subtitle2" color="textSecondary">
+                                        Categoria
+                                    </Typography>
+                                    <Typography variant="body1">
+                                        {protocol.category || "-"}
+                                    </Typography>
+                                </Box>
+                                <Box mb={2}>
+                                    <Typography variant="subtitle2" color="textSecondary">
+                                        Contato
+                                    </Typography>
+                                    <Typography variant="body1">
+                                        {protocol.contact ? protocol.contact.name : "-"}
+                                    </Typography>
+                                </Box>
+                            </>
+                        )}
+
+                        {tab === 1 && (
+                            <>
+                                <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                                    <Typography variant="h6">
+                                        <AttachFileIcon style={{ marginRight: 8, verticalAlign: "middle" }} />
+                                        Galeria de Anexos ({attachments.length})
+                                    </Typography>
+                                </Box>
+
+                                <AttachmentsList
+                                    attachments={attachments}
+                                    onDelete={handleDeleteAttachment}
+                                    canDelete={false}
+                                    showEmpty={true}
+                                />
+                                
+                                <Box mt={2}>
+                                    <Typography variant="caption" color="textSecondary">
+                                        * Para adicionar novos anexos, utilize a seção "Atualizar" abaixo.
+                                    </Typography>
+                                </Box>
+                            </>
+                        )}
+
+                        {tab === 2 && (
+                            <ActivityList protocolId={protocol.id} />
+                        )}
+
                     </Paper>
 
                     <Paper className={classes.paper}>
@@ -469,7 +477,7 @@ const ProtocolDetails = () => {
                     </Paper>
                 </Grid>
             </Grid>
-        </Container>
+        </Container >
     );
 };
 

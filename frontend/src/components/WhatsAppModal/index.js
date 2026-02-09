@@ -58,7 +58,7 @@ const SessionSchema = Yup.object().shape({
 		.required("Required"),
 });
 
-const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
+const WhatsAppModal = ({ open, onClose, whatsAppId, engineType }) => {
 	const classes = useStyles();
 	const initialState = {
 		name: "",
@@ -68,6 +68,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 		syncHistory: false,
 		syncPeriod: "",
 		keepAlive: true,
+		engineType: engineType || "whaileys", // Default to whaileys if not specified
 	};
 	const [whatsApp, setWhatsApp] = useState(initialState);
 	const [selectedQueueIds, setSelectedQueueIds] = useState([]);
@@ -75,7 +76,10 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 
 	useEffect(() => {
 		const fetchSession = async () => {
-			if (!whatsAppId) return;
+			if (!whatsAppId) {
+				setWhatsApp(prevState => ({ ...prevState, engineType: engineType || "whaileys" }));
+				return;
+			}
 
 			try {
 				const { data } = await api.get(`whatsapp/${whatsAppId}`);
@@ -93,10 +97,10 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 		if (open) {
 			fetchSession();
 		}
-	}, [whatsAppId, open]);
+	}, [whatsAppId, open, engineType]);
 
 	const handleSaveWhatsApp = async values => {
-		const whatsappData = { ...values, queueIds: selectedQueueIds, tags: selectedTags };
+		const whatsappData = { ...values, queueIds: selectedQueueIds, tags: selectedTags, engineType: values.engineType || engineType };
 
 		try {
 			if (whatsAppId) {

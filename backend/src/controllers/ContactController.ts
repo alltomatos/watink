@@ -14,6 +14,7 @@ import ImportContactsService, { ImportContactsService as ImportContactsClass } f
 
 import AppError from "../errors/AppError";
 import GetContactService from "../services/ContactServices/GetContactService";
+import Whatsapp from "../models/Whatsapp";
 
 type IndexQuery = {
   searchParam: string;
@@ -197,18 +198,27 @@ export const sync = async (req: Request, res: Response): Promise<Response> => {
   try {
     const contact = await ShowContactService(contactId);
 
-    await RabbitMQService.publishCommand("wbot.global.contact.sync", {
-      id: uuidv4(),
-      timestamp: Date.now(),
-      type: "contact.sync",
-      payload: {
-        contactId: +contactId,
-        number: contact.number,
-        lid: contact.lid || undefined,
-        sessionId: 1
-      },
-      tenantId
+    const whatsapp = await Whatsapp.findOne({
+      where: { tenantId, status: "CONNECTED" }
     });
+
+    if (whatsapp) {
+      await RabbitMQService.publishCommand(
+        `wbot.${tenantId}.${whatsapp.id}.${whatsapp.engineType}.contact.sync`,
+        {
+          id: uuidv4(),
+          timestamp: Date.now(),
+          type: "contact.sync",
+          payload: {
+            contactId: +contactId,
+            number: contact.number,
+            lid: contact.lid || undefined,
+            sessionId: whatsapp.id
+          },
+          tenantId
+        }
+      );
+    }
 
     return res.status(200).json({ message: "Contact sync scheduled via RabbitMQ." });
   } catch (error: any) {

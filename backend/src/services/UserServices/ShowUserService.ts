@@ -30,7 +30,8 @@ const ShowUserService = async (id: string | number): Promise<User> => {
             model: Role,
             as: "roles",
             include: [{ model: Permission, as: "permissions", attributes: ["id", "resource", "action"] }]
-          }
+          },
+          { model: Permission, as: "permissions", attributes: ["id", "resource", "action"] }
         ]
       },
       {
@@ -65,14 +66,22 @@ const ShowUserService = async (id: string | number): Promise<User> => {
     });
   });
 
-  // 3. Group Role Permissions
+  // 3. Group Permissions (Direct & via Roles)
   user.groups?.forEach(group => {
+    // Group -> Roles -> Permissions
     group.roles?.forEach(role => {
       role.permissions?.forEach(p => {
         if (p.resource && p.action) {
           permissions.add(`${p.resource}:${p.action}`);
         }
       });
+    });
+
+    // Group -> Permissions (Direct)
+    group.permissions?.forEach(p => {
+      if (p.resource && p.action) {
+        permissions.add(`${p.resource}:${p.action}`);
+      }
     });
   });
 

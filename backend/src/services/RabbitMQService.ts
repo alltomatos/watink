@@ -41,6 +41,13 @@ class RabbitMQService {
 
     await this.channel.assertExchange("wbot.commands", "topic", { durable: true });
     await this.channel.assertExchange("wbot.events", "topic", { durable: true });
+
+    // Setup Engine Queues
+    const standardQueue = await this.channel.assertQueue("wbot_standard_commands", { durable: true });
+    await this.channel.bindQueue(standardQueue.queue, "wbot.commands", "wbot.*.*.whaileys.#");
+
+    const goQueue = await this.channel.assertQueue("wbot_go_commands", { durable: true });
+    await this.channel.bindQueue(goQueue.queue, "wbot.commands", "wbot.*.*.whatsmeow.#");
   }
 
   async publishCommand(routingKey: string, message: Envelope, exchange: string = "wbot.commands"): Promise<void> {

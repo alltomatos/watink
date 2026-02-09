@@ -6,12 +6,12 @@ const tenantRoutes = express.Router();
 
 tenantRoutes.get("/tenants", isAuth, TenantController.index);
 
-tenantRoutes.post("/tenants", isAuth, TenantController.store);
+// tenantRoutes.post("/tenants", isAuth, TenantController.store);
 
 tenantRoutes.get("/tenants/:tenantId", isAuth, TenantController.show);
 
-tenantRoutes.put("/tenants/:tenantId", isAuth, TenantController.update);
+// tenantRoutes.put("/tenants/:tenantId", isAuth, TenantController.update);
 
-tenantRoutes.delete("/tenants/:tenantId", isAuth, TenantController.remove);
+// tenantRoutes.delete("/tenants/:tenantId", isAuth, TenantController.remove);
 
 export default tenantRoutes;

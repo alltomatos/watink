@@ -28,7 +28,7 @@ protocolRoutes.get("/public/protocols/:token", ProtocolPublicController.show);
 protocolRoutes.get("/public/protocols/:token/attachments", ProtocolAttachmentController.publicIndex);
 
 // Special route for creating protocol from contact drawer
-protocolRoutes.post("/contacts/:contactId/protocols", isAuth, ProtocolController.createFromContact);
+protocolRoutes.post("/contacts/:contactId/protocols", isAuth, checkPermission("helpdesk:write"), ProtocolController.createFromContact);
 
 export default protocolRoutes;
 

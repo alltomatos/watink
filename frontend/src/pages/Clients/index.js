@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useContext } from "react";
 import {
     Container,
     Paper,
@@ -31,7 +31,7 @@ import api from "../../services/api";
 import ClientModal from "./ClientModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import { Can } from "../../components/Can";
-import useAuth from "../../hooks/useAuth";
+import { AuthContext } from "../../context/Auth/AuthContext";
 
 const useStyles = makeStyles((theme) => ({
     root: {
@@ -67,7 +67,7 @@ const useStyles = makeStyles((theme) => ({
 
 const Clients = () => {
     const classes = useStyles();
-    const { user } = useAuth();
+    const { user } = useContext(AuthContext);
     const [clients, setClients] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchParam, setSearchParam] = useState("");

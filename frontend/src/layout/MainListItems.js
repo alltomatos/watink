@@ -1,4 +1,3 @@
-// MainListItems.js modifications
 import React, { useContext, useEffect, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 
@@ -7,13 +6,12 @@ import ListItemIcon from "@material-ui/core/ListItemIcon";
 import ListItemText from "@material-ui/core/ListItemText";
 import ListSubheader from "@material-ui/core/ListSubheader";
 import Divider from "@material-ui/core/Divider";
-import { Badge, Tooltip, makeStyles } from "@material-ui/core";
+import { Badge, Tooltip } from "@material-ui/core";
 import DashboardOutlinedIcon from "@material-ui/icons/DashboardOutlined";
 import ListAltIcon from "@material-ui/icons/ListAlt";
 import WhatsAppIcon from "@material-ui/icons/WhatsApp";
 import SyncAltIcon from "@material-ui/icons/SyncAlt";
 import GroupIcon from "@material-ui/icons/Group";
-import HelpOutlineIcon from "@material-ui/icons/HelpOutline";
 import SettingsOutlinedIcon from "@material-ui/icons/SettingsOutlined";
 import PeopleAltOutlinedIcon from "@material-ui/icons/PeopleAltOutlined";
 import ContactPhoneOutlinedIcon from "@material-ui/icons/ContactPhoneOutlined";
@@ -25,13 +23,14 @@ import LibraryBooksIcon from "@material-ui/icons/LibraryBooks";
 import PersonOutlineIcon from "@material-ui/icons/PersonOutline";
 import HeadsetMicIcon from "@material-ui/icons/HeadsetMic";
 import LocalOfferIcon from "@material-ui/icons/LocalOffer";
+import AssignmentIcon from "@material-ui/icons/Assignment";
 
 import { i18n } from "../translate/i18n";
 import { WhatsAppsContext } from "../context/WhatsApp/WhatsAppsContext";
 import { AuthContext } from "../context/Auth/AuthContext";
 import { Can } from "../components/Can";
 import { useThemeContext } from "../context/DarkMode";
-import pluginApi from "../services/pluginApi"; // Import pluginApi with JWT interceptor
+import pluginApi from "../services/pluginApi"; 
 
 // Cores do Google para ícones (MD3)
 const googleColors = {
@@ -154,20 +153,42 @@ const MainListItems = (props) => {
           />
         )}
       />
-      <ListItemLink
-        to="/tickets"
-        primary={i18n.t("mainDrawer.listItems.tickets")}
-        icon={<WhatsAppIcon />}
-        iconColor={googleColors.green}
-        collapsed={collapsed}
+      <Can
+        user={user}
+        perform="tickets:read"
+        yes={() => (
+          <ListItemLink
+            to="/tickets"
+            primary={i18n.t("mainDrawer.listItems.tickets")}
+            icon={<WhatsAppIcon />}
+            iconColor={googleColors.green}
+            collapsed={collapsed}
+          />
+        )}
       />
 
-      <ListItemLink
-        to="/contacts"
-        primary={i18n.t("mainDrawer.listItems.contacts")}
-        icon={<ContactPhoneOutlinedIcon />}
-        iconColor={googleColors.orange}
-        collapsed={collapsed}
+      {activePlugins.includes("helpdesk") && (
+        <ListItemLink
+          to="/my-activities"
+          primary={i18n.t("mainDrawer.listItems.myActivities")}
+          icon={<AssignmentIcon />}
+          iconColor={googleColors.blue}
+          collapsed={collapsed}
+        />
+      )}
+
+      <Can
+        user={user}
+        perform="contacts:read"
+        yes={() => (
+          <ListItemLink
+            to="/contacts"
+            primary={i18n.t("mainDrawer.listItems.contacts")}
+            icon={<ContactPhoneOutlinedIcon />}
+            iconColor={googleColors.orange}
+            collapsed={collapsed}
+          />
+        )}
       />
       <Can
         user={user}
@@ -265,8 +286,6 @@ const MainListItems = (props) => {
         )}
       />
 
-      {/* ... keeping other items ... */}
-
       <Can
         user={user}
         perform="connections:read"
@@ -294,20 +313,6 @@ const MainListItems = (props) => {
             primary={i18n.t("mainDrawer.listItems.users")}
             icon={<PeopleAltOutlinedIcon />}
             iconColor={googleColors.blue}
-            collapsed={collapsed}
-          />
-        )}
-      />
-
-      <Can
-        user={user}
-        perform="roles:read"
-        yes={() => (
-          <ListItemLink
-            to="/roles"
-            primary={i18n.t("mainDrawer.listItems.roles") || "Roles"}
-            icon={<AccountTreeOutlinedIcon />}
-            iconColor={googleColors.orange}
             collapsed={collapsed}
           />
         )}
@@ -373,5 +378,3 @@ const MainListItems = (props) => {
 };
 
 export default MainListItems;
-
-

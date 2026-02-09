@@ -212,7 +212,7 @@ export interface PairingCodePayload {
 
 export interface SessionStatusPayload {
   sessionId: number;
-  status: "CONNECTED" | "DISCONNECTED" | "QRCODE" | "OPENING";
+  status: "CONNECTED" | "DISCONNECTED" | "QRCODE" | "OPENING" | "PAIRING" | "TIMEOUT" | "SESSION_EXPIRED";
   number?: string;
   profilePicUrl?: string;
 }

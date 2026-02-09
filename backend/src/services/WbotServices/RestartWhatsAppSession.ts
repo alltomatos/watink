@@ -39,7 +39,10 @@ const RestartWhatsAppSession = async (whatsapp: Whatsapp): Promise<void> => {
             }
         };
 
-        await RabbitMQService.publishCommand(`wbot.${whatsapp.tenantId}.${whatsapp.id}.session.restart`, command);
+        await RabbitMQService.publishCommand(
+            `wbot.${whatsapp.tenantId}.${whatsapp.id}.${whatsapp.engineType || "whaileys"}.session.restart`,
+            command
+        );
         logger.info(`Session restart command published for session ${whatsapp.id}`);
     } catch (err) {
         logger.error(err);

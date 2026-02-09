@@ -29,9 +29,6 @@ import Permission from "../models/Permission";
 import Client from "../models/Client";
 import ClientAddress from "../models/ClientAddress";
 import ClientContact from "../models/ClientContact";
-import Protocol from "../models/Protocol";
-import ProtocolHistory from "../models/ProtocolHistory";
-import ProtocolAttachment from "../models/ProtocolAttachment";
 import ConversationEmbedding from "../models/ConversationEmbedding";
 import Plugin from "../models/Plugin";
 import PluginInstallation from "../models/PluginInstallation";
@@ -81,9 +78,6 @@ const models = [
   Client,
   ClientAddress,
   ClientContact,
-  Protocol,
-  ProtocolHistory,
-  ProtocolAttachment,
   ConversationEmbedding,
   TenantSmtpSettings,
   Plugin,
@@ -94,7 +88,8 @@ const models = [
   GroupRole,
   GroupPermission,
   Step,
-  EmailTemplate
+  EmailTemplate,
+
 ];
 
 sequelize.addModels(models);

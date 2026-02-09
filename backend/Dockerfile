@@ -31,6 +31,8 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
 COPY package*.json ./
 
 RUN npm install --legacy-peer-deps
+RUN npm install swagger-jsdoc
+RUN ls -la node_modules/swagger-jsdoc || echo "swagger-jsdoc not found in node_modules"
 
 COPY . .
 

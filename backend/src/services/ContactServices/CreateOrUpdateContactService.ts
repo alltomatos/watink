@@ -1,5 +1,6 @@
 import { getIO } from "../../libs/socket";
 import Contact from "../../models/Contact";
+import Whatsapp from "../../models/Whatsapp";
 import RabbitMQService from "../RabbitMQService";
 import { v4 as uuidv4 } from "uuid";
 // import axios from "axios";
@@ -226,22 +227,26 @@ const CreateOrUpdateContactService = async ({
       : (!contact.profilePicUrl || (!contact.lid && !contact.number?.includes("@lid") && !contact.name));
 
     if (shouldSync) {
-      await RabbitMQService.publishCommand(`wbot.${tenantId}.${sessionId}.contact.sync`, {
-        id: uuidv4(),
-        timestamp: Date.now(),
-        tenantId,
-        type: "contact.sync",
-        payload: {
-          sessionId,
-          contactId: contact.id,
-          number: contact.number,
-          lid: contact.lid || undefined,
-          isGroup
-        }
-      });
+      const whatsapp = await Whatsapp.findByPk(sessionId);
 
-      await waitForContactEnrichment(contact.id, isGroup, tenantId);
-      await contact.reload();
+      if (whatsapp) {
+        await RabbitMQService.publishCommand(`wbot.${tenantId}.${sessionId}.${whatsapp.engineType}.contact.sync`, {
+          id: uuidv4(),
+          timestamp: Date.now(),
+          tenantId,
+          type: "contact.sync",
+          payload: {
+            sessionId,
+            contactId: contact.id,
+            number: contact.number,
+            lid: contact.lid || undefined,
+            isGroup
+          }
+        });
+
+        await waitForContactEnrichment(contact.id, isGroup, tenantId);
+        await contact.reload();
+      }
     }
   }
 

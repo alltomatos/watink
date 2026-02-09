@@ -93,6 +93,8 @@ const UserModal = ({ open, onClose, userId }) => {
 	const [showPassword, setShowPassword] = useState(false);
 	const [whatsappId, setWhatsappId] = useState(false);
 	const [groups, setGroups] = useState([]);
+	const [roles, setRoles] = useState([]);
+	const [selectedRoleIds, setSelectedRoleIds] = useState([]);
 	const { loading, whatsApps } = useWhatsApps();
 
 	useEffect(() => {
@@ -104,7 +106,16 @@ const UserModal = ({ open, onClose, userId }) => {
 				toastError(err);
 			}
 		};
+		const fetchRoles = async () => {
+			try {
+				const { data } = await api.get("/roles");
+				setRoles(data);
+			} catch (err) {
+				toastError(err);
+			}
+		};
 		fetchGroups();
+		fetchRoles();
 	}, []);
 
 	useEffect(() => {
@@ -113,11 +124,13 @@ const UserModal = ({ open, onClose, userId }) => {
 			try {
 				const { data } = await api.get(`/users/${userId}`);
 				const userGroupIds = data.groups?.map(group => group.id) || [];
+				const userRoleIds = data.roles?.map(role => role.id) || [];
 				setUser(prevState => {
 					return { ...prevState, ...data, groupIds: userGroupIds };
 				});
 				const userQueueIds = data.queues?.map(queue => queue.id);
 				setSelectedQueueIds(userQueueIds);
+				setSelectedRoleIds(userRoleIds);
 				setWhatsappId(data.whatsappId ? data.whatsappId : '');
 			} catch (err) {
 				toastError(err);
@@ -130,10 +143,11 @@ const UserModal = ({ open, onClose, userId }) => {
 	const handleClose = () => {
 		onClose();
 		setUser(initialState);
+		setSelectedRoleIds([]);
 	};
 
 	const handleSaveUser = async values => {
-		const userData = { ...values, whatsappId, queueIds: selectedQueueIds };
+		const userData = { ...values, whatsappId, queueIds: selectedQueueIds, roleIds: selectedRoleIds };
 		try {
 			if (userId) {
 				await api.put(`/users/${userId}`, userData);
@@ -223,6 +237,39 @@ const UserModal = ({ open, onClose, userId }) => {
 										fullWidth
 									/>
 									{/* Removed Profile Selection - Legacy Field */}
+								</div>
+								<div className={classes.multFieldLine}>
+									<FormControl
+										variant="outlined"
+										className={classes.formControl}
+										margin="dense"
+										fullWidth
+									>
+										<InputLabel id="role-selection-input-label">
+											{i18n.t("userModal.form.role")}
+										</InputLabel>
+										<Field
+											as={Select}
+											label={i18n.t("userModal.form.role")}
+											name="roleIds"
+											labelId="role-selection-label"
+											id="role-selection"
+											multiple
+											value={selectedRoleIds}
+											onChange={(e) => setSelectedRoleIds(e.target.value)}
+											renderValue={(selected) => {
+												const selectedRoles = roles.filter(r => selected.includes(r.id));
+												return selectedRoles.map(r => r.name).join(', ');
+											}}
+										>
+											{roles.map(role => (
+												<MenuItem key={role.id} value={role.id}>
+													<Checkbox checked={selectedRoleIds.includes(role.id)} />
+													<ListItemText primary={role.name} />
+												</MenuItem>
+											))}
+										</Field>
+									</FormControl>
 								</div>
 								<div className={classes.multFieldLine}>
 									<FormControl

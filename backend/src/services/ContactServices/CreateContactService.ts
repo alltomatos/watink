@@ -76,17 +76,20 @@ const CreateContactService = async ({
     });
 
     if (whatsapp) {
-      await RabbitMQService.publishCommand("wbot.global.contact.sync", {
-        id: uuidv4(),
-        timestamp: Date.now(),
-        type: "contact.sync",
-        payload: {
-          contactId: contact.id,
-          number: contact.number,
-          sessionId: whatsapp.id
-        },
-        tenantId
-      });
+      await RabbitMQService.publishCommand(
+        `wbot.${tenantId}.${whatsapp.id}.${whatsapp.engineType}.contact.sync`,
+        {
+          id: uuidv4(),
+          timestamp: Date.now(),
+          type: "contact.sync",
+          payload: {
+            contactId: contact.id,
+            number: contact.number,
+            sessionId: whatsapp.id
+          },
+          tenantId
+        }
+      );
       logger.info(
         `[CreateContactService] Sent contact.sync command for contact ${contact.id}`
       );

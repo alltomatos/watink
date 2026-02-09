@@ -67,7 +67,8 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     queueIds,
     withUnreadMessages,
     isGroup,
-    tenantId: req.user.tenantId
+    tenantId: req.user.tenantId,
+    profile: req.user.profile
   });
 
   return res.status(200).json({ tickets, count, hasMore });
@@ -186,8 +187,10 @@ export const syncHistory = async (
     }
   };
 
+  const engineType = ticket.whatsapp.engineType || "whaileys";
+
   await RabbitMQService.publishCommand(
-    `wbot.${tenantId}.${ticket.whatsappId}.history.sync`,
+    `wbot.${tenantId}.${ticket.whatsappId}.${engineType}.history.sync`,
     command
   );
 

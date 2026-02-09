@@ -36,7 +36,7 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 };
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
-  const { email, password, name, queueIds, whatsappId, groupIds, groupId } = req.body;
+  const { email, password, name, queueIds, whatsappId, groupIds, groupId, roleIds } = req.body;
 
   if (
     req.url === "/signup" &&
@@ -54,6 +54,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     whatsappId,
     groupIds,
     groupId,
+    roleIds,
 
     tenantId: req.user?.tenantId || undefined
   });

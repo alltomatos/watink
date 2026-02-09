@@ -22,6 +22,16 @@ const useStyles = makeStyles(theme => ({
 			margin: theme.spacing(1),
 		},
 	},
+	premiumButton: {
+		position: "relative",
+		borderRadius: 20,
+		textTransform: "none",
+		fontWeight: 600,
+		boxShadow: "none",
+		"&:hover": {
+			boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
+		},
+	},
 }));
 
 const TicketActionButtons = ({ ticket }) => {
@@ -64,6 +74,7 @@ const TicketActionButtons = ({ ticket }) => {
 		<div className={classes.actionButtons}>
 			{ticket.status === "closed" && (
 				<ButtonWithSpinner
+					className={classes.premiumButton}
 					loading={loading}
 					startIcon={<Replay />}
 					size="small"
@@ -75,6 +86,7 @@ const TicketActionButtons = ({ ticket }) => {
 			{ticket.status === "open" && (
 				<>
 					<ButtonWithSpinner
+						className={classes.premiumButton}
 						loading={loading}
 						startIcon={<Replay />}
 						size="small"
@@ -83,6 +95,7 @@ const TicketActionButtons = ({ ticket }) => {
 						{i18n.t("messagesList.header.buttons.return")}
 					</ButtonWithSpinner>
 					<ButtonWithSpinner
+						className={classes.premiumButton}
 						loading={loading}
 						size="small"
 						variant="contained"
@@ -104,6 +117,7 @@ const TicketActionButtons = ({ ticket }) => {
 			)}
 			{ticket.status === "pending" && (
 				<ButtonWithSpinner
+					className={classes.premiumButton}
 					loading={loading}
 					size="small"
 					variant="contained"

@@ -16,6 +16,7 @@ interface UserData {
   groupIds?: number[];
   groupId?: number;
   profileImage?: string;
+  roleIds?: number[];
 }
 
 interface RequestUser {
@@ -60,7 +61,8 @@ const UpdateUserService = async ({
     whatsappId,
     groupIds = [],
     groupId,
-    profileImage
+    profileImage,
+    roleIds
   } = userData;
 
   console.log("UpdateUserService: Payload received", { userId, groupId, groupIds });
@@ -96,6 +98,11 @@ const UpdateUserService = async ({
 
     console.log("UpdateUserService: Setting groups...", finalGroupIds);
     await user.$set("groups", finalGroupIds, { through: { tenantId: requestUser.tenantId } });
+
+    if (roleIds) {
+        console.log("UpdateUserService: Setting roles...", roleIds);
+        await user.$set("roles", roleIds, { through: { tenantId: requestUser.tenantId } });
+    }
 
     // Invalidate Permission Cache
     console.log("UpdateUserService: Invalidating cache...");

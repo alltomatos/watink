@@ -162,7 +162,7 @@ const MainLayoutDefault = ({ children }) => {
     useEffect(() => {
         const fetchSettings = async () => {
             try {
-                const { data } = await api.get("/settings");
+                const { data } = await api.get("/public-settings");
                 const settingsData = Array.isArray(data) ? data : [];
 
                 const logoSetting = settingsData.find(s => s.key === "systemLogo");
@@ -295,7 +295,7 @@ const MainLayoutDefault = ({ children }) => {
                         {systemTitle}
                     </Typography>
 
-                    {user.id && <NotificationsPopOver />}
+                    {user?.id && <NotificationsPopOver />}
 
                     <div>
                         <IconButton
@@ -305,9 +305,9 @@ const MainLayoutDefault = ({ children }) => {
                             onClick={handleMenu}
                             color="inherit"
                         >
-                            {user.profileImage ? (
+                            {user?.profileImage ? (
                                 <Avatar
-                                    alt={user.name}
+                                    alt={user?.name}
                                     src={getBackendUrl(user.profileImage)}
                                     className={classes.avatar}
                                     style={{ width: 32, height: 32 }}

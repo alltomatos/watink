@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useContext } from "react";
 import { useHistory } from "react-router-dom";
 import {
     Container,
@@ -36,8 +36,9 @@ import { ptBR } from "date-fns/locale";
 import api from "../../services/api";
 import ProtocolModal from "./ProtocolModal";
 import HelpdeskReports from "./HelpdeskReports";
+import TemplateList from "./components/TemplateList";
 import { Can } from "../../components/Can";
-import useAuth from "../../hooks/useAuth";
+import { AuthContext } from "../../context/Auth/AuthContext";
 import { Tabs, Tab } from "@material-ui/core";
 
 
@@ -91,7 +92,7 @@ const priorityLabels = {
 const Helpdesk = () => {
     const classes = useStyles();
     const history = useHistory();
-    const { user } = useAuth();
+    const { user } = useContext(AuthContext);
     const [protocols, setProtocols] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchParam, setSearchParam] = useState("");
@@ -165,7 +166,7 @@ const Helpdesk = () => {
 
     return (
         <Can
-            role={user.profile}
+            user={user}
             perform="helpdesk:read"
             yes={() => (
                 <Container maxWidth="lg" className={classes.root}>
@@ -182,6 +183,7 @@ const Helpdesk = () => {
                                 >
                                     <Tab label="Protocolos" />
                                     <Tab label="Relatórios" />
+                                    <Tab label="Templates" />
                                 </Tabs>
                                 {tab === 0 && (
                                     <>
@@ -195,7 +197,7 @@ const Helpdesk = () => {
                                             Ver Kanban
                                         </Button>
                                         <Can
-                                            role={user.profile}
+                                            user={user}
                                             perform="helpdesk:write"
                                             yes={() => (
                                                 <Button
@@ -322,7 +324,7 @@ const Helpdesk = () => {
                                                             </TableCell>
                                                             <TableCell align="right">
                                                                 <Can
-                                                                    role={user.profile}
+                                                                    user={user}
                                                                     perform="helpdesk:write"
                                                                     yes={() => (
                                                                         <IconButton
@@ -342,8 +344,10 @@ const Helpdesk = () => {
                                     </TableContainer>
                                 )}
                             </>
-                        ) : (
+                        ) : tab === 1 ? (
                             <HelpdeskReports />
+                        ) : (
+                            <TemplateList />
                         )}
                     </Paper>
 

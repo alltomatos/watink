@@ -105,7 +105,8 @@ const messages = {
             "Tem certeza? Você precisará ler o QR Code novamente.",
         },
         buttons: {
-          add: "Adicionar WhatsApp",
+          add: "Adicionar Whaileys",
+          addWhatsmeow: "Adicionar WhatsMeow",
           disconnect: "desconectar",
           tryAgain: "Tentar novamente",
           qrcode: "QR CODE",
@@ -320,6 +321,7 @@ const messages = {
           password: "Senha",
           profile: "Perfil",
           group: "Função",
+          role: "Função",
           whatsapp: "Conexão Padrão",
         },
         buttons: {
@@ -411,6 +413,7 @@ const messages = {
           pipelines: "Pipelines",
           connections: "Conexões",
           tickets: "Chats",
+          myActivities: "Minhas Atividades",
           contacts: "Contatos",
           quickAnswers: "Respostas Rápidas",
           flowBuilder: "Flow Builder",
@@ -875,6 +878,9 @@ const messages = {
           import: "Importar Contatos",
           uploading: "Importando...",
         },
+      },
+      ticketsTagFilter: {
+        placeholder: "Tags",
       },
       kanbanSettings: {
         title: "Configuração do Kanban",

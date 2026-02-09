@@ -23,16 +23,7 @@ import {
   Extension as ExtensionIcon // Kept only for section header if needed, or can remove
 } from "@material-ui/icons";
 
-import { getBackendUrl as getBackendConfigUrl } from "../../config";
 import api from "../../services/api";
-
-const getServiceUrl = (path) => {
-  const backendUrl = getBackendConfigUrl() || "";
-  const rootUrl = backendUrl.replace(/\/api\/?$/, "");
-  const safeRootUrl = rootUrl.endsWith('/') ? rootUrl : `${rootUrl}/`;
-  const cleanPath = path.startsWith('/') ? path.substring(1) : path;
-  return `${safeRootUrl}${cleanPath}`;
-};
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -144,12 +135,12 @@ const useStyles = makeStyles((theme) => ({
 
 const endpoints = [
   { key: "frontend", url: "/version.json", displayName: "Frontend" },
-  { key: "backend", url: getServiceUrl("/version"), displayName: "Backend API" },
-  { key: "plugin-manager", url: getServiceUrl("/plugins/version"), displayName: "Marketplace" },
-  { key: "whaileys-engine", url: getServiceUrl("/engine/version"), displayName: "Whaileys Engine" },
-  { key: "postgres", url: getServiceUrl("/postgres/version"), displayName: "Database (Postgres)" },
-  { key: "rabbitmq", url: getServiceUrl("/rabbitmq/version"), displayName: "Queue (RabbitMQ)" },
-  { key: "redis", url: getServiceUrl("/redis/version"), displayName: "Cache (Redis)" },
+  { key: "backend", url: "/version", displayName: "Backend API" },
+  { key: "plugin-manager", url: "/plugins/version", displayName: "Marketplace" },
+  { key: "whaileys-engine", url: "/engine/version", displayName: "Whaileys Engine" },
+  { key: "postgres", url: "/postgres/version", displayName: "Database (Postgres)" },
+  { key: "rabbitmq", url: "/rabbitmq/version", displayName: "Queue (RabbitMQ)" },
+  { key: "redis", url: "/redis/version", displayName: "Cache (Redis)" },
 ];
 
 const extractPostgresVersion = (version) => {

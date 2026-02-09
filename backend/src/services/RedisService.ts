@@ -39,8 +39,16 @@ export class RedisService {
         return this.client.set(key, value);
     }
 
-    public async delValue(key: string): Promise<number> {
+    public async delValue(key: string | string[]): Promise<number> {
+        if (Array.isArray(key)) {
+            if (key.length === 0) return 0;
+            return this.client.del(...key);
+        }
         return this.client.del(key);
+    }
+
+    public async getKeys(pattern: string): Promise<string[]> {
+        return this.client.keys(pattern);
     }
 
     // Lock implementation: SET key value NX EX duration

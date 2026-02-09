@@ -423,7 +423,7 @@ const Contacts = () => {
                         <AddIcon fontSize="small" />
                       </IconButton>
                       <Can
-                        role={user.profile}
+                        user={user}
                         perform="contacts-page:deleteContact"
                         yes={() => (
                           <IconButton
@@ -507,7 +507,7 @@ const Contacts = () => {
                         <AddIcon fontSize="small" />
                       </IconButton>
                       <Can
-                        role={user.profile}
+                        user={user}
                         perform="contacts-page:deleteContact"
                         yes={() => (
                           <IconButton

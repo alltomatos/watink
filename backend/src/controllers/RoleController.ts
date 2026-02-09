@@ -3,7 +3,14 @@ import AppError from "../errors/AppError";
 import ListPermissionsService from "../services/PermissionServices/ListPermissionsService";
 import ShowRoleService from "../services/RoleServices/ShowRoleService";
 import UpdateRoleService from "../services/RoleServices/UpdateRoleService";
+import ListRolesService from "../services/RoleServices/ListRolesService";
 import * as Yup from "yup";
+
+export const index = async (req: Request, res: Response): Promise<Response> => {
+  const { tenantId } = req.user;
+  const roles = await ListRolesService({ tenantId });
+  return res.status(200).json(roles);
+};
 
 export const listPermissions = async (
   req: Request,

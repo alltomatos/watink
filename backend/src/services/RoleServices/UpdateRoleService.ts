@@ -2,6 +2,7 @@ import Role from "../../models/Role";
 import Permission from "../../models/Permission";
 import AppError from "../../errors/AppError";
 import sequelize from "../../database";
+import { RedisService } from "../RedisService";
 
 interface RoleData {
   name: string;
@@ -47,12 +48,20 @@ const UpdateRoleService = async (
 
     await transaction.commit();
 
+    // Clear permissions cache for all users of this tenant
+    // Role change might affect many users. Safest is to clear tenant-wide perms cache
+    const redis = RedisService.getInstance();
+    const keys = await redis.getKeys(`perms:${role.tenantId}:*`);
+    if (keys.length > 0) {
+      await redis.delValue(keys);
+    }
+
     await role.reload({
       include: [
         {
           model: Permission,
           as: "permissions",
-          attributes: ["id", "name", "description"],
+          attributes: ["id", "resource", "action", "description"],
           through: { attributes: [] }
         }
       ]

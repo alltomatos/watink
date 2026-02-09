@@ -9,6 +9,7 @@ import ListWhatsAppsService from "../services/WhatsappService/ListWhatsAppsServi
 import ShowWhatsAppService from "../services/WhatsappService/ShowWhatsAppService";
 import UpdateWhatsAppService from "../services/WhatsappService/UpdateWhatsAppService";
 import Plugin from "../models/Plugin";
+import axios from "axios";
 import PluginInstallation from "../models/PluginInstallation";
 
 interface WhatsappData {
@@ -24,6 +25,8 @@ interface WhatsappData {
   type?: string;
   chatConfig?: any;
   tags?: number[];
+  engineType?: string;
+  importOldMessages?: string;
 }
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
@@ -46,7 +49,9 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     keepAlive,
     type,
     chatConfig,
-    tags
+    tags,
+    engineType,
+    importOldMessages
   }: WhatsappData = req.body;
 
   const { tenantId } = (req as any).user;
@@ -68,6 +73,40 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     }
   }
 
+  if (engineType === "whatsmeow") {
+    const plugin = await Plugin.findOne({ where: { slug: "whatsmeow" } });
+    if (plugin) {
+      const installation = await PluginInstallation.findOne({
+        where: {
+          pluginId: plugin.id,
+          tenantId,
+          status: "active"
+        }
+      });
+
+      if (!installation) {
+        throw new AppError("WhatsMeow plugin is not active for this tenant.");
+      }
+    }
+  }
+
+  if (engineType === "papi") {
+    const plugin = await Plugin.findOne({ where: { slug: "engine-papi" } });
+    if (plugin) {
+      const installation = await PluginInstallation.findOne({
+        where: {
+          pluginId: plugin.id,
+          tenantId,
+          status: "active"
+        }
+      });
+
+      if (!installation) {
+        throw new AppError("Engine PAPI plugin is not active for this tenant.");
+      }
+    }
+  }
+
   const { whatsapp, oldDefaultWhatsapp } = await CreateWhatsAppService({
     name,
     status,
@@ -81,7 +120,9 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     tenantId,
     type,
     chatConfig,
-    tags
+    tags,
+    engineType,
+    importOldMessages
   });
 
   // StartWhatsAppSession(whatsapp); // [REMOVED] Manual connect only
@@ -171,4 +212,21 @@ export const remove = async (
   });
 
   return res.status(200).json({ message: "Whatsapp deleted." });
+};
+
+export const testPapiConnection = async (req: Request, res: Response): Promise<Response> => {
+  const { papiUrl, papiKey } = req.body;
+
+  try {
+    // PAPI usually has a status endpoint or just listing instances
+    await axios.get(`${papiUrl}/api/instances`, {
+      headers: {
+        "x-api-key": papiKey
+      },
+      timeout: 5000
+    });
+    return res.status(200).json({ message: "Connection successful" });
+  } catch (err: any) {
+    return res.status(400).json({ error: "Connection failed", details: err.message });
+  }
 };

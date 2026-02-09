@@ -4,6 +4,7 @@ import RabbitMQService from "../services/RabbitMQService";
 import { getIO } from "../libs/socket";
 import Message from "../models/Message";
 import Ticket from "../models/Ticket";
+import Whatsapp from "../models/Whatsapp";
 import { logger } from "../utils/logger";
 
 const SetTicketMessagesAsRead = async (ticket: Ticket): Promise<void> => {
@@ -47,8 +48,14 @@ const SetTicketMessagesAsRead = async (ticket: Ticket): Promise<void> => {
         payload: markReadPayload
       };
 
+      let engineType = ticket.whatsapp?.engineType;
+      if (!engineType) {
+        const whatsapp = await Whatsapp.findByPk(ticket.whatsappId);
+        engineType = whatsapp?.engineType;
+      }
+
       await RabbitMQService.publishCommand(
-        `wbot.${ticket.tenantId}.${ticket.whatsappId}.message.markAsRead`,
+        `wbot.${ticket.tenantId}.${ticket.whatsappId}.${engineType || "whaileys"}.message.markAsRead`,
         command
       );
     }

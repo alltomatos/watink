@@ -2,7 +2,7 @@ import React, { useState, useCallback, useContext, useEffect } from "react";
 import { format, parseISO } from "date-fns";
 import { useHistory } from "react-router-dom";
 
-import { makeStyles } from "@material-ui/core/styles";
+import { makeStyles, useTheme } from "@material-ui/core/styles";
 import { green, red, orange } from "@material-ui/core/colors";
 import {
 	Button,
@@ -16,34 +16,42 @@ import {
 	MenuItem,
 	ListItemIcon,
 	Avatar,
-	Tooltip
+	Tooltip,
+	Paper,
+	List,
+	ListItem,
+	ListItemText,
+	Drawer,
+	Hidden,
+	useMediaQuery,
+	Fade,
+	Grow
 } from "@material-ui/core";
 import {
 	CheckCircle,
 	SignalCellularConnectedNoInternet0Bar,
 	SignalCellular4Bar,
-	CropFree,
-	SignalCellularConnectedNoInternet2Bar,
 	Add,
 	MoreVert,
 	Edit,
-	FiberManualRecord,
 	DeleteOutline,
 	Autorenew,
 	WhatsApp,
-	Chat
+	Chat,
+	Menu as MenuIcon,
+	AllInclusive
 } from "@material-ui/icons";
 
 import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
 import MainHeaderButtonsWrapper from "../../components/MainHeaderButtonsWrapper";
 import Title from "../../components/Title";
-import BaseCard from "../../components/BaseCard";
 
 import WhatsAppModal from "../../components/WhatsAppModal";
 import WebchatModal from "../../components/WebchatModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import api from "../../services/api";
+import pluginApi from "../../services/pluginApi";
 import { toast } from "react-toastify";
 import toastError from "../../errors/toastError";
 import { i18n } from "../../translate/i18n";
@@ -52,21 +60,128 @@ import { getBackendUrl } from "../../helpers/urlUtils";
 import TagChip from "../../components/TagChip";
 
 const useStyles = makeStyles(theme => ({
-	mainPaper: {
+	root: {
+		display: "flex",
+		height: "100%",
+		overflow: "hidden",
+		backgroundColor: theme.palette.background.default,
+	},
+	sidebar: {
+		width: 280,
+		flexShrink: 0,
+		borderRight: `1px solid ${theme.palette.divider}`,
+		backgroundColor: theme.palette.background.paper,
+		display: "flex",
+		flexDirection: "column",
+		height: "100%",
+		zIndex: 10,
+	},
+	sidebarHeader: {
+		padding: theme.spacing(2),
+		display: "flex",
+		alignItems: "center",
+		justifyContent: "space-between",
+		borderBottom: `1px solid ${theme.palette.divider}`,
+		minHeight: 64,
+	},
+	sidebarContent: {
 		flex: 1,
-		padding: theme.spacing(1),
-		overflowY: "scroll",
+		overflowY: "auto",
+		padding: theme.spacing(2),
+	},
+	mainContent: {
+		flexGrow: 1,
+		display: "flex",
+		flexDirection: "column",
+		height: "100%",
+		overflow: "hidden",
+		position: "relative",
+	},
+	scrollableContent: {
+		flexGrow: 1,
+		overflowY: "auto",
+		padding: theme.spacing(3),
 		...theme.scrollbarStyles,
 	},
-	customCard: {
-		cursor: "pointer",
+	engineItem: {
+		borderRadius: 12,
+		marginBottom: theme.spacing(1),
+		transition: "all 0.3s ease",
+		"&:hover": {
+			backgroundColor: theme.palette.action.hover,
+			transform: "translateX(5px)",
+		},
+	},
+	engineItemSelected: {
+		backgroundColor: `${theme.palette.primary.main} !important`,
+		color: "#fff",
+		boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+		"& .MuiListItemIcon-root": {
+			color: "#fff",
+		},
+		"& .MuiTypography-root": {
+			fontWeight: 600,
+		},
+	},
+	// Premium Card Styles
+	premiumCard: {
 		height: "100%",
+		borderRadius: 16,
+		background: theme.palette.type === "dark"
+			? "linear-gradient(145deg, #2b2b2b, #1e1e1e)"
+			: "linear-gradient(145deg, #ffffff, #f0f2f5)",
+		boxShadow: theme.palette.type === "dark"
+			? "0 4px 20px rgba(0,0,0,0.4)"
+			: "0 4px 20px rgba(0,0,0,0.05)",
+		transition: "transform 0.3s ease, box-shadow 0.3s ease",
+		border: `1px solid ${theme.palette.divider}`,
+		position: "relative",
+		overflow: "hidden",
+		"&:hover": {
+			transform: "translateY(-5px)",
+			boxShadow: theme.palette.type === "dark"
+				? "0 12px 30px rgba(0,0,0,0.5)"
+				: "0 12px 30px rgba(0,0,0,0.1)",
+		},
+	},
+	cardHeader: {
+		padding: theme.spacing(2),
+		display: "flex",
+		alignItems: "center",
+		justifyContent: "space-between",
+		borderBottom: `1px solid ${theme.palette.divider}`,
+		background: "rgba(0,0,0,0.02)",
+	},
+	cardBody: {
+		padding: theme.spacing(2),
+		display: "flex",
+		flexDirection: "column",
+		alignItems: "center",
+		justifyContent: "center",
+		minHeight: 180,
+	},
+	cardFooter: {
+		padding: theme.spacing(1.5),
+		borderTop: `1px solid ${theme.palette.divider}`,
+		display: "flex",
+		justifyContent: "space-between",
+		alignItems: "center",
+		background: "rgba(0,0,0,0.02)",
+	},
+	statusBadge: {
+		padding: "4px 12px",
+		borderRadius: 20,
+		fontSize: "0.75rem",
+		fontWeight: 600,
+		display: "flex",
+		alignItems: "center",
+		gap: 6,
+		boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
 	},
 	pulsingDot: {
-		width: 10,
-		height: 10,
+		width: 8,
+		height: 8,
 		borderRadius: "50%",
-		marginRight: 8,
 		position: "relative",
 		"&::before": {
 			content: '""',
@@ -79,30 +194,33 @@ const useStyles = makeStyles(theme => ({
 			border: "1px solid currentColor",
 			animation: "$pulse 2s infinite",
 			opacity: 0.5,
-			padding: 1,
+			padding: 2,
 		},
 	},
 	"@keyframes pulse": {
-		"0%": {
-			transform: "scale(1)",
-			opacity: 1,
-		},
-		"100%": {
-			transform: "scale(2.5)",
-			opacity: 0,
-		},
+		"0%": { transform: "scale(1)", opacity: 1 },
+		"100%": { transform: "scale(3)", opacity: 0 },
 	},
-	chipRoot: {
+	emptyState: {
+		display: "flex",
+		flexDirection: "column",
+		alignItems: "center",
+		justifyContent: "center",
+		height: "100%",
+		padding: theme.spacing(4),
+		opacity: 0.7,
+	},
+	hamburgerBtn: {
+		marginRight: theme.spacing(2),
+	},
+	addButton: {
+		borderRadius: 20,
+		padding: "8px 20px",
+		textTransform: "none",
 		fontWeight: 600,
-		borderRadius: 8,
-		height: 28,
-		padding: "4px 0",
-		"& .MuiChip-label": {
-			paddingLeft: 8,
-			paddingRight: 8,
-			display: 'flex',
-			alignItems: 'center',
-			width: "100%"
+		boxShadow: "0 4px 10px rgba(0,0,0,0.15)",
+		"&:hover": {
+			boxShadow: "0 6px 15px rgba(0,0,0,0.2)",
 		}
 	}
 }));
@@ -110,6 +228,8 @@ const useStyles = makeStyles(theme => ({
 const Connections = () => {
 	const classes = useStyles();
 	const history = useHistory();
+	const theme = useTheme();
+	const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
 	const { whatsApps, loading } = useContext(WhatsAppsContext);
 	const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
@@ -120,10 +240,20 @@ const Connections = () => {
 	const [menuTargetId, setMenuTargetId] = useState(null);
 	const [activePlugins, setActivePlugins] = useState([]);
 
+	// New State for Layout
+	const [selectedEngine, setSelectedEngine] = useState("all");
+	const [mobileOpen, setMobileOpen] = useState(false);
+	const [newTicketModalOpen, setNewTicketModalOpen] = useState(false);
+	const [contactModalOpen, setContactModalOpen] = useState(false);
+	const [selectedContactId, setSelectedContactId] = useState(null);
+
+	// Engine Type State for Modal
+	const [selectedEngineType, setSelectedEngineType] = useState(null);
+
 	useEffect(() => {
 		const fetchPlugins = async () => {
 			try {
-				const { data } = await api.get("/plugins/api/v1/plugins/installed");
+				const { data } = await pluginApi.get("/api/v1/plugins/installed");
 				setActivePlugins(data.active || []);
 			} catch (err) {
 				if (err?.response?.status !== 502 && err?.code !== "ERR_NETWORK") {
@@ -134,8 +264,21 @@ const Connections = () => {
 		fetchPlugins();
 	}, []);
 
-	const handleOpenWhatsAppModal = () => {
+	const handleDrawerToggle = () => {
+		setMobileOpen(!mobileOpen);
+	};
+
+	const engines = [
+		{ id: "all", name: "Todos", icon: <AllInclusive /> },
+		{ id: "whatsapp", name: "Whaileys", icon: <WhatsApp /> },
+		...(activePlugins.includes("whatsmeow") ? [{ id: "whatsmeow", name: "WhatsMeow", icon: <WhatsApp style={{ color: "#00E676" }} /> }] : []),
+		...(activePlugins.includes("engine-papi") ? [{ id: "papi", name: "Engine PAPI", icon: <WhatsApp style={{ color: "#128c7e" }} /> }] : []),
+		...(activePlugins.includes("webchat") ? [{ id: "webchat", name: "Webchat", icon: <Chat /> }] : []),
+	];
+
+	const handleOpenWhatsAppModal = (engineType = null) => {
 		setSelectedWhatsApp(null);
+		setSelectedEngineType(engineType);
 		setWhatsAppModalOpen(true);
 	};
 
@@ -147,6 +290,7 @@ const Connections = () => {
 	const handleCloseWhatsAppModal = useCallback(() => {
 		setWhatsAppModalOpen(false);
 		setSelectedWhatsApp(null);
+		setSelectedEngineType(null); // Reset
 	}, [setSelectedWhatsApp, setWhatsAppModalOpen]);
 
 	const handleCloseWebchatModal = useCallback(() => {
@@ -170,11 +314,9 @@ const Connections = () => {
 
 		try {
 			if (whatsapp && whatsapp.status !== "DISCONNECTED" && whatsapp.status !== "TIMEOUT") {
-				// For Unknown or other non-disconnected states (that passed the Connected check), try to stop session first
 				try {
 					await api.delete(`/whatsappsession/${menuTargetId}`);
 				} catch (err) {
-					// Ignore error if session doesn't exist or can't be stopped, proceed to delete record
 					console.warn("Could not stop session before deleting:", err);
 				}
 			}
@@ -200,7 +342,7 @@ const Connections = () => {
 	};
 
 	const getStatusColor = (status, type) => {
-		if (type === 'webchat') return green[600]; // Webchat sempre online
+		if (type === 'webchat') return green[600];
 		switch (status) {
 			case "CONNECTED": return green[600];
 			case "DISCONNECTED": return red[600];
@@ -211,7 +353,7 @@ const Connections = () => {
 	};
 
 	const getStatusBackgroundColor = (status, type) => {
-		if (type === 'webchat') return "#E8F5E9"; // Webchat sempre verde
+		if (type === 'webchat') return "#E8F5E9";
 		switch (status) {
 			case "CONNECTED": return "#E8F5E9";
 			case "DISCONNECTED": return "#FFEBEE";
@@ -220,12 +362,13 @@ const Connections = () => {
 		}
 	};
 
-	const renderStatusIcon = status => {
+	const renderStatusIcon = (status, type) => {
+		if (type === 'webchat') return <Chat />;
 		return <SignalCellular4Bar fontSize="default" />;
 	};
 
 	const renderStatusLabel = (status, type) => {
-		if (type === 'webchat') return "Online"; // Webchat sempre disponível
+		if (type === 'webchat') return "Online";
 		switch (status) {
 			case "DISCONNECTED": return "Desconectado";
 			case "OPENING": return "Iniciando...";
@@ -235,16 +378,14 @@ const Connections = () => {
 			case "PAIRING": return "Pareando";
 			default: return "Desconhecido";
 		}
-	}
+	};
 
 	const handleCardClick = (whatsappId) => {
 		const whatsapp = whatsApps.find(w => w.id === whatsappId);
 		if (!anchorEl) {
 			if (whatsapp?.type === 'webchat') {
-				// Para webchat, abrir página de configuração dedicada
 				history.push(`/connections/webchat/${whatsappId}`);
 			} else {
-				// Para WhatsApp, redirecionar para página de detalhes
 				history.push(`/connections/${whatsappId}`);
 			}
 		}
@@ -254,7 +395,6 @@ const Connections = () => {
 		const whatsapp = whatsApps.find(w => w.id === menuTargetId);
 		if (whatsapp) {
 			if (whatsapp.type === 'webchat') {
-				// Redirect to config page instead of opening modal
 				history.push(`/connections/webchat/${whatsapp.id}`);
 			} else {
 				setSelectedWhatsApp(whatsapp);
@@ -283,193 +423,326 @@ const Connections = () => {
 		}
 	};
 
+	const filteredWhatsApps = whatsApps?.filter(whats => {
+		if (whats.type === 'webchat') {
+			if (!activePlugins.includes("webchat")) return false;
+			if (selectedEngine === "all" || selectedEngine === "webchat") return true;
+			return false;
+		}
+
+		// Logic for WhatsApp Engines (Whaileys vs WhatsMeow)
+		if (selectedEngine === "all") return true;
+
+		if (selectedEngine === "whatsapp") { // Whaileys
+			// Show if engineType is null, undefined, or 'whaileys'
+			return !whats.engineType || whats.engineType === "whaileys";
+		}
+
+		if (selectedEngine === "whatsmeow") { // WhatsMeow
+			return whats.engineType === "whatsmeow";
+		}
+
+		if (selectedEngine === "papi") { // Engine PAPI
+			return whats.engineType === "papi";
+		}
+
+		return false;
+	});
+
+	const drawerContent = (
+		<div className={classes.sidebar}>
+			<div className={classes.sidebarHeader}>
+				<Typography variant="h6" color="primary" style={{ fontWeight: 700 }}>
+					Motores
+				</Typography>
+			</div>
+			<div className={classes.sidebarContent}>
+				<List component="nav">
+					{engines.map((engine) => (
+						<ListItem
+							button
+							key={engine.id}
+							selected={selectedEngine === engine.id}
+							onClick={() => {
+								setSelectedEngine(engine.id);
+								if (isMobile) setMobileOpen(false);
+							}}
+							className={`${classes.engineItem} ${selectedEngine === engine.id ? classes.engineItemSelected : ''}`}
+						>
+							<ListItemIcon style={{ minWidth: 40 }}>
+								{engine.icon}
+							</ListItemIcon>
+							<ListItemText primary={engine.name} />
+							{selectedEngine === engine.id && (
+								<Fade in>
+									<CheckCircle fontSize="small" style={{ color: "white" }} />
+								</Fade>
+							)}
+						</ListItem>
+					))}
+				</List>
+			</div>
+		</div>
+	);
+
 	return (
 		<MainContainer>
-			<ConfirmationModal
-				title={i18n.t("whatsappModal.deleteTitle")}
-				open={confirmationOpen}
-				onClose={handleCloseConfirmationModal}
-				onConfirm={handleDeleteWhatsApp}
-			>
-				{i18n.t("whatsappModal.deleteMessage")}
-				<Typography variant="body2" color="error" style={{ marginTop: 8 }}>
-					Esta ação não pode ser desfeita.
-				</Typography>
-			</ConfirmationModal>
-			<WhatsAppModal
-				open={whatsAppModalOpen}
-				onClose={handleCloseWhatsAppModal}
-				whatsAppId={selectedWhatsApp?.id}
-			/>
-			<WebchatModal
-				open={webchatModalOpen}
-				onClose={handleCloseWebchatModal}
-				whatsAppId={selectedWhatsApp?.id}
-			/>
+			<div className={classes.root}>
+				<ConfirmationModal
+					title={i18n.t("whatsappModal.deleteTitle")}
+					open={confirmationOpen}
+					onClose={handleCloseConfirmationModal}
+					onConfirm={handleDeleteWhatsApp}
+				>
+					{i18n.t("whatsappModal.deleteMessage")}
+					<Typography variant="body2" color="error" style={{ marginTop: 8 }}>
+						Esta ação não pode ser desfeita.
+					</Typography>
+				</ConfirmationModal>
+				<WhatsAppModal
+					open={whatsAppModalOpen}
+					onClose={handleCloseWhatsAppModal}
+					whatsAppId={selectedWhatsApp?.id}
+					engineType={selectedEngineType}
+				/>
+				<WebchatModal
+					open={webchatModalOpen}
+					onClose={handleCloseWebchatModal}
+					whatsAppId={selectedWhatsApp?.id}
+				/>
 
-			<MainHeader>
-				<Title>{i18n.t("connections.title")}</Title>
-				<MainHeaderButtonsWrapper>
-					<Button
-						variant="contained"
-						color="primary"
-						onClick={handleOpenWhatsAppModal}
-						startIcon={<Add />}
+				{/* Sidebar for Desktop */}
+				<Hidden smDown implementation="css">
+					{drawerContent}
+				</Hidden>
+
+				{/* Sidebar for Mobile */}
+				<Hidden mdUp implementation="css">
+					<Drawer
+						variant="temporary"
+						anchor="left"
+						open={mobileOpen}
+						onClose={handleDrawerToggle}
+						classes={{
+							paper: classes.sidebarMobile,
+						}}
+						ModalProps={{
+							keepMounted: true,
+						}}
 					>
-						{i18n.t("connections.buttons.add")}
-					</Button>
-					{activePlugins.includes("webchat") && (
-						<Button
-							variant="contained"
-							color="primary"
-							onClick={handleOpenWebchatModal}
-							startIcon={<Add />}
-							style={{ marginLeft: 8 }}
-						>
-							Adicionar Webchat
-						</Button>
-					)}
-					<Button
-						variant="contained"
-						color="primary"
-						onClick={handleRestartAllWhatsApp}
-						startIcon={<Autorenew />}
-						style={{ marginLeft: 8 }}
-					>
-						Reiniciar Todas
-					</Button>
-				</MainHeaderButtonsWrapper>
-			</MainHeader>
+						{drawerContent}
+					</Drawer>
+				</Hidden>
 
-			<Box className={classes.mainPaper}>
-				{loading ? (
-					<Box display="flex" justifyContent="center" mt={4}>
-						<CircularProgress />
-					</Box>
-				) : (
-					<Grid container spacing={3}>
-						{whatsApps?.length > 0 &&
-							whatsApps
-								.filter(whats => {
-									if (whats.type === 'webchat' && !activePlugins.includes("webchat")) return false;
-									return true;
-								})
-								.map(whatsApp => {
-									const statusColor = getStatusColor(whatsApp.status, whatsApp.type);
-									const bgColor = getStatusBackgroundColor(whatsApp.status, whatsApp.type);
+				<div className={classes.mainContent}>
+					<MainHeader>
+						{isMobile && (
+							<IconButton
+								color="inherit"
+								aria-label="open drawer"
+								edge="start"
+								onClick={handleDrawerToggle}
+								className={classes.hamburgerBtn}
+							>
+								<MenuIcon />
+							</IconButton>
+						)}
+						<Title>{i18n.t("connections.title")}</Title>
+						<MainHeaderButtonsWrapper>
+							{(selectedEngine === "all" || selectedEngine === "whatsapp") && (
+								<Button
+									variant="contained"
+									color="primary"
+									onClick={() => handleOpenWhatsAppModal()}
+									startIcon={<WhatsApp />}
+									className={classes.addButton}
+								>
+									{i18n.t("connections.buttons.add")}
+								</Button>
+							)}
+							{(selectedEngine === "all" || selectedEngine === "whatsmeow") && activePlugins.includes("whatsmeow") && (
+								<Button
+									variant="contained"
+									style={{ backgroundColor: "#00E676", color: "#fff", marginLeft: 8 }}
+									onClick={() => handleOpenWhatsAppModal("whatsmeow")}
+									startIcon={<WhatsApp />}
+									className={classes.addButton}
+								>
+									{i18n.t("connections.buttons.addWhatsmeow")}
+								</Button>
+							)}
+							{(selectedEngine === "all" || selectedEngine === "papi") && activePlugins.includes("engine-papi") && (
+								<Button
+									variant="contained"
+									style={{ backgroundColor: "#128c7e", color: "#fff", marginLeft: 8 }}
+									onClick={() => handleOpenWhatsAppModal("papi")}
+									startIcon={<WhatsApp />}
+									className={classes.addButton}
+								>
+									Add PAPI
+								</Button>
+							)}
+							{(selectedEngine === "all" || selectedEngine === "webchat") && activePlugins.includes("webchat") && (
+								<Button
+									variant="contained"
+									color="primary"
+									onClick={handleOpenWebchatModal}
+									startIcon={<Chat />}
+									style={{ marginLeft: 8 }}
+									className={classes.addButton}
+								>
+									Webchat
+								</Button>
+							)}
+							<Button
+								variant="outlined"
+								color="primary"
+								onClick={handleRestartAllWhatsApp}
+								startIcon={<Autorenew />}
+								style={{ marginLeft: 8 }}
+								className={classes.addButton}
+							>
+								Reiniciar
+							</Button>
+						</MainHeaderButtonsWrapper>
+					</MainHeader>
 
-									return (
-										<Grid item xs={12} sm={6} md={4} lg={3} key={whatsApp.id}>
-											<BaseCard
-												className={classes.customCard}
-												title={whatsApp.name}
-												subtitle={
-													<Box>
-														<span style={{ fontSize: 13, fontWeight: 400, color: '#8e8e8e', display: 'flex', gap: 4 }}>
-															Atualizado em {whatsApp.updatedAt
-																? format(parseISO(whatsApp.updatedAt), "dd/MM")
-																: "N/A"
-															}
-														</span>
-														{whatsApp.type === 'whatsapp' && (
-															<Typography variant="body2" color="textSecondary" style={{ marginTop: 4, display: 'flex', alignItems: 'center' }}>
-																<WhatsApp style={{ fontSize: 16, marginRight: 4, color: "#25D366" }} /> WhatsApp
-															</Typography>
-														)}
-														{whatsApp.type === 'webchat' && (
-															<Typography variant="body2" color="textSecondary" style={{ marginTop: 4, display: 'flex', alignItems: 'center' }}>
-																<Chat style={{ fontSize: 16, marginRight: 4, color: "#9c27b0" }} /> Webchat
-															</Typography>
-														)}
-														{whatsApp.status === "CONNECTED" && whatsApp.number && (
-															<Typography variant="body2" color="textSecondary" style={{ marginTop: 4 }}>
-																+{whatsApp.number}
-															</Typography>
-														)}
-														{whatsApp.tags?.length > 0 && (
-															<Box mt={1} display="flex" flexWrap="wrap" gap={0.5}>
-																{whatsApp.tags.map(tag => (
-																	<TagChip key={tag.id} tag={tag} size="small" />
-																))}
-															</Box>
-														)}
-													</Box>
-												}
-												iconColor={bgColor}
-												icon={
-													whatsApp.status === "CONNECTED" && whatsApp.profilePicUrl ? (
-														<Avatar
-															src={getBackendUrl(whatsApp.profilePicUrl)}
-															alt={whatsApp.name}
-															style={{ width: 56, height: 56 }}
-														/>
-													) : (
-														React.cloneElement(renderStatusIcon(whatsApp.status), { style: { color: statusColor, fontSize: 24 } })
-													)
-												}
+					<Box className={classes.scrollableContent}>
+						{loading ? (
+							<Box display="flex" justifyContent="center" mt={4}>
+								<CircularProgress />
+							</Box>
+						) : (
+							<>
+								{filteredWhatsApps?.length === 0 ? (
+									<Fade in>
+										<div className={classes.emptyState}>
+											<SignalCellularConnectedNoInternet0Bar style={{ fontSize: 60, color: "#ccc", marginBottom: 16 }} />
+											<Typography variant="h6" color="textSecondary">
+												Nenhuma conexão encontrada para este motor.
+											</Typography>
+										</div>
+									</Fade>
+								) : (
+									<Grid container spacing={3}>
+										{filteredWhatsApps.map((whatsApp, index) => {
+											const statusColor = getStatusColor(whatsApp.status, whatsApp.type);
+											const bgColor = getStatusBackgroundColor(whatsApp.status, whatsApp.type);
 
-												actions={
-													<>
-														<Tooltip title={i18n.t("connections.buttons.restart")}>
-															<span>
+											return (
+												<Grow in timeout={300 * (index + 1)} key={whatsApp.id}>
+													<Grid item xs={12} sm={6} md={6} lg={4}>
+														<Paper
+															className={classes.premiumCard}
+															elevation={0}
+															onClick={() => handleCardClick(whatsApp.id)}
+															style={{ cursor: "pointer" }}
+														>
+															<div className={classes.cardHeader}>
+																<Box display="flex" alignItems="center" gap={1}>
+																	{whatsApp.type === 'whatsapp' ? (
+																		<WhatsApp style={{ color: "#25D366" }} />
+																	) : (
+																		<Chat style={{ color: "#9c27b0" }} />
+																	)}
+																	<Typography variant="subtitle1" style={{ fontWeight: 600 }}>
+																		{whatsApp.name}
+																	</Typography>
+																</Box>
 																<IconButton
 																	size="small"
-																	onClick={() => handleRestartWhatsApp(whatsApp.id)}
-																	disabled={whatsApp.status === "CONNECTED" || whatsApp.type === 'webchat'}
+																	onClick={(e) => handleMenuOpen(e, whatsApp.id)}
 																>
-																	<Autorenew fontSize="small" style={{ color: whatsApp.status === "CONNECTED" ? '#bdbdbd' : '#94a3b8' }} />
+																	<MoreVert fontSize="small" />
 																</IconButton>
-															</span>
-														</Tooltip>
-														<IconButton
-															size="small"
-															onClick={(e) => handleMenuOpen(e, whatsApp.id)}
-														>
-															<MoreVert fontSize="small" style={{ color: '#94a3b8' }} />
-														</IconButton>
-													</>
-												}
-												hoverEffect={true}
-												onClick={() => handleCardClick(whatsApp.id)}
-											>
+															</div>
 
-												<Box mt={2} display="flex" alignItems="center">
-													<Chip
-														classes={{ root: classes.chipRoot }}
-														style={{
-															backgroundColor: bgColor,
-															color: statusColor,
-															width: "100%",
-														}}
-														label={
-															<Box display="flex" alignItems="center" width="100%">
-																<Box
-																	className={classes.pulsingDot}
-																	style={{
-																		backgroundColor: statusColor,
-																		color: statusColor
-																	}}
-																/>
-																<Typography variant="body2" style={{ fontWeight: 600, fontSize: '0.8125rem' }}>
-																	{renderStatusLabel(whatsApp.status, whatsApp.type)}
-																</Typography>
+															<div className={classes.cardBody}>
+																<Box position="relative" display="inline-flex">
+																	{whatsApp.status === "CONNECTED" && whatsApp.profilePicUrl ? (
+																		<Avatar
+																			src={getBackendUrl(whatsApp.profilePicUrl)}
+																			alt={whatsApp.name}
+																			style={{ width: 80, height: 80, border: `2px solid ${statusColor}` }}
+																		/>
+																	) : (
+																		<Avatar style={{ width: 80, height: 80, backgroundColor: bgColor }}>
+																			{React.cloneElement(renderStatusIcon(whatsApp.status, whatsApp.type), { style: { color: statusColor, fontSize: 40 } })}
+																		</Avatar>
+																	)}
+																	{whatsApp.isDefault && (
+																		<Tooltip title="Padrão">
+																			<CheckCircle
+																				style={{
+																					position: "absolute",
+																					bottom: 0,
+																					right: 0,
+																					color: theme.palette.primary.main,
+																					backgroundColor: "#fff",
+																					borderRadius: "50%"
+																				}}
+																			/>
+																		</Tooltip>
+																	)}
+																</Box>
 
-																{whatsApp.isDefault && (
-																	<Box ml="auto">
-																		<CheckCircle style={{ fontSize: 16 }} />
+																<Box mt={2} textAlign="center">
+																	{whatsApp.status === "CONNECTED" && whatsApp.number && (
+																		<Typography variant="body2" color="textSecondary" style={{ fontWeight: 500 }}>
+																			{whatsApp.number}
+																		</Typography>
+																	)}
+																	<Typography variant="caption" color="textSecondary" display="block" style={{ marginTop: 4 }}>
+																		Última atualização: {whatsApp.updatedAt ? format(parseISO(whatsApp.updatedAt), "dd/MM HH:mm") : "N/A"}
+																	</Typography>
+																</Box>
+
+																{whatsApp.tags?.length > 0 && (
+																	<Box mt={2} display="flex" flexWrap="wrap" justifyContent="center" gap={0.5}>
+																		{whatsApp.tags.map(tag => (
+																			<TagChip key={tag.id} tag={tag} size="small" />
+																		))}
 																	</Box>
 																)}
-															</Box>
-														}
-													/>
-												</Box>
-											</BaseCard>
-										</Grid>
-									)
-								})}
-					</Grid>
-				)}
-			</Box>
+															</div>
+
+															<div className={classes.cardFooter}>
+																<div
+																	className={classes.statusBadge}
+																	style={{ backgroundColor: bgColor, color: statusColor }}
+																>
+																	<div
+																		className={classes.pulsingDot}
+																		style={{ color: statusColor, backgroundColor: statusColor }}
+																	/>
+																	{renderStatusLabel(whatsApp.status, whatsApp.type)}
+																</div>
+
+																<Tooltip title={i18n.t("connections.buttons.restart")}>
+																	<IconButton
+																		size="small"
+																		onClick={(e) => {
+																			e.stopPropagation();
+																			handleRestartWhatsApp(whatsApp.id);
+																		}}
+																		disabled={whatsApp.status === "CONNECTED" || whatsApp.type === 'webchat'}
+																	>
+																		<Autorenew fontSize="small" />
+																	</IconButton>
+																</Tooltip>
+															</div>
+														</Paper>
+													</Grid>
+												</Grow>
+											);
+										})}
+									</Grid>
+								)}
+							</>
+						)}
+					</Box>
+				</div>
+			</div>
 
 			<Menu
 				anchorEl={anchorEl}

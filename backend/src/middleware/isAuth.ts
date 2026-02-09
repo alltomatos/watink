@@ -38,7 +38,7 @@ const isAuth = async (req: Request, res: Response, next: NextFunction): Promise<
       profile
     };
   } catch (err) {
-    console.log("DEBUG: isAuth failed for token:", token.slice(-6), "Error:", err.message);
+    console.log("DEBUG: isAuth failed. Header:", authHeader ? "YES" : "NO", "Token:", token ? token.slice(-6) : "NONE", "Error:", err.message);
     throw new AppError(
       "Invalid token. We'll try to assign a new one on next request",
       401

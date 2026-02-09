@@ -319,10 +319,12 @@ const UserEdit = () => {
 
     // Data lists
     const [groups, setGroups] = useState([]);
+    const [roles, setRoles] = useState([]);
 
 
     // Selected values
     const [selectedQueueIds, setSelectedQueueIds] = useState([]);
+    const [selectedRoleIds, setSelectedRoleIds] = useState([]);
     const [whatsappId, setWhatsappId] = useState("");
 
 
@@ -609,11 +611,11 @@ const UserEdit = () => {
                                                 fullWidth
                                             >
                                                 <InputLabel id="group-selection-input-label">
-                                                    {i18n.t("userModal.form.group")}
+                                                    {i18n.t("userModal.form.role")}
                                                 </InputLabel>
                                                 <Field
                                                     as={Select}
-                                                    label={i18n.t("userModal.form.group")}
+                                                    label={i18n.t("userModal.form.role")}
                                                     name="groupId"
                                                     labelId="group-selection-label"
                                                     id="group-selection"

@@ -1,4 +1,5 @@
 import Contact from "../../models/Contact";
+import Whatsapp from "../../models/Whatsapp";
 import RabbitMQService from "../RabbitMQService";
 import { Op, Sequelize } from "sequelize";
 import { logger } from "../../utils/logger";
@@ -34,11 +35,17 @@ const BatchEnrichContactsService = async (
 
         logger.info(`[BatchEnrich] Found ${contacts.length} candidates for enrichment for tenant ${tenantId}.`);
 
+        const whatsapp = await Whatsapp.findOne({ where: { tenantId, status: "CONNECTED" } });
+        if (!whatsapp) {
+            logger.warn(`[BatchEnrich] No connected WhatsApp session found for tenant ${tenantId}. Aborting.`);
+            return { count: 0 };
+        }
+
         for (const contact of contacts) {
             if (!contact.number) continue;
 
             try {
-                await RabbitMQService.publishCommand("wbot.global.contact.sync", {
+                await RabbitMQService.publishCommand(`wbot.${tenantId}.${whatsapp.id}.${whatsapp.engineType}.contact.sync`, {
                     id: uuidv4(),
                     timestamp: Date.now(),
                     type: "contact.sync",
@@ -46,7 +53,7 @@ const BatchEnrichContactsService = async (
                         contactId: contact.id,
                         number: contact.number,
                         lid: undefined, // ensure we ask for it
-                        sessionId: 1 // TODO: Need specific sessionId logic. Ideally 0 for "any"
+                        sessionId: whatsapp.id
                     },
                     tenantId
                 });

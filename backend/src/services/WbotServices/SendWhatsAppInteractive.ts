@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import AppError from "../../errors/AppError";
+import Whatsapp from "../../models/Whatsapp";
 import Ticket from "../../models/Ticket";
 import formatBody from "../../helpers/Mustache";
 import RabbitMQService from "../RabbitMQService";
@@ -54,6 +55,14 @@ const SendWhatsAppInteractive = async ({
 
         const message = await Message.create(messageData);
 
+        // Determine Engine Type
+        let engineType = ticket.whatsapp?.engineType;
+        if (!engineType) {
+            const whatsapp = await Whatsapp.findByPk(ticket.whatsappId);
+            engineType = whatsapp?.engineType;
+        }
+        if (!engineType) engineType = "whaileys";
+
         let command: Envelope;
         let routingKey = "";
 
@@ -77,7 +86,7 @@ const SendWhatsAppInteractive = async ({
                 payload
             };
 
-            routingKey = `wbot.1.${sessionId}.message.send.buttons`;
+            routingKey = `wbot.${ticket.tenantId}.${sessionId}.${engineType}.message.send.buttons`;
         } else if (list) {
             const payload: SendListPayload = {
                 sessionId,
@@ -103,7 +112,7 @@ const SendWhatsAppInteractive = async ({
                 payload
             };
 
-            routingKey = `wbot.1.${sessionId}.message.send.list`;
+            routingKey = `wbot.${ticket.tenantId}.${sessionId}.${engineType}.message.send.list`;
         } else {
             throw new Error("Invalid interactive message: must have buttons or list");
         }

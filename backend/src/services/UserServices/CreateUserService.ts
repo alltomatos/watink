@@ -16,6 +16,7 @@ interface Request {
   groupIds?: number[];
   groupId?: number;
   tenantId?: number | string;
+  roleIds?: number[];
 }
 
 import Tenant from "../../models/Tenant";
@@ -38,7 +39,8 @@ const CreateUserService = async ({
   whatsappId,
   groupIds = [],
   groupId,
-  tenantId
+  tenantId,
+  roleIds = []
 }: Request): Promise<Response> => {
   let finalGroupIds = [...groupIds];
   if (groupId && !finalGroupIds.includes(groupId)) {
@@ -69,6 +71,21 @@ const CreateUserService = async ({
   } catch (err) {
     throw new AppError(err.message);
   }
+
+  // -----------------------------------------------------------
+  // SaaS Enforcement: Max Users
+  // -----------------------------------------------------------
+  if (process.env.TENANTS === "true" && tenantId) {
+    const tenant = await Tenant.findOne({ where: { id: tenantId } });
+    if (tenant) {
+      const currentUsers = await User.count({ where: { tenantId } });
+      if (currentUsers >= tenant.maxUsers) {
+        console.warn(`[CreateUserService] Tenant ${tenantId} reached max users limit (${tenant.maxUsers}).`);
+        throw new AppError("ERR_MAX_USERS_REACHED", 403);
+      }
+    }
+  }
+  // -----------------------------------------------------------
 
   /*
    * Check if SMTP Plugin is active.
@@ -128,6 +145,10 @@ const CreateUserService = async ({
 
   await user.$set("queues", queueIds);
   await user.$set("groups", finalGroupIds, { through: { tenantId } });
+  
+  if (roleIds && roleIds.length > 0) {
+    await user.$set("roles", roleIds, { through: { tenantId } });
+  }
 
   // Send Verification Email (Async)
   if (tenantId && !emailVerified) {

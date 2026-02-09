@@ -68,7 +68,7 @@ const useStyles = makeStyles((theme) => ({
         },
     },
     cardMedia: {
-        height: 160,
+        height: 120,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -79,11 +79,12 @@ const useStyles = makeStyles((theme) => ({
     cardImage: {
         width: "100%",
         height: "100%",
-        objectFit: "cover",
+        objectFit: "contain",
+        padding: theme.spacing(1),
         objectPosition: "center",
     },
     cardIcon: {
-        fontSize: 64,
+        fontSize: 48,
         color: theme.palette.primary.main,
     },
     cardContent: {
@@ -218,15 +219,15 @@ const Marketplace = () => {
                             )}
                         </Box>
                         <CardContent className={classes.cardContent}>
-                            <Box display="flex" alignItems="center" mb={1}>
-                                <Typography variant="h6" component="h2">
+                            <Box display="flex" alignItems="center" mb={0.5}>
+                                <Typography variant="subtitle1" component="h2" style={{ fontWeight: 600 }}>
                                     {plugin.name}
                                 </Typography>
                                 {plugin.active && (
                                     <CheckCircleIcon className={classes.statusActive} style={{ marginLeft: 8 }} />
                                 )}
                             </Box>
-                            <Box mb={1}>
+                            <Box mb={0.5}>
                                 <Chip
                                     label={plugin.type === "free" ? i18n.t("marketplace.free") : `R$ ${plugin.price}`}
                                     size="small"

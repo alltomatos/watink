@@ -70,6 +70,10 @@ class Whatsapp extends Model<Whatsapp> {
   @Column(DataType.STRING)
   type: string;
 
+  @Default('whaileys')
+  @Column(DataType.ENUM('whaileys', 'whatsmeow', 'papi'))
+  engineType: "whaileys" | "whatsmeow" | "papi";
+
   @Default(false)
   @AllowNull
   @Column

@@ -28,7 +28,6 @@ import flowRoutes from "./flowRoutes";
 import groupRoutes from "./groupRoutes";
 import knowledgeRoutes from "./knowledgeRoutes";
 import clientRoutes from "./clientRoutes";
-import protocolRoutes from "./protocolRoutes";
 import roleRoutes from "./roleRoutes";
 
 import pluginRoutes from "./pluginRoutes";
@@ -59,6 +58,7 @@ routes.use(microserviceRoutes);
 routes.use(tenantRoutes);
 routes.use(groupRoutes);
 routes.use("/version", versionRoutes);
+
 routes.use(postgresVersionRoutes);
 routes.use(rabbitmqVersionRoutes);
 routes.use(redisVersionRoutes);
@@ -69,7 +69,6 @@ routes.use(dealRoutes);
 routes.use(flowRoutes);
 routes.use(knowledgeRoutes);
 routes.use(clientRoutes);
-routes.use(protocolRoutes);
 routes.use(roleRoutes);
 // routes.use(pluginRoutes); // Moved to app.ts to bypass body parser
 routes.use(aiRoutes);

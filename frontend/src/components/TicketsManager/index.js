@@ -238,7 +238,7 @@ const TicketsManager = () => {
               {i18n.t("ticketsManager.buttons.newTicket")}
             </Button>
             <Can
-              role={user.profile}
+              user={user}
               perform="tickets-manager:showall"
               yes={() => (
                 <Button
@@ -252,7 +252,7 @@ const TicketsManager = () => {
               )}
             />
             <Can
-              role={user.profile}
+              user={user}
               perform="tickets-manager:showall"
               yes={() => (
                 <FormControlLabel

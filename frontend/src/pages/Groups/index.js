@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useReducer } from "react";
+import React, { useState, useEffect, useReducer, useContext } from "react";
 import { toast } from "react-toastify";
 import { useHistory } from "react-router-dom";
 
@@ -32,7 +32,7 @@ import TableRowSkeleton from "../../components/TableRowSkeleton";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import toastError from "../../errors/toastError";
 import { Can } from "../../components/Can";
-import useAuth from "../../hooks/useAuth";
+import { AuthContext } from "../../context/Auth/AuthContext";
 import ButtonWithSpinner from "../../components/ButtonWithSpinner";
 
 const reducer = (state, action) => {
@@ -90,7 +90,7 @@ const useStyles = makeStyles((theme) => ({
 
 const Groups = () => {
     const classes = useStyles();
-    const { user } = useAuth();
+    const { user } = useContext(AuthContext);
     const history = useHistory();
 
     const [loading, setLoading] = useState(false);
