@@ -1,8 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
 import Whatsapp from "../../models/Whatsapp";
-import Plugin from "../../models/Plugin";
-import PluginInstallation from "../../models/PluginInstallation";
-import Setting from "../../models/Setting";
 import { getIO } from "../../libs/socket";
 import { logger } from "../../utils/logger";
 import RabbitMQService from "../RabbitMQService";
@@ -32,7 +29,7 @@ export const StartWhatsAppSession = async (
 
   try {
     await whatsapp.update({ status: "OPENING" });
-    logger.info(`StartWhatsAppSession called for session ${whatsapp.id} (Type: ${whatsapp.type})`);
+    logger.info(`StartWhatsAppSession called for session ${whatsapp.id}`);
 
     const io = getIO();
     io.emit("whatsappSession", {
@@ -40,91 +37,25 @@ export const StartWhatsAppSession = async (
       session: whatsapp
     });
 
-    const sessionInstanceId = Date.now(); // Unique ID for this session instance
-
-    // PAPI ENGINE PLUGIN CHECK
-    let papiUrl: string | undefined;
-    let papiKey: string | undefined;
-
-    if (whatsapp.engineType === "papi") {
-      logger.info(`StartWhatsAppSession: Checking PAPI plugin status for tenant ${whatsapp.tenantId}`);
-      const plugin = await Plugin.findOne({ where: { slug: "engine-papi" } });
-      if (plugin) {
-        const installation = await PluginInstallation.findOne({
-          where: {
-            pluginId: plugin.id,
-            tenantId: whatsapp.tenantId,
-            status: "active"
-          }
-        });
-
-        if (!installation) {
-          logger.warn(`StartWhatsAppSession: PAPI plugin found but not active for tenant ${whatsapp.tenantId}`);
-          throw new AppError("ERR_PLUGIN_NOT_ACTIVE_PAPI", 403);
-        }
-
-        logger.info(`StartWhatsAppSession: PAPI plugin active. Fetching settings.`);
-        // Fetch settings for PAPI
-        const urlSetting = await Setting.findOne({ where: { key: "papiUrl", tenantId: whatsapp.tenantId } });
-        const keySetting = await Setting.findOne({ where: { key: "papiKey", tenantId: whatsapp.tenantId } });
-
-        papiUrl = urlSetting?.value;
-        papiKey = keySetting?.value;
-
-        if (!papiUrl) {
-          logger.error(`StartWhatsAppSession: papiUrl setting missing for tenant ${whatsapp.tenantId}`);
-          throw new AppError("ERR_PAPI_URL_NOT_CONFIGURED", 400);
-        }
-      }
-      logger.info(`StartWhatsAppSession: PAPI settings loaded. URL provided: ${!!papiUrl}, Key provided: ${!!papiKey}`);
-    } else {
-      logger.warn(`StartWhatsAppSession: PAPI engine selected but 'engine-papi' plugin not found in DB.`);
-    }
-
-    // [NEW] Auto-configure Webhook URL based on Frontend/App Domain
-    // The engine-papi is exposed via Traefik at /plugins/papi
-    const appDomain = process.env.FRONTEND_URL || "http://app.localhost";
-    // Ensure no trailing slash
-    const cleanDomain = appDomain.endsWith("/") ? appDomain.slice(0, -1) : appDomain;
-    const papiWebhookUrl = `${cleanDomain}/plugins/papi/webhook`;
-
-    let commandType = "session.start";
-    let exchange = "wbot.commands";
-
-    let routingKey = `wbot.${whatsapp.tenantId}.${whatsapp.id}.${whatsapp.engineType || "whaileys"}.session.start`;
-
-    // WEBCHAT ROUTING LOGIC
-    if (whatsapp.type === "webchat") {
-      commandType = "webchat.session.start";
-      exchange = "webchat.commands";
-      routingKey = `webchat.${whatsapp.tenantId}.${whatsapp.id}.session.start`;
-      logger.info(`Routing session ${whatsapp.id} to Webchat Engine`);
-    }
-
     const command: Envelope = {
       id: uuidv4(),
       timestamp: Date.now(),
       tenantId: whatsapp.tenantId,
-      type: commandType,
+      type: "session.start",
       payload: {
-        sessionId: whatsapp.id,
-        sessionInstanceId, // [NEW] Unique ID
+        sessionId: whatsapp.id, // Reverting to stable ID for persistence
         usePairingCode,
         phoneNumber,
         name: whatsapp.name,
         syncHistory: whatsapp.syncHistory,
         syncPeriod: whatsapp.syncPeriod,
         keepAlive: whatsapp.keepAlive,
-        webchatId: whatsapp.id, // For webchat handler compatibility
-        force,
-        papiUrl,
-        papiKey,
-        webhookUrl: papiWebhookUrl // [NEW] Pass auto-generated webhook URL
+        force // Pass force flag
       }
     };
 
-    await RabbitMQService.publishCommand(routingKey, command, exchange);
-    logger.info(`Session start command published for session ${whatsapp.id} (Instance: ${sessionInstanceId})`);
+    await RabbitMQService.publishCommand(`wbot.${whatsapp.tenantId}.${whatsapp.id}.session.start`, command);
+    logger.info(`Session start command published for session ${whatsapp.id}`);
 
   } catch (err) {
     // Release lock on error

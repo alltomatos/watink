@@ -1,16 +1,12 @@
 import { Request, Response } from "express";
 import { getIO } from "../libs/socket";
 import { StartWhatsAppSession } from "../services/WbotServices/StartWhatsAppSession";
-import AppError from "../errors/AppError";
 
 import CreateWhatsAppService from "../services/WhatsappService/CreateWhatsAppService";
 import DeleteWhatsAppService from "../services/WhatsappService/DeleteWhatsAppService";
 import ListWhatsAppsService from "../services/WhatsappService/ListWhatsAppsService";
 import ShowWhatsAppService from "../services/WhatsappService/ShowWhatsAppService";
 import UpdateWhatsAppService from "../services/WhatsappService/UpdateWhatsAppService";
-import Plugin from "../models/Plugin";
-import axios from "axios";
-import PluginInstallation from "../models/PluginInstallation";
 
 interface WhatsappData {
   name: string;
@@ -24,9 +20,6 @@ interface WhatsappData {
   keepAlive?: boolean;
   type?: string;
   chatConfig?: any;
-  tags?: number[];
-  engineType?: string;
-  importOldMessages?: string;
 }
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
@@ -48,64 +41,10 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     syncPeriod,
     keepAlive,
     type,
-    chatConfig,
-    tags,
-    engineType,
-    importOldMessages
+    chatConfig
   }: WhatsappData = req.body;
 
   const { tenantId } = (req as any).user;
-
-  if (type === "webchat") {
-    const plugin = await Plugin.findOne({ where: { slug: "webchat" } });
-    if (plugin) {
-      const installation = await PluginInstallation.findOne({
-        where: {
-          pluginId: plugin.id,
-          tenantId,
-          status: "active"
-        }
-      });
-
-      if (!installation) {
-        throw new AppError("Webchat plugin is not active for this tenant.");
-      }
-    }
-  }
-
-  if (engineType === "whatsmeow") {
-    const plugin = await Plugin.findOne({ where: { slug: "whatsmeow" } });
-    if (plugin) {
-      const installation = await PluginInstallation.findOne({
-        where: {
-          pluginId: plugin.id,
-          tenantId,
-          status: "active"
-        }
-      });
-
-      if (!installation) {
-        throw new AppError("WhatsMeow plugin is not active for this tenant.");
-      }
-    }
-  }
-
-  if (engineType === "papi") {
-    const plugin = await Plugin.findOne({ where: { slug: "engine-papi" } });
-    if (plugin) {
-      const installation = await PluginInstallation.findOne({
-        where: {
-          pluginId: plugin.id,
-          tenantId,
-          status: "active"
-        }
-      });
-
-      if (!installation) {
-        throw new AppError("Engine PAPI plugin is not active for this tenant.");
-      }
-    }
-  }
 
   const { whatsapp, oldDefaultWhatsapp } = await CreateWhatsAppService({
     name,
@@ -119,10 +58,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     keepAlive,
     tenantId,
     type,
-    chatConfig,
-    tags,
-    engineType,
-    importOldMessages
+    chatConfig
   });
 
   // StartWhatsAppSession(whatsapp); // [REMOVED] Manual connect only
@@ -157,24 +93,6 @@ export const update = async (
 ): Promise<Response> => {
   const { whatsappId } = req.params;
   const whatsappData = req.body;
-  const { tenantId } = (req as any).user;
-
-  if (whatsappData.type === "webchat") {
-    const plugin = await Plugin.findOne({ where: { slug: "webchat" } });
-    if (plugin) {
-      const installation = await PluginInstallation.findOne({
-        where: {
-          pluginId: plugin.id,
-          tenantId,
-          status: "active"
-        }
-      });
-
-      if (!installation) {
-        throw new AppError("Webchat plugin is not active for this tenant.");
-      }
-    }
-  }
 
   const { whatsapp, oldDefaultWhatsapp } = await UpdateWhatsAppService({
     whatsappData,
@@ -212,21 +130,4 @@ export const remove = async (
   });
 
   return res.status(200).json({ message: "Whatsapp deleted." });
-};
-
-export const testPapiConnection = async (req: Request, res: Response): Promise<Response> => {
-  const { papiUrl, papiKey } = req.body;
-
-  try {
-    // PAPI usually has a status endpoint or just listing instances
-    await axios.get(`${papiUrl}/api/instances`, {
-      headers: {
-        "x-api-key": papiKey
-      },
-      timeout: 5000
-    });
-    return res.status(200).json({ message: "Connection successful" });
-  } catch (err: any) {
-    return res.status(400).json({ error: "Connection failed", details: err.message });
-  }
 };

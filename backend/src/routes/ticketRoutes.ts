@@ -21,7 +21,7 @@ ticketRoutes.put("/tickets/:ticketId", isAuth, TicketController.update);
 ticketRoutes.delete(
     "/tickets/:ticketId",
     isAuth,
-    checkPermission("tickets:delete"),
+    checkPermission("delete_tickets"),
     TicketController.remove
 );
 

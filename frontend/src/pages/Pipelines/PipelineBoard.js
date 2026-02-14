@@ -12,7 +12,6 @@ import api from "../../services/api";
 import { toast } from "react-toastify";
 import PipelineKanban from "./PipelineKanban";
 import PipelineFunnelView from "./PipelineFunnelView";
-import TicketsTagFilter from "../../components/TicketsTagFilter";
 
 const useStyles = makeStyles((theme) => ({
     root: {
@@ -45,11 +44,10 @@ const PipelineBoard = () => {
     const [columns, setColumns] = useState({});
     const [loading, setLoading] = useState(true);
     const [deals, setDeals] = useState([]);
-    const [selectedTags, setSelectedTags] = useState([]);
 
     useEffect(() => {
         fetchPipelineData();
-    }, [pipelineId, selectedTags]);
+    }, [pipelineId]);
 
     const fetchPipelineData = async () => {
         try {
@@ -61,10 +59,7 @@ const PipelineBoard = () => {
                 setPipeline(selectedPipeline);
 
                 const { data: dealData } = await api.get(`/deals`, {
-                    params: {
-                        pipelineId,
-                        tags: selectedTags
-                    }
+                    params: { pipelineId }
                 });
 
                 setDeals(dealData.deals);
@@ -144,12 +139,6 @@ const PipelineBoard = () => {
                         size="small"
                         style={{ marginLeft: 8 }}
                     />
-                    <div style={{ marginLeft: 20 }}>
-                        <TicketsTagFilter
-                            selectedTags={selectedTags}
-                            onChange={(values) => setSelectedTags(values)}
-                        />
-                    </div>
                 </div>
                 <Button
                     variant="outlined"

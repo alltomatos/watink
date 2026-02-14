@@ -143,11 +143,6 @@ const ListItemCard = ({
                                 {subtitle}
                             </Typography>
                         )}
-                        {rest.tags && (
-                            <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap", maxHeight: 24, overflow: "hidden" }}>
-                                {rest.tags}
-                            </div>
-                        )}
                     </div>
 
                     <div className={classes.rightSection}>

@@ -22,12 +22,10 @@ interface QuickAnswerData {
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { searchParam, pageNumber } = req.query as IndexQuery;
-  const { tenantId } = req.user;
 
   const { quickAnswers, count, hasMore } = await ListQuickAnswerService({
     searchParam,
-    pageNumber,
-    tenantId
+    pageNumber
   });
 
   return res.json({ quickAnswers, count, hasMore });

@@ -10,13 +10,15 @@ export const SendRefreshToken = (res: Response, token: string, expires?: Date): 
   let domain: string | undefined;
   try {
     const url = new URL(frontendUrl);
-    const hostParts = url.hostname.split(".");
-    if (hostParts.length >= 2) {
+    const hostname = url.hostname;
+    const hostParts = hostname.split(".");
+    
+    // Do not set domain for IP addresses (e.g. 100.123.62.90)
+    // or for single-word hostnames (e.g. localhost)
+    const isIpAddress = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(hostname);
+    
+    if (hostParts.length >= 2 && !isIpAddress) {
       // For localhost subdomains (app.localhost), we should NOT set domain
-      // Setting domain to ".localhost" is invalid in most browsers (Chrome)
-      // and causes the cookie to be rejected/dropped.
-      // By leaving it undefined, it defaults to host-only (api.localhost),
-      // which should work if app.localhost and api.localhost are considered SameSite.
       if (hostParts[hostParts.length - 1] === "localhost") {
         domain = undefined;
       } else {

@@ -28,24 +28,17 @@ import { getBackendUrl } from "../../helpers/urlUtils";
 const useStyles = makeStyles(theme => ({
 	ticket: {
 		position: "relative",
-		height: 90,
-		padding: "12px 16px",
-		borderBottom: "1px solid rgba(0, 0, 0, 0.04)",
-		"&:hover": {
-			backgroundColor: "rgba(0, 0, 0, 0.02)",
-		},
-		transition: "background-color 0.2s",
 	},
 
 	ticketSaas: {
 		paddingTop: "15px",
 		paddingBottom: "15px",
-		borderBottom: "1px solid #f0f0f0", 
+		borderBottom: "1px solid #f0f0f0", // Weaker divider
 	},
 
 	contactNameSaas: {
 		fontWeight: 600,
-		fontSize: "1rem",
+		fontSize: "1rem", // Slightly larger
 	},
 
 	pendingTicket: {
@@ -78,13 +71,10 @@ const useStyles = makeStyles(theme => ({
 	contactNameWrapper: {
 		display: "flex",
 		justifyContent: "space-between",
-		marginBottom: 4,
 	},
 
 	lastMessageTime: {
 		justifySelf: "flex-end",
-		fontSize: 11,
-		color: "#999",
 	},
 
 	closedBadge: {
@@ -96,12 +86,6 @@ const useStyles = makeStyles(theme => ({
 
 	contactLastMessage: {
 		paddingRight: 20,
-		color: "#757575",
-		fontSize: 13,
-		display: "-webkit-box",
-		"-webkit-line-clamp": 1,
-		"-webkit-box-orient": "vertical",
-		overflow: "hidden",
 	},
 
 	newMessagesCount: {
@@ -112,9 +96,7 @@ const useStyles = makeStyles(theme => ({
 
 	badgeStyle: {
 		color: "white",
-		backgroundColor: theme.palette.primary.main,
-		fontWeight: "bold",
-		boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+		backgroundColor: green[500],
 	},
 
 	acceptButton: {
@@ -124,52 +106,29 @@ const useStyles = makeStyles(theme => ({
 
 	ticketQueueColor: {
 		flex: "none",
-		width: "6px",
-		height: "80%",
+		width: "8px",
+		height: "100%",
 		position: "absolute",
-		top: "10%",
-		left: "4px",
-		borderRadius: "4px",
+		top: "0%",
+		left: "0%",
 	},
 
-	ticketInfoWrapper: {
-		display: "flex",
-		justifyContent: "flex-end",
-		marginTop: 6,
-		alignItems: "center",
-		gap: 6,
-		flexWrap: "wrap",
-	},
-
-	connectionTag: {
+	userTag: {
+		position: "absolute",
+		marginRight: 5,
+		right: 5,
+		bottom: 5,
 		background: "linear-gradient(to right, #6366f1, #4f46e5)",
 		color: "#ffffff",
 		border: "none",
 		boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-		padding: "2px 8px",
+		padding: 1,
+		paddingLeft: 5,
+		paddingRight: 5,
 		borderRadius: 12,
-		fontSize: "0.65em",
-		fontWeight: "600",
-		whiteSpace: "nowrap",
-		textTransform: "uppercase",
-		letterSpacing: "0.5px",
+		fontSize: "0.8em",
+		fontWeight: "600"
 	},
-
-	tagChip: {
-		padding: "2px 8px",
-		borderRadius: 12,
-		fontSize: "0.65em",
-		fontWeight: "600",
-		color: "#fff",
-		whiteSpace: "nowrap",
-		boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
-	},
-	
-	avatar: {
-		width: 50,
-		height: 50,
-		boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-	}
 }));
 
 const TicketListItem = ({ ticket }) => {
@@ -187,7 +146,7 @@ const TicketListItem = ({ ticket }) => {
 		};
 	}, []);
 
-	const handleAcceptTicket = async id => {
+	const handleAcepptTicket = async id => {
 		setLoading(true);
 		try {
 			await api.put(`/tickets/${id}`, {
@@ -234,7 +193,7 @@ const TicketListItem = ({ ticket }) => {
 					></span>
 				</Tooltip>
 				<ListItemAvatar>
-					<Avatar src={getBackendUrl(ticket?.contact?.profilePicUrl)} className={classes.avatar} />
+					<Avatar src={getBackendUrl(ticket?.contact?.profilePicUrl)} />
 				</ListItemAvatar>
 				<ListItemText
 					disableTypography
@@ -271,53 +230,34 @@ const TicketListItem = ({ ticket }) => {
 									)}
 								</Typography>
 							)}
+							{ticket.whatsappId && (
+								<div className={classes.userTag} title={i18n.t("ticketsList.connectionTitle")}>{ticket.whatsapp?.name}</div>
+							)}
 						</span>
 					}
 					secondary={
-						<span>
-							<span className={classes.contactNameWrapper}>
-								<Typography
-									className={classes.contactLastMessage}
-									noWrap
-									component="span"
-									variant="body2"
-									color="textSecondary"
-								>
-									{ticket.lastMessage ? (
-										<MarkdownWrapper>{ticket.lastMessage}</MarkdownWrapper>
-									) : (
-										<br />
-									)}
-								</Typography>
+						<span className={classes.contactNameWrapper}>
+							<Typography
+								className={classes.contactLastMessage}
+								noWrap
+								component="span"
+								variant="body2"
+								color="textSecondary"
+							>
+								{ticket.lastMessage ? (
+									<MarkdownWrapper>{ticket.lastMessage}</MarkdownWrapper>
+								) : (
+									<br />
+								)}
+							</Typography>
 
-								<Badge
-									className={classes.newMessagesCount}
-									badgeContent={ticket.unreadMessages}
-									classes={{
-										badge: classes.badgeStyle,
-									}}
-								/>
-							</span>
-							<span className={classes.ticketInfoWrapper}>
-								{ticket.tags && ticket.tags.length > 0 && (
-									<>
-										{ticket.tags.map(tag => (
-											<span
-												key={tag.id}
-												className={classes.tagChip}
-												style={{ backgroundColor: tag.color }}
-											>
-												{tag.name}
-											</span>
-										))}
-									</>
-								)}
-								{ticket.whatsappId && (
-									<div className={classes.connectionTag} title={i18n.t("ticketsList.connectionTitle")}>
-										{ticket.whatsapp?.name}
-									</div>
-								)}
-							</span>
+							<Badge
+								className={classes.newMessagesCount}
+								badgeContent={ticket.unreadMessages}
+								classes={{
+									badge: classes.badgeStyle,
+								}}
+							/>
 						</span>
 					}
 				/>
@@ -329,7 +269,7 @@ const TicketListItem = ({ ticket }) => {
 						className={classes.acceptButton}
 						size="small"
 						loading={loading}
-						onClick={e => handleAcceptTicket(ticket.id)}
+						onClick={e => handleAcepptTicket(ticket.id)}
 					>
 						{i18n.t("ticketsList.buttons.accept")}
 					</ButtonWithSpinner>

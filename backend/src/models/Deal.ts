@@ -9,16 +9,13 @@ import {
     ForeignKey,
     BelongsTo,
     DataType,
-    Default,
-    BelongsToMany
+    Default
 } from "sequelize-typescript";
 import Contact from "./Contact";
 import Ticket from "./Ticket";
 import Pipeline from "./Pipeline";
 import PipelineStage from "./PipelineStage";
 import Tenant from "./Tenant";
-import Tag from "./Tag";
-import EntityTag from "./EntityTag";
 
 @Table
 class Deal extends Model<Deal> {
@@ -72,9 +69,6 @@ class Deal extends Model<Deal> {
 
     @BelongsTo(() => Tenant)
     tenant: Tenant;
-
-    @BelongsToMany(() => Tag, () => EntityTag, "entityId", "tagId")
-    tags: Tag[];
 
     @CreatedAt
     createdAt: Date;

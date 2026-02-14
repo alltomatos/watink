@@ -21,7 +21,6 @@ import { i18n } from "../../translate/i18n";
 
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
-import TagPicker from "../TagPicker";
 
 const useStyles = makeStyles(theme => ({
 	root: {
@@ -37,10 +36,6 @@ const useStyles = makeStyles(theme => ({
 		display: "flex",
 		justifyContent: "center",
 		alignItems: "center",
-	},
-
-	tagSection: {
-		padding: theme.spacing(2, 0),
 	},
 
 	btnWrapper: {
@@ -78,7 +73,6 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
 	};
 
 	const [contact, setContact] = useState(initialState);
-	const [selectedTags, setSelectedTags] = useState([]);
 
 	useEffect(() => {
 		return () => {
@@ -100,9 +94,6 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
 				const { data } = await api.get(`/contacts/${contactId}`);
 				if (isMounted.current) {
 					setContact(data);
-					if (data.tags) {
-						setSelectedTags(data.tags.map(t => t.id));
-					}
 				}
 			} catch (err) {
 				toastError(err);
@@ -119,12 +110,11 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
 
 	const handleSaveContact = async values => {
 		try {
-			const contactData = { ...values, tags: selectedTags };
 			if (contactId) {
-				await api.put(`/contacts/${contactId}`, contactData);
+				await api.put(`/contacts/${contactId}`, values);
 				handleClose();
 			} else {
-				const { data } = await api.post("/contacts", contactData);
+				const { data } = await api.post("/contacts", values);
 				if (onSave) {
 					onSave(data);
 				}
@@ -260,20 +250,6 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
 										</>
 									)}
 								</FieldArray>
-
-								<div className={classes.tagSection}>
-									<Typography variant="subtitle1" gutterBottom>
-										{i18n.t("tags.title") || "Tags"}
-									</Typography>
-									<TagPicker
-										selectedTags={selectedTags}
-										onChange={setSelectedTags}
-										entityType={contactId ? "contact" : null}
-										entityId={contactId}
-									/>
-								</div>
-
-
 							</DialogContent>
 							<DialogActions>
 								<Button
@@ -327,7 +303,7 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
 					)}
 				</Formik>
 			</Dialog>
-		</div >
+		</div>
 	);
 };
 

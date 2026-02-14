@@ -1,16 +1,19 @@
+// MainListItems.js modifications
 import React, { useContext, useEffect, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 
 import ListItem from "@material-ui/core/ListItem";
 import ListItemIcon from "@material-ui/core/ListItemIcon";
 import ListItemText from "@material-ui/core/ListItemText";
+import ListSubheader from "@material-ui/core/ListSubheader";
 import Divider from "@material-ui/core/Divider";
-import { Badge, Tooltip } from "@material-ui/core";
+import { Badge, Tooltip, makeStyles } from "@material-ui/core";
 import DashboardOutlinedIcon from "@material-ui/icons/DashboardOutlined";
 import ListAltIcon from "@material-ui/icons/ListAlt";
 import WhatsAppIcon from "@material-ui/icons/WhatsApp";
 import SyncAltIcon from "@material-ui/icons/SyncAlt";
 import GroupIcon from "@material-ui/icons/Group";
+import HelpOutlineIcon from "@material-ui/icons/HelpOutline";
 import SettingsOutlinedIcon from "@material-ui/icons/SettingsOutlined";
 import PeopleAltOutlinedIcon from "@material-ui/icons/PeopleAltOutlined";
 import ContactPhoneOutlinedIcon from "@material-ui/icons/ContactPhoneOutlined";
@@ -21,15 +24,13 @@ import DeviceHubIcon from "@material-ui/icons/DeviceHub";
 import LibraryBooksIcon from "@material-ui/icons/LibraryBooks";
 import PersonOutlineIcon from "@material-ui/icons/PersonOutline";
 import HeadsetMicIcon from "@material-ui/icons/HeadsetMic";
-import LocalOfferIcon from "@material-ui/icons/LocalOffer";
-import AssignmentIcon from "@material-ui/icons/Assignment";
 
 import { i18n } from "../translate/i18n";
 import { WhatsAppsContext } from "../context/WhatsApp/WhatsAppsContext";
 import { AuthContext } from "../context/Auth/AuthContext";
 import { Can } from "../components/Can";
 import { useThemeContext } from "../context/DarkMode";
-import pluginApi from "../services/pluginApi"; 
+import api from "../services/api"; // Import API
 
 // Cores do Google para ícones (MD3)
 const googleColors = {
@@ -90,13 +91,13 @@ const MainListItems = (props) => {
   const [activePlugins, setActivePlugins] = useState([]);
 
   useEffect(() => {
-    // Fetch active plugins using pluginApi (has JWT interceptor)
+    // Fetch active plugins
     const fetchPlugins = async () => {
       try {
-        const { data } = await pluginApi.get("/api/v1/plugins/installed");
+        const { data } = await api.get("/plugins/api/v1/plugins/installed");
         setActivePlugins(data.active || []);
       } catch (err) {
-        // Silent error for offline/502/CORS to avoid user disruption
+        console.error("Failed to fetch plugins", err);
       }
     };
     fetchPlugins();
@@ -128,11 +129,11 @@ const MainListItems = (props) => {
     <div onClick={drawerClose}>
       <Can
         user={user}
-        perform="dashboard:read"
+        perform="view_dashboard"
         yes={() => (
           <ListItemLink
             to="/"
-            primary={i18n.t("mainDrawer.listItems.dashboard")}
+            primary="Estatísticas"
             icon={<DashboardOutlinedIcon />}
             iconColor={googleColors.blue}
             collapsed={collapsed}
@@ -141,57 +142,35 @@ const MainListItems = (props) => {
       />
       <Can
         user={user}
-        perform="pipelines:read"
+        perform="view_pipelines"
         yes={() => (
           <ListItemLink
             to="/pipelines"
-            primary={i18n.t("mainDrawer.listItems.pipelines")}
+            primary="Pipelines"
             icon={<ListAltIcon />}
             iconColor={googleColors.purple}
             collapsed={collapsed}
           />
         )}
       />
-      <Can
-        user={user}
-        perform="tickets:read"
-        yes={() => (
-          <ListItemLink
-            to="/tickets"
-            primary={i18n.t("mainDrawer.listItems.tickets")}
-            icon={<WhatsAppIcon />}
-            iconColor={googleColors.green}
-            collapsed={collapsed}
-          />
-        )}
+      <ListItemLink
+        to="/tickets"
+        primary={i18n.t("mainDrawer.listItems.tickets")}
+        icon={<WhatsAppIcon />}
+        iconColor={googleColors.green}
+        collapsed={collapsed}
       />
 
-      {activePlugins.includes("helpdesk") && (
-        <ListItemLink
-          to="/my-activities"
-          primary={i18n.t("mainDrawer.listItems.myActivities")}
-          icon={<AssignmentIcon />}
-          iconColor={googleColors.blue}
-          collapsed={collapsed}
-        />
-      )}
-
-      <Can
-        user={user}
-        perform="contacts:read"
-        yes={() => (
-          <ListItemLink
-            to="/contacts"
-            primary={i18n.t("mainDrawer.listItems.contacts")}
-            icon={<ContactPhoneOutlinedIcon />}
-            iconColor={googleColors.orange}
-            collapsed={collapsed}
-          />
-        )}
+      <ListItemLink
+        to="/contacts"
+        primary={i18n.t("mainDrawer.listItems.contacts")}
+        icon={<ContactPhoneOutlinedIcon />}
+        iconColor={googleColors.orange}
+        collapsed={collapsed}
       />
       <Can
         user={user}
-        perform="quick_answers:read"
+        perform="view_quick_answers"
         yes={() => (
           <ListItemLink
             to="/quickAnswers"
@@ -205,11 +184,11 @@ const MainListItems = (props) => {
 
       <Can
         user={user}
-        perform="flows:read"
+        perform="view_flows"
         yes={() => (
           <ListItemLink
             to="/flowbuilder"
-            primary={i18n.t("mainDrawer.listItems.flowBuilder")}
+            primary="Flow Builder"
             icon={<DeviceHubIcon />}
             iconColor={googleColors.blue}
             collapsed={collapsed}
@@ -219,57 +198,35 @@ const MainListItems = (props) => {
 
       {/* Dynamic Plugins */}
       {activePlugins.includes("clientes") && (
-        <Can
-          user={user}
-          perform="clients:read"
-          yes={() => (
-            <ListItemLink
-              to="/clients"
-              primary={i18n.t("mainDrawer.listItems.clients")}
-              icon={<PersonOutlineIcon />}
-              iconColor={googleColors.blue}
-              collapsed={collapsed}
-            />
-          )}
+        <ListItemLink
+          to="/clients"
+          primary="Clientes"
+          icon={<PersonOutlineIcon />}
+          iconColor={googleColors.blue}
+          collapsed={collapsed}
         />
       )}
 
       {activePlugins.includes("helpdesk") && (
-        <Can
-          user={user}
-          perform="helpdesk:read"
-          yes={() => (
-            <ListItemLink
-              to="/helpdesk"
-              primary={i18n.t("mainDrawer.listItems.helpdesk")}
-              icon={<HeadsetMicIcon />}
-              iconColor={googleColors.red}
-              collapsed={collapsed}
-            />
-          )}
+        <ListItemLink
+          to="/helpdesk"
+          primary="Helpdesk"
+          icon={<HeadsetMicIcon />}
+          iconColor={googleColors.red}
+          collapsed={collapsed}
         />
       )}
 
       <Divider />
-
-
-      <Can
-        user={user}
-        perform="tags:read"
-        yes={() => (
-          <ListItemLink
-            to="/tags"
-            primary={i18n.t("mainDrawer.listItems.tags")}
-            icon={<LocalOfferIcon />}
-            iconColor={googleColors.purple}
-            collapsed={collapsed}
-          />
-        )}
-      />
+      {!collapsed && (
+        <ListSubheader inset>
+          {i18n.t("mainDrawer.listItems.administration")}
+        </ListSubheader>
+      )}
 
       <Can
         user={user}
-        perform="groups:read"
+        perform="view_groups"
         yes={() => (
           <ListItemLink
             to="/groups"
@@ -281,9 +238,11 @@ const MainListItems = (props) => {
         )}
       />
 
+      {/* ... keeping other items ... */}
+
       <Can
         user={user}
-        perform="connections:read"
+        perform="view_connections"
         yes={() => (
           <ListItemLink
             to="/connections"
@@ -301,7 +260,7 @@ const MainListItems = (props) => {
 
       <Can
         user={user}
-        perform="users:read"
+        perform="view_users"
         yes={() => (
           <ListItemLink
             to="/users"
@@ -315,7 +274,7 @@ const MainListItems = (props) => {
 
       <Can
         user={user}
-        perform="queues:read"
+        perform="view_admin_queues"
         yes={() => (
           <ListItemLink
             to="/queues"
@@ -329,11 +288,11 @@ const MainListItems = (props) => {
 
       <Can
         user={user}
-        perform="knowledge_bases:read"
+        perform="view_knowledge_bases"
         yes={() => (
           <ListItemLink
             to="/knowledge-bases"
-            primary={i18n.t("mainDrawer.listItems.knowledgeBase")}
+            primary={i18n.t("knowledgeBase.menu")}
             icon={<LibraryBooksIcon />}
             iconColor={googleColors.orange}
             collapsed={collapsed}
@@ -343,7 +302,7 @@ const MainListItems = (props) => {
 
       <Can
         user={user}
-        perform="settings:read"
+        perform="view_admin_settings"
         yes={() => (
           <ListItemLink
             to="/settings"
@@ -357,11 +316,11 @@ const MainListItems = (props) => {
 
       <Can
         user={user}
-        perform="swagger:read"
+        perform="view_swagger"
         yes={() => (
           <ListItemLink
             to="/swagger"
-            primary={i18n.t("mainDrawer.listItems.swagger")}
+            primary="Swagger"
             icon={<MenuBookIcon />}
             iconColor={googleColors.pink}
             collapsed={collapsed}
@@ -373,3 +332,5 @@ const MainListItems = (props) => {
 };
 
 export default MainListItems;
+
+

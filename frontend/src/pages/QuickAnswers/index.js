@@ -124,8 +124,6 @@ const QuickAnswers = () => {
   useEffect(() => {
     const socket = openSocket();
 
-    if (!socket) return;
-
     socket.on("quickAnswer", (data) => {
       if (data.action === "update" || data.action === "create") {
         dispatch({ type: "UPDATE_QUICK_ANSWERS", payload: data.quickAnswer });

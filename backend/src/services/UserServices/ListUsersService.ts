@@ -46,7 +46,7 @@ const ListUsersService = async ({
 
   const { count, rows: users } = await User.findAndCountAll({
     where: whereCondition,
-    attributes: ["name", "id", "email", "createdAt", "emailVerified"],
+    attributes: ["name", "id", "email", "profile", "createdAt"],
     limit,
     offset,
     order: [["createdAt", "DESC"]],

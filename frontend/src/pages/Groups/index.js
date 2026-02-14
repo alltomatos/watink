@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useReducer, useContext } from "react";
+import React, { useState, useEffect, useReducer } from "react";
 import { toast } from "react-toastify";
-import { useHistory } from "react-router-dom";
 
 import {
     makeStyles,
@@ -29,10 +28,11 @@ import Title from "../../components/Title";
 import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
 import TableRowSkeleton from "../../components/TableRowSkeleton";
+import GroupModal from "./GroupModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import toastError from "../../errors/toastError";
 import { Can } from "../../components/Can";
-import { AuthContext } from "../../context/Auth/AuthContext";
+import useAuth from "../../hooks/useAuth";
 import ButtonWithSpinner from "../../components/ButtonWithSpinner";
 
 const reducer = (state, action) => {
@@ -90,13 +90,14 @@ const useStyles = makeStyles((theme) => ({
 
 const Groups = () => {
     const classes = useStyles();
-    const { user } = useContext(AuthContext);
-    const history = useHistory();
+    const { user } = useAuth();
 
     const [loading, setLoading] = useState(false);
     const [pageNumber, setPageNumber] = useState(1);
     const [hasMore, setHasMore] = useState(false);
+    const [selectedGroup, setSelectedGroup] = useState(null);
     const [deletingGroup, setDeletingGroup] = useState(null);
+    const [groupModalOpen, setGroupModalOpen] = useState(false);
     const [confirmModalOpen, setConfirmModalOpen] = useState(false);
     const [searchParam, setSearchParam] = useState("");
     const [groups, dispatch] = useReducer(reducer, []);
@@ -131,8 +132,14 @@ const Groups = () => {
         return () => clearTimeout(delayDebounceFn);
     }, [searchParam, pageNumber]);
 
-    const handleAddGroup = () => {
-        history.push("/groups/new");
+    const handleOpenGroupModal = () => {
+        setSelectedGroup(null);
+        setGroupModalOpen(true);
+    };
+
+    const handleCloseGroupModal = () => {
+        setSelectedGroup(null);
+        setGroupModalOpen(false);
     };
 
     const handleSearch = (event) => {
@@ -140,7 +147,8 @@ const Groups = () => {
     };
 
     const handleEditGroup = (group) => {
-        history.push(`/groups/${group.id}`);
+        setSelectedGroup(group);
+        setGroupModalOpen(true);
     };
 
     const handleDeleteGroup = async (groupId) => {
@@ -178,7 +186,11 @@ const Groups = () => {
             >
                 {i18n.t("groups.confirmationModal.deleteMessage")}
             </ConfirmationModal>
-
+            <GroupModal
+                open={groupModalOpen}
+                onClose={handleCloseGroupModal}
+                groupId={selectedGroup ? selectedGroup.id : null}
+            />
             <MainHeader>
                 <Title>{i18n.t("groups.title")}</Title>
                 <MainHeaderButtonsWrapper>
@@ -197,7 +209,7 @@ const Groups = () => {
                     />
                     <ButtonWithSpinner
                         loading={loading}
-                        onClick={handleAddGroup}
+                        onClick={handleOpenGroupModal}
                         variant="contained"
                         color="primary"
                     >
@@ -215,7 +227,6 @@ const Groups = () => {
                         <TableHead>
                             <TableRow>
                                 <TableCell align="center">{i18n.t("groups.table.name")}</TableCell>
-                                <TableCell align="center">{i18n.t("groups.table.permissions")}</TableCell>
                                 <TableCell align="center">{i18n.t("groups.table.actions")}</TableCell>
                             </TableRow>
                         </TableHead>
@@ -224,9 +235,6 @@ const Groups = () => {
                                 {groups.map((group) => (
                                     <TableRow key={group.id}>
                                         <TableCell align="center">{group.name}</TableCell>
-                                        <TableCell align="center">
-                                            {group.permissions?.length || 0}
-                                        </TableCell>
                                         <TableCell align="center">
                                             <IconButton
                                                 size="small"

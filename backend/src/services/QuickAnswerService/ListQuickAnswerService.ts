@@ -4,7 +4,6 @@ import QuickAnswer from "../../models/QuickAnswer";
 interface Request {
   searchParam?: string;
   pageNumber?: string;
-  tenantId: string | number;
 }
 
 interface Response {
@@ -15,11 +14,9 @@ interface Response {
 
 const ListQuickAnswerService = async ({
   searchParam = "",
-  pageNumber = "1",
-  tenantId
+  pageNumber = "1"
 }: Request): Promise<Response> => {
   const whereCondition = {
-    tenantId,
     message: Sequelize.where(
       Sequelize.fn("LOWER", Sequelize.col("message")),
       "LIKE",

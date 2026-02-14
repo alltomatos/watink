@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { getBackendUrl } from "../../helpers/urlUtils";
+import { getBackendUrl } from "../../config";
 import { makeStyles } from "@material-ui/core/styles";
 import Paper from "@material-ui/core/Paper";
 
@@ -28,7 +28,9 @@ const Swagger = () => {
     const [url, setUrl] = useState("");
 
     useEffect(() => {
-        setUrl(getBackendUrl("docs/"));
+        const backendUrl = getBackendUrl() || "";
+        const base = backendUrl.endsWith("/") ? backendUrl.slice(0, -1) : backendUrl;
+        setUrl(`${base}/docs`);
     }, []);
 
     return (

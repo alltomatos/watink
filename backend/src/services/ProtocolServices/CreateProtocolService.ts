@@ -4,14 +4,10 @@ import Contact from "../../models/Contact";
 import User from "../../models/User";
 import Ticket from "../../models/Ticket";
 import Setting from "../../models/Setting";
-import Whatsapp from "../../models/Whatsapp";
-import Message from "../../models/Message";
 import { format, addHours } from "date-fns";
 import { v4 as uuidv4 } from "uuid";
 import RabbitMQService from "../RabbitMQService";
 import { Envelope } from "../../microservice/contracts";
-import GenerateWAMessageId from "../../helpers/GenerateWAMessageId";
-import { getIO } from "../../libs/socket";
 
 interface CreateProtocolData {
     tenantId: string | number;
@@ -81,13 +77,7 @@ const CreateProtocolService = async (
         include: [
             { model: Contact, as: "contact" },
             { model: User, as: "user" },
-            { 
-                model: Ticket, 
-                as: "ticket",
-                include: [
-                    { model: Whatsapp, as: "whatsapp" }
-                ]
-            },
+            { model: Ticket, as: "ticket" },
             { model: ProtocolHistory, as: "history", include: [{ model: User, as: "user" }] }
         ]
     });
@@ -145,10 +135,8 @@ const CreateProtocolService = async (
                     }
                 };
 
-                const engineType = ticket.whatsapp?.engineType || "whaileys";
-
                 await RabbitMQService.publishCommand(
-                    `wbot.${data.tenantId}.${ticket.whatsappId}.${engineType}.message.send.text`,
+                    `wbot.${data.tenantId}.${ticket.whatsappId}.message.send.text`,
                     command
                 );
             }

@@ -31,15 +31,11 @@ import FormControlLabel from "@material-ui/core/FormControlLabel";
 import { toast } from "react-toastify";
 
 import api from "../../services/api";
-import pluginApi from "../../services/pluginApi";
 import { i18n } from "../../translate/i18n.js";
 import toastError from "../../errors/toastError";
 import { useThemeContext } from "../../context/DarkMode";
-import { getBackendUrl } from "../../helpers/urlUtils";
+import { getBackendUrl } from "../../config";
 import { AuthContext } from "../../context/Auth/AuthContext";
-import { Can } from "../../components/Can";
-import SmtpSettingsForm from "../Marketplace/SmtpSettingsForm";
-import PapiSettingsForm from "../Marketplace/PapiSettingsForm";
 
 const AI_MODELS = {
 	openai: [
@@ -151,11 +147,35 @@ const Settings = () => {
 
 	useEffect(() => {
 		const checkMarketplace = async () => {
+			const pluginUrl = process.env.REACT_APP_PLUGIN_MANAGER_URL || (import.meta.env && import.meta.env.VITE_PLUGIN_MANAGER_URL);
+
+			// If no URL configured, hide it
+			if (!pluginUrl) {
+				setMarketplaceVisible(false);
+				return;
+			}
+
+			// If URL is just a path (like /plugins/), construct full URL based on current location
+			const targetUrl = pluginUrl.startsWith('http')
+				? pluginUrl
+				: `${window.location.origin}${pluginUrl}`;
+
 			try {
-				// Use authenticated 'api' instance that includes session cookies
-				// The route /plugins/version requires authentication via isAuth middleware
-				const { data } = await pluginApi.get("/version");
-				if (data && data.version) {
+				// Simple timeout for the check
+				const controller = new AbortController();
+				const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+				const response = await fetch(targetUrl, {
+					method: 'HEAD',
+					signal: controller.signal
+				});
+
+				clearTimeout(timeoutId);
+
+				// Assuming if we get a response, the service is reachable or routed
+				// Checking specifically for success or 404 (service might be there but index missing)
+				// But specifically avoiding 5xx which usually means Bad Gateway (Down)
+				if (response.status < 500) {
 					setMarketplaceVisible(true);
 				} else {
 					setMarketplaceVisible(false);
@@ -176,7 +196,6 @@ const Settings = () => {
 	const [logoPreview, setLogoPreview] = useState(null);
 	const [logoEnabled, setLogoEnabled] = useState(true);
 	const [faviconPreview, setFaviconPreview] = useState(null);
-	const [mobileLogoPreview, setMobileLogoPreview] = useState(null);
 
 	const [loginImagePreview, setLoginImagePreview] = useState(null);
 	const [loginLayout, setLoginLayout] = useState("split_left");
@@ -203,7 +222,7 @@ const Settings = () => {
 	useEffect(() => {
 		const fetchPlugins = async () => {
 			try {
-				const { data } = await pluginApi.get("/api/v1/plugins/installed");
+				const { data } = await api.get("/plugins/api/v1/plugins/installed");
 				setActivePlugins(data.active || []);
 			} catch (err) {
 				console.error("Failed to fetch plugins", err);
@@ -253,9 +272,6 @@ const Settings = () => {
 				const logoSetting = settingsData.find(s => s.key === "systemLogo");
 				if (logoSetting && logoSetting.value) setLogoPreview(logoSetting.value);
 
-				const mobileLogoSetting = settingsData.find(s => s.key === "mobileLogo");
-				if (mobileLogoSetting && mobileLogoSetting.value) setMobileLogoPreview(mobileLogoSetting.value);
-
 				const logoEnabledSetting = settingsData.find(s => s.key === "systemLogoEnabled");
 				if (logoEnabledSetting) setLogoEnabled(logoEnabledSetting.value === "true");
 
@@ -304,8 +320,6 @@ const Settings = () => {
 
 	useEffect(() => {
 		const socket = openSocket();
-
-		if (!socket) return;
 
 		socket.on("settings", (data) => {
 			if (data.action === "update") {
@@ -402,7 +416,7 @@ const Settings = () => {
 			toast.success("Favicon atualizado com sucesso!");
 			const link = document.querySelector("link[rel~='icon']") || document.createElement('link');
 			link.rel = 'icon';
-			link.href = getBackendUrl(data.faviconUrl);
+			link.href = `${getBackendUrl()}${data.faviconUrl}`;
 			document.head.appendChild(link);
 		} catch (err) {
 			toastError(err);
@@ -414,35 +428,6 @@ const Settings = () => {
 			await api.put("/settings/systemFavicon", { value: "" });
 			setFaviconPreview(null);
 			toast.success("Favicon removido com sucesso!");
-		} catch (err) {
-			toastError(err);
-		}
-	};
-
-	// Mobile Logo Handlers
-	const handleMobileLogoUpload = async (e) => {
-		const file = e.target.files[0];
-		if (!file) return;
-
-		const formData = new FormData();
-		formData.append("mobileLogo", file);
-
-		try {
-			const { data } = await api.post("/settings/mobileLogo", formData, {
-				headers: { "Content-Type": "multipart/form-data" },
-			});
-			setMobileLogoPreview(data.mobileLogoUrl);
-			toast.success("Logo mobile atualizada com sucesso!");
-		} catch (err) {
-			toastError(err);
-		}
-	};
-
-	const handleRemoveMobileLogo = async () => {
-		try {
-			await api.put("/settings/mobileLogo", { value: "" });
-			setMobileLogoPreview(null);
-			toast.success("Logo mobile removida com sucesso!");
 		} catch (err) {
 			toastError(err);
 		}
@@ -499,7 +484,28 @@ const Settings = () => {
 				Configurações Gerais
 			</Typography>
 
-
+			<Paper className={classes.paper}>
+				<Typography variant="body1">
+					{i18n.t("settings.settings.userCreation.name")}
+				</Typography>
+				<Select
+					margin="dense"
+					variant="outlined"
+					native
+					id="userCreation-setting"
+					name="userCreation"
+					value={settings && settings.length > 0 && getSettingValue("userCreation")}
+					className={classes.settingOption}
+					onChange={handleChangeSetting}
+				>
+					<option value="enabled">
+						{i18n.t("settings.settings.userCreation.options.enabled")}
+					</option>
+					<option value="disabled">
+						{i18n.t("settings.settings.userCreation.options.disabled")}
+					</option>
+				</Select>
+			</Paper>
 
 			<Paper className={classes.paper}>
 				<Typography variant="body1">Fuso Horário</Typography>
@@ -555,54 +561,6 @@ const Settings = () => {
 					<option value="dark">Dark Mode Theme</option>
 				</Select>
 			</Paper>
-
-			<Paper className={classes.paper}>
-				<Typography variant="body1">{i18n.t("settings.settings.language.name")}</Typography>
-				<Select
-					margin="dense"
-					variant="outlined"
-					native
-					id="language-setting"
-					name="language"
-					value={i18n.language}
-					className={classes.settingOption}
-					onChange={(e) => {
-						i18n.changeLanguage(e.target.value);
-						localStorage.setItem("i18nextLng", e.target.value);
-						// Reload page to apply translations everywhere
-						window.location.reload();
-					}}
-				>
-					<option value="pt">{i18n.t("settings.settings.language.options.pt")}</option>
-					<option value="en">{i18n.t("settings.settings.language.options.en")}</option>
-					<option value="es">{i18n.t("settings.settings.language.options.es")}</option>
-				</Select>
-			</Paper>
-
-			{settings && settings.length > 0 && settings.find(s => s.key === "allowTenantControl")?.value === "true" && (
-				<Paper className={classes.paper}>
-					<Typography variant="body1">
-						{i18n.t("settings.settings.userCreation.name")}
-					</Typography>
-					<Select
-						margin="dense"
-						variant="outlined"
-						native
-						id="userCreation-setting"
-						name="userCreation"
-						value={settings && settings.length > 0 && getSettingValue("userCreation")}
-						className={classes.settingOption}
-						onChange={handleChangeSetting}
-					>
-						<option value="enabled">
-							{i18n.t("settings.settings.userCreation.options.enabled")}
-						</option>
-						<option value="disabled">
-							{i18n.t("settings.settings.userCreation.options.disabled")}
-						</option>
-					</Select>
-				</Paper>
-			)}
 
 			<Paper className={classes.paper}>
 				<TextField
@@ -685,7 +643,7 @@ const Settings = () => {
 						<Box className={classes.uploadBox}>
 							{logoPreview ? (
 								<img
-									src={getBackendUrl(logoPreview)}
+									src={`${getBackendUrl()}${logoPreview.startsWith('/') ? logoPreview.slice(1) : logoPreview}`}
 									alt="Logo"
 									className={classes.logoPreview}
 								/>
@@ -724,7 +682,7 @@ const Settings = () => {
 						<Box className={classes.uploadBox}>
 							{faviconPreview ? (
 								<img
-									src={getBackendUrl(faviconPreview)}
+									src={`${getBackendUrl()}${faviconPreview.startsWith('/') ? faviconPreview.slice(1) : faviconPreview}`}
 									alt="Favicon"
 									style={{ maxWidth: 64, maxHeight: 64, objectFit: 'contain' }}
 								/>
@@ -740,48 +698,6 @@ const Settings = () => {
 						<Box mt={2} display="flex" justifyContent="center">
 							<Button variant="outlined" color="secondary" startIcon={<DeleteIcon />} onClick={handleRemoveFavicon}>
 								Remover Favicon
-							</Button>
-						</Box>
-					)}
-				</Paper>
-			</Box>
-
-			{/* Mobile Logo Card */}
-			<Box display="flex" gap={2} flexWrap="wrap" mt={2}>
-				<Paper className={classes.paper} style={{ flexDirection: "column", alignItems: "stretch", flex: 1, minWidth: 280 }}>
-					<Typography variant="body1" gutterBottom>
-						Logo Mobile
-					</Typography>
-					<Typography variant="body2" color="textSecondary">
-						Logo exibida no aplicativo Android/iOS
-					</Typography>
-					<input
-						accept="image/*"
-						className={classes.hiddenInput}
-						id="mobile-logo-upload"
-						type="file"
-						onChange={handleMobileLogoUpload}
-					/>
-					<label htmlFor="mobile-logo-upload">
-						<Box className={classes.uploadBox}>
-							{mobileLogoPreview ? (
-								<img
-									src={getBackendUrl(mobileLogoPreview)}
-									alt="Logo Mobile"
-									style={{ maxWidth: 120, maxHeight: 120, objectFit: 'contain' }}
-								/>
-							) : (
-								<CloudUploadIcon style={{ fontSize: 48, color: "#9ca3af" }} />
-							)}
-							<Typography variant="body2" color="textSecondary">
-								{mobileLogoPreview ? "Clique para alterar" : "Clique para upload"}
-							</Typography>
-						</Box>
-					</label>
-					{mobileLogoPreview && (
-						<Box mt={2} display="flex" justifyContent="center">
-							<Button variant="outlined" color="secondary" startIcon={<DeleteIcon />} onClick={handleRemoveMobileLogo}>
-								Remover Logo Mobile
 							</Button>
 						</Box>
 					)}
@@ -1046,32 +962,6 @@ const Settings = () => {
 						</ListItemIcon>
 						<ListItemText primary="Geral" />
 					</ListItem>
-					{activePlugins.includes("smtp") && (
-						<ListItem
-							button
-							selected={activeSection === "smtp"}
-							onClick={() => setActiveSection("smtp")}
-							className={classes.menuItem}
-						>
-							<ListItemIcon>
-								<SettingsIcon />
-							</ListItemIcon>
-							<ListItemText primary="SMTP" />
-						</ListItem>
-					)}
-					{activePlugins.includes("engine-papi") && (
-						<ListItem
-							button
-							selected={activeSection === "papi"}
-							onClick={() => setActiveSection("papi")}
-							className={classes.menuItem}
-						>
-							<ListItemIcon>
-								<SettingsIcon />
-							</ListItemIcon>
-							<ListItemText primary="Engine PAPI" />
-						</ListItem>
-					)}
 					<ListItem
 						button
 						selected={activeSection === "customize"}
@@ -1109,23 +999,17 @@ const Settings = () => {
 						</ListItem>
 					)}
 
-					{marketplaceVisible && (
-						<Can
-							user={user}
-							perform="marketplace:read"
-							yes={() => (
-								<ListItem
-									button
-									onClick={() => history.push("/admin/settings/marketplace")}
-									className={classes.menuItem}
-								>
-									<ListItemIcon>
-										<ExtensionIcon />
-									</ListItemIcon>
-									<ListItemText primary="Marketplace" />
-								</ListItem>
-							)}
-						/>
+					{["admin", "superadmin"].includes(user?.profile) && marketplaceVisible && (
+						<ListItem
+							button
+							onClick={() => history.push("/admin/settings/marketplace")}
+							className={classes.menuItem}
+						>
+							<ListItemIcon>
+								<ExtensionIcon />
+							</ListItemIcon>
+							<ListItemText primary="Marketplace" />
+						</ListItem>
 					)}
 				</List>
 			</Box>
@@ -1313,22 +1197,6 @@ const Settings = () => {
 								</div>
 							</Box>
 						</Paper>
-					</>
-				)}
-				{activeSection === "smtp" && activePlugins.includes("smtp") && (
-					<>
-						<Typography variant="h5" className={classes.sectionTitle}>
-							{i18n.t("smtp.settingsTitle")}
-						</Typography>
-						<SmtpSettingsForm active={true} />
-					</>
-				)}
-				{activeSection === "papi" && activePlugins.includes("engine-papi") && (
-					<>
-						<Typography variant="h5" className={classes.sectionTitle}>
-							Engine PAPI
-						</Typography>
-						<PapiSettingsForm active={true} />
 					</>
 				)}
 			</Box>

@@ -130,7 +130,6 @@ const NotificationsPopOver = () => {
 
 	useEffect(() => {
 		const socket = openSocket();
-		if (!socket) return;
 
 		socket.on("connect", () => socket.emit("joinNotification"));
 

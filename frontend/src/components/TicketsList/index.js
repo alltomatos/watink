@@ -27,7 +27,7 @@ const useStyles = makeStyles(theme => ({
 		flex: 1,
 		overflowY: "scroll",
 		...theme.scrollbarStyles,
-		borderTop: "none",
+		borderTop: "2px solid rgba(0, 0, 0, 0.12)",
 	},
 
 	ticketsListHeader: {
@@ -153,7 +153,7 @@ const reducer = (state, action) => {
 };
 
 const TicketsList = (props) => {
-	const { status, searchParam, showAll, selectedQueueIds, updateCount, style, isGroup, tags } =
+	const { status, searchParam, showAll, selectedQueueIds, updateCount, style, isGroup } =
 		props;
 	const classes = useStyles();
 	const [pageNumber, setPageNumber] = useState(1);
@@ -163,7 +163,7 @@ const TicketsList = (props) => {
 	useEffect(() => {
 		dispatch({ type: "RESET" });
 		setPageNumber(1);
-	}, [status, searchParam, dispatch, showAll, selectedQueueIds, isGroup, tags]);
+	}, [status, searchParam, dispatch, showAll, selectedQueueIds, isGroup]);
 
 	const { tickets, hasMore, loading } = useTickets({
 		pageNumber,
@@ -171,21 +171,19 @@ const TicketsList = (props) => {
 		status,
 		showAll,
 		queueIds: JSON.stringify(selectedQueueIds),
-		isGroup,
-		tags
+		isGroup
 	});
 
 	useEffect(() => {
-		if (!status && !searchParam && !isGroup && (!tags || tags.length === 0)) return;
+		if (!status && !searchParam && !isGroup) return;
 		dispatch({
 			type: "LOAD_TICKETS",
 			payload: tickets,
 		});
-	}, [tickets, status, searchParam, isGroup, tags]);
+	}, [tickets, status, searchParam, isGroup]);
 
 	useEffect(() => {
 		const socket = openSocket();
-		if (!socket) return;
 
 		const shouldUpdateTicket = ticket => {
 			// Check if ticket is group based on contact or root prop
@@ -255,7 +253,7 @@ const TicketsList = (props) => {
 		return () => {
 			socket.disconnect();
 		};
-	}, [status, searchParam, showAll, user, selectedQueueIds, isGroup, tags]);
+	}, [status, searchParam, showAll, user, selectedQueueIds, isGroup]);
 
 	// Apply filter consistently for Render AND Count
 	const filteredTickets = ticketsList.filter(ticket => {

@@ -2,19 +2,14 @@ import { subHours } from "date-fns";
 import { Op } from "sequelize";
 import Contact from "../../models/Contact";
 import Ticket from "../../models/Ticket";
-import Queue, { DISTRIBUTION_STRATEGIES } from "../../models/Queue";
 import ShowTicketService from "./ShowTicketService";
-import TicketDistributionService from "./TicketDistributionService";
-import { getIO } from "../../libs/socket";
-import { logger } from "../../utils/logger";
 
 const FindOrCreateTicketService = async (
   contact: Contact,
   whatsappId: number,
   unreadMessages: number,
   tenantId: number | string,
-  groupContact?: Contact,
-  queueId?: number
+  groupContact?: Contact
 ): Promise<Ticket> => {
   // Buscar ticket aberto ou pendente existente
   let ticket = await Ticket.findOne({
@@ -78,11 +73,9 @@ const FindOrCreateTicketService = async (
     }
   }
 
-  let isNewTicket = false;
-
   if (!ticket) {
     // Grupos: criar como 'open' (sempre prontos para resposta)
-    // Individuais: criar como 'pending' (aguardando aceite ou distribuição)
+    // Individuais: criar como 'pending' (aguardando aceite)
     const ticketStatus = groupContact ? "open" : "pending";
 
     ticket = await Ticket.create({
@@ -91,43 +84,8 @@ const FindOrCreateTicketService = async (
       isGroup: !!groupContact,
       unreadMessages,
       whatsappId,
-      tenantId,
-      queueId
+      tenantId
     });
-
-    isNewTicket = true;
-  }
-
-  // Auto-distribute new tickets (only for individual chats, not groups)
-  if (isNewTicket && !groupContact && queueId) {
-    try {
-      const queue = await Queue.findByPk(queueId);
-
-      if (queue && queue.distributionStrategy !== DISTRIBUTION_STRATEGIES.MANUAL) {
-        const result = await TicketDistributionService.distributeTicket(ticket, queue);
-
-        if (result.user) {
-          await ticket.update({
-            userId: result.user.id,
-            status: "open"
-          });
-
-          logger.info(
-            `[FindOrCreateTicket] Auto-distributed ticket ${ticket.id} - ${result.reason}`
-          );
-
-          // Emit socket event for real-time update
-          const io = getIO();
-          io.to("notification").emit("ticket", {
-            action: "update",
-            ticket: await ShowTicketService(ticket.id)
-          });
-        }
-      }
-    } catch (error) {
-      logger.error(`[FindOrCreateTicket] Distribution failed for ticket ${ticket.id}:`, error);
-      // Continue without distribution - ticket stays pending
-    }
   }
 
   ticket = await ShowTicketService(ticket.id);
@@ -136,4 +94,3 @@ const FindOrCreateTicketService = async (
 };
 
 export default FindOrCreateTicketService;
-

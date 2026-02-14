@@ -13,8 +13,7 @@ import {
   HasMany,
   BelongsToMany,
   ForeignKey,
-  BelongsTo,
-  AllowNull
+  BelongsTo
 } from "sequelize-typescript";
 import { hash, compare } from "bcryptjs";
 import Ticket from "./Ticket";
@@ -23,11 +22,8 @@ import UserQueue from "./UserQueue";
 import Whatsapp from "./Whatsapp";
 import Tenant from "./Tenant";
 import Group from "./Group";
-import Role from "./Role";
-import UserRole from "./UserRole";
-import UserGroup from "./UserGroup";
-import Contact from "./Contact";
-
+import Permission from "./Permission";
+import UserPermission from "./UserPermission";
 
 @Table
 class User extends Model<User> {
@@ -42,9 +38,6 @@ class User extends Model<User> {
   @Column
   email: string;
 
-  @Column
-  profileImage: string;
-
   @Column(DataType.VIRTUAL)
   password: string;
 
@@ -55,29 +48,9 @@ class User extends Model<User> {
   @Column
   tokenVersion: number;
 
-  @Default(true)
+  @Default("admin")
   @Column
-  enabled: boolean;
-
-  @Default(false)
-  @Column
-  emailVerified: boolean;
-
-  @AllowNull(true)
-  @Column
-  lastAssignmentAt: Date;
-
-  @AllowNull(true)
-  @Column
-  verificationToken: string;
-
-  @AllowNull(true)
-  @Column
-  passwordResetToken: string;
-
-  @AllowNull(true)
-  @Column
-  passwordResetExpires: Date;
+  profile: string;
 
   @ForeignKey(() => Whatsapp)
   @Column
@@ -95,9 +68,6 @@ class User extends Model<User> {
   @HasMany(() => Ticket)
   tickets: Ticket[];
 
-  @HasMany(() => Contact, "walletUserId")
-  walletContacts: Contact[];
-
   @BelongsToMany(() => Queue, () => UserQueue)
   queues: Queue[];
 
@@ -108,13 +78,15 @@ class User extends Model<User> {
   @BelongsTo(() => Tenant)
   tenant: Tenant;
 
-  @BelongsToMany(() => Group, () => UserGroup)
-  groups: Group[];
+  @ForeignKey(() => Group)
+  @Column
+  groupId: number;
 
-  @BelongsToMany(() => Role, () => UserRole)
-  roles: Role[];
+  @BelongsTo(() => Group)
+  group: Group;
 
-
+  @BelongsToMany(() => Permission, () => UserPermission)
+  permissions: Permission[];
 
   @BeforeUpdate
   @BeforeCreate

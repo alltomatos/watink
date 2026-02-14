@@ -17,12 +17,6 @@ const StopWhatsAppSession = async (whatsappId: number): Promise<void> => {
                 action: "update",
                 session: whatsapp
             });
-
-            // SKIP IF WEBCHAT - No need to tell Engine Standard
-            if (whatsapp.type === "webchat") {
-                logger.info(`StopWhatsAppSession: Skipping engine command for Webchat session ${whatsappId}`);
-                return;
-            }
         }
 
         const envelope: Envelope = {
@@ -35,11 +29,8 @@ const StopWhatsAppSession = async (whatsappId: number): Promise<void> => {
             }
         };
 
-        // Use the routing key pattern wbot.tenantId.sessionId.engine.command
-        await RabbitMQService.publishCommand(
-            `wbot.${whatsapp?.tenantId || 1}.${whatsappId}.${whatsapp?.engineType || "whaileys"}.session.stop`,
-            envelope
-        );
+        // Use the routing key pattern wbot.tenantId.sessionId.command
+        await RabbitMQService.publishCommand(`wbot.${whatsapp?.tenantId || 1}.${whatsappId}.session.stop`, envelope);
 
         logger.info(`Session stop command published for WhatsApp ID ${whatsappId}`);
 

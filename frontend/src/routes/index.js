@@ -16,17 +16,11 @@ import Login from "../pages/Login/";
 import Connections from "../pages/Connections/";
 import ConnectionConfig from "../pages/Connections/ConnectionConfig";
 import Settings from "../pages/Settings/";
-import KanbanSettings from "../pages/Settings/KanbanSettings";
-import WebchatConfig from "../pages/WebchatConfig/";
 import Users from "../pages/Users";
 import UserEdit from "../pages/UserEdit";
-import Roles from "../pages/Roles";
-import RoleEdit from "../pages/RoleEdit";
-import UserProfile from "../pages/UserProfile";
 import Contacts from "../pages/Contacts/";
 import QuickAnswers from "../pages/QuickAnswers/";
 import Groups from "../pages/Groups";
-import GroupEdit from "../pages/GroupEdit";
 import Queues from "../pages/Queues/";
 import KnowledgeBase from "../pages/KnowledgeBase/";
 import KnowledgeBaseConfig from "../pages/KnowledgeBase/KnowledgeBaseConfig";
@@ -37,11 +31,8 @@ import Helpdesk from "../pages/Helpdesk/";
 import ProtocolDetails from "../pages/Helpdesk/ProtocolDetails";
 import HelpdeskKanban from "../pages/Helpdesk/HelpdeskKanban";
 import HelpdeskTvMode from "../pages/Helpdesk/HelpdeskTvMode";
-import ActivityReport from "../pages/Helpdesk/ActivityReport";
 import Swagger from "../pages/Swagger/";
 import VersionDashboard from "../pages/VersionDashboard/";
-import TagManager from "../pages/TagManager/";
-import MyActivities from "../pages/MyActivities/";
 import { AuthProvider } from "../context/Auth/AuthContext";
 import { WhatsAppsProvider } from "../context/WhatsApp/WhatsAppsContext";
 import { ThemeProvider } from "../context/DarkMode";
@@ -62,21 +53,15 @@ const PrivateRoutes = () => {
             <Route exact path="/tickets/:ticketId?" component={Tickets} isPrivate />
             <Route exact path="/flowbuilder" component={FlowManager} isPrivate />
             <Route exact path="/flowbuilder/:flowId" component={FlowBuilder} isPrivate />
-            <Route exact path="/connections/webchat/:webchatId" component={WebchatConfig} isPrivate />
             <Route exact path="/connections" component={Connections} isPrivate />
             <Route exact path="/connections/:whatsappId" component={ConnectionConfig} isPrivate />
             <Route exact path="/contacts" component={Contacts} isPrivate />
             <Route exact path="/users" component={Users} isPrivate />
             <Route exact path="/users/:userId" component={UserEdit} isPrivate />
-            <Route exact path="/roles" component={Roles} isPrivate />
-            <Route exact path="/roles/:roleId" component={RoleEdit} isPrivate />
-            <Route exact path="/profile" component={UserProfile} isPrivate />
             <Route exact path="/quickAnswers" component={QuickAnswers} isPrivate />
             <Route exact path="/Settings" component={Settings} isPrivate />
             <Route exact path="/groups" component={Groups} isPrivate />
-            <Route exact path="/groups/:groupId" component={GroupEdit} isPrivate />
             <Route exact path="/queues" component={Queues} isPrivate />
-            <Route exact path="/settings/kanban" component={KanbanSettings} isPrivate />
             <Route exact path="/knowledge-bases" component={KnowledgeBase} isPrivate />
             <Route exact path="/knowledge-bases/:knowledgeBaseId" component={KnowledgeBaseConfig} isPrivate />
             <Route exact path="/swagger" component={Swagger} isPrivate />
@@ -86,11 +71,8 @@ const PrivateRoutes = () => {
             <Route exact path="/helpdesk" component={Helpdesk} isPrivate />
             <Route exact path="/helpdesk/kanban" component={HelpdeskKanban} isPrivate />
             <Route exact path="/helpdesk/tv" component={HelpdeskTvMode} isPrivate />
-            <Route exact path="/helpdesk/report/:activityId" component={ActivityReport} isPrivate />
             <Route exact path="/helpdesk/:protocolId" component={ProtocolDetails} isPrivate />
-            <Route exact path="/my-activities" component={MyActivities} isPrivate />
             <Route exact path="/versions" component={VersionDashboard} isPrivate />
-            <Route exact path="/tags" component={TagManager} isPrivate />
           </Switch>
         </LoggedInLayout>
       </TicketsProvider>
@@ -99,8 +81,6 @@ const PrivateRoutes = () => {
 };
 
 import PublicProtocol from "../pages/PublicProtocol";
-import ResetPassword from "../pages/ResetPassword/";
-import CompleteRegistration from "../pages/CompleteRegistration/";
 
 const Routes = () => {
   return (
@@ -111,8 +91,6 @@ const Routes = () => {
             <Route exact path="/login" component={Login} />
             <Route exact path="/signup" component={Signup} />
             <Route exact path="/public/protocols/:token" component={PublicProtocol} isPublic />
-            <Route exact path="/reset-password/:token" component={ResetPassword} isPublic />
-            <Route exact path="/verify-email/:token" component={CompleteRegistration} isPublic />
             <Route path="/" component={PrivateRoutes} isPrivate />
           </Switch>
           <ToastContainer autoClose={3000} />

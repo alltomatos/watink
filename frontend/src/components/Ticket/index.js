@@ -105,7 +105,6 @@ const Ticket = () => {
 
   useEffect(() => {
     const socket = openSocket();
-    if (!socket) return;
 
     socket.on("connect", () => socket.emit("joinChatBox", ticketId));
 
@@ -169,19 +168,14 @@ const Ticket = () => {
           <MessagesList
             ticketId={ticketId}
             isGroup={ticket.isGroup}
-            isWebchat={ticket.whatsapp?.type === "webchat"}
           ></MessagesList>
-          <MessageInput
-            ticketStatus={ticket.status}
-            whatsappStatus={ticket.whatsapp?.type === "webchat" ? "CONNECTED" : ticket.whatsapp?.status}
-          />
+          <MessageInput ticketStatus={ticket.status} whatsappStatus={ticket.whatsapp?.status} />
         </ReplyMessageProvider>
       </Paper>
       <ContactDrawer
         open={drawerOpen}
         handleDrawerClose={handleDrawerClose}
         contact={contact}
-        ticket={ticket}
         ticketId={ticketId} // Passando o ID do ticket para o drawer
         loading={loading}
       />

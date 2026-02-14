@@ -6,11 +6,11 @@ const publicDir = path.join(__dirname, 'public');
 
 const filesToCopy = [
     { src: 'fundo.png', dest: 'login-background.png' },
-    { src: 'logo-completa.png', dest: 'logo.png' },
+    { src: 'watink-sf.png', dest: 'logo.png' },
     { src: 'favicon.png', dest: 'favicon.png' },
     { src: 'favicon.png', dest: 'favicon.ico' },
     { src: 'logo-completa.png', dest: 'logo-full.png' },
-    { src: 'logo-letras.png', dest: 'logo-text.png' }
+    { src: 'watink-logo-letras.png', dest: 'logo-text.png' }
 ];
 
 if (!fs.existsSync(publicDir)) {
@@ -40,7 +40,7 @@ try {
         version: packageJson.version,
         lastUpdated: new Date().toISOString()
     };
-
+    
     fs.writeFileSync(versionJsonPath, JSON.stringify(versionData, null, 2));
     console.log(`Updated version.json to ${packageJson.version}`);
 } catch (error) {

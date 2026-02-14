@@ -24,10 +24,9 @@ import QuickAnswer from "../../models/QuickAnswer";
 import Pipeline from "../../models/Pipeline";
 import Deal from "../../models/Deal";
 import PipelineStage from "../../models/PipelineStage";
+import Protocol from "../../models/Protocol";
 import VectorService from "../VectorService";
 import { Op } from "sequelize";
-import { sign } from "jsonwebtoken";
-import authConfig from "../../config/auth";
 
 interface FlowContext {
   ticketId?: number;
@@ -404,51 +403,6 @@ class FlowExecutorService {
         ticketId: context.ticketId
       });
       logger.info(`Flow: Ticket ${context.ticketId} updated via Ticket Node`, updateData);
-    }
-  }
-
-  private async processTagNode(session: FlowSession, nodeData: any) {
-    const context = session.context as FlowContext;
-    if (!context.ticketId) return;
-
-    const { tagAction, tagId } = nodeData;
-
-    if (!tagId) {
-      logger.warn("FlowExecutor: Tag Node missing tagId");
-      return;
-    }
-
-    try {
-      const ticket = await ShowTicketService(context.ticketId);
-      if (!ticket) return;
-
-      // Import dinâmico ou estático do EntityTagService?
-      // Como estou no arquivo, vou adicionar import no topo se não tiver, ou usar require se necessário pra evitar circular?
-      // Vou assumir que EntityTagService pode ser importado.
-      const EntityTagService = require("../TagServices/EntityTagService").default;
-
-      if (tagAction === 'remove') {
-        await EntityTagService.RemoveTagFromEntity({
-          tagId: parseInt(tagId),
-          entityType: 'ticket', // Por padrão aplica no ticket. Opcional: permitir selecionar 'contact'
-          entityId: ticket.id,
-          tenantId: ticket.tenantId
-        });
-        // Opcional: remover do contato também? Por enquanto manter só ticket.
-        // Se fosse para o contato:
-        // await EntityTagService.RemoveTagFromEntity({ tagId, entityType: 'contact', ...});
-      } else {
-        await EntityTagService.ApplyTagToEntity({
-          tagId: parseInt(tagId),
-          entityType: 'ticket',
-          entityId: ticket.id,
-          tenantId: ticket.tenantId
-        });
-      }
-      logger.info(`FlowExecutor: Tag ${tagAction} tagId:${tagId} on ticket:${ticket.id}`);
-
-    } catch (err) {
-      logger.error(`FlowExecutor: Error processing Tag Node: ${err}`);
     }
   }
 
@@ -1524,48 +1478,25 @@ class FlowExecutorService {
     const action = nodeData.helpdeskAction || 'createProtocol';
     const tenantId = ticket.tenantId;
 
-    // Helper para gerar token de serviço
-    const getServiceToken = (tId: string | number) => {
-      const secret = process.env.JWT_SECRET || "watink_secret";
-      return sign({ 
-        id: -1, 
-        tenantId: tId, 
-        profile: "admin",
-        type: "service" 
-      }, secret, {
-        expiresIn: "5m"
-      });
-    };
-
-    const helpdeskUrl = process.env.HELPDESK_URL || "http://localhost:3003";
-
     try {
-      const token = getServiceToken(tenantId);
-      const headers = {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json"
-      };
-
       if (action === 'createProtocol') {
         // Gerar número de protocolo único
         const timestamp = Date.now();
         const random = Math.floor(Math.random() * 1000);
         const protocolNumber = `${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}${timestamp.toString().slice(-6)}${random}`;
 
-        const payload = {
-          protocolNumber,
+        // Criar protocolo
+        const protocol = await Protocol.create({
+          tenantId: tenantId,
+          protocolNumber: protocolNumber,
           ticketId: context.ticketId,
           contactId: ticket.contactId,
           subject: this.replaceVariables(nodeData.subject || "Protocolo via Fluxo", context),
           description: this.replaceVariables(nodeData.description || context.lastInput || "", context),
           status: "open",
           priority: nodeData.priority || "medium",
-          category: nodeData.category || "Fluxo Automatizado",
-          tenantId
-        };
-
-        // Service-to-Service call
-        const { data: protocol } = await axios.post(`${helpdeskUrl}/api/internal/protocols`, payload, { headers });
+          category: nodeData.category || "Fluxo Automatizado"
+        });
 
         logger.info(`FlowExecutor: Protocol ${protocolNumber} created for ticket ${context.ticketId}`);
 
@@ -1583,15 +1514,14 @@ class FlowExecutorService {
         }
 
       } else if (action === 'checkStatus') {
-        // Buscar protocolos do contato
-        const { data } = await axios.get(`${helpdeskUrl}/api/internal/protocols`, {
-            params: { contactId: ticket.contactId },
-            headers
+        // Buscar protocolo mais recente do contato
+        const existingProtocol = await Protocol.findOne({
+          where: {
+            contactId: ticket.contactId,
+            tenantId: tenantId
+          },
+          order: [['createdAt', 'DESC']]
         });
-        
-        // Assumindo que a API retorna lista paginada { protocols: [] }
-        const protocols = data.protocols || [];
-        const existingProtocol = protocols.length > 0 ? protocols[0] : null;
 
         if (existingProtocol) {
           const statusMap: { [key: string]: string } = {
@@ -1609,8 +1539,7 @@ class FlowExecutorService {
 
     } catch (err) {
       logger.error(`FlowExecutor: Error in Helpdesk Node: ${err}`);
-      // Não enviar mensagem de erro para o usuário final para não travar o fluxo, apenas logar
-      // await this.sendMessage(session, "Houve um erro ao processar sua solicitação de protocolo.");
+      await this.sendMessage(session, "Houve um erro ao processar sua solicitação de protocolo.");
     }
   }
 }

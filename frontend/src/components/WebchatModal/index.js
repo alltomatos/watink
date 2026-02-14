@@ -7,15 +7,15 @@ import { makeStyles } from "@material-ui/core/styles";
 import { green } from "@material-ui/core/colors";
 
 import {
-    Dialog,
-    DialogContent,
-    DialogTitle,
-    Button,
-    DialogActions,
-    CircularProgress,
-    TextField,
-    Switch,
-    FormControlLabel,
+	Dialog,
+	DialogContent,
+	DialogTitle,
+	Button,
+	DialogActions,
+	CircularProgress,
+	TextField,
+	Switch,
+	FormControlLabel,
     InputAdornment,
     Typography,
     Grid,
@@ -30,30 +30,29 @@ import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
 import toastError from "../../errors/toastError";
 import QueueSelect from "../QueueSelect";
-import TagPicker from "../TagPicker";
 
 const useStyles = makeStyles(theme => ({
-    root: {
-        display: "flex",
-        flexWrap: "wrap",
-    },
-    multFieldLine: {
-        display: "flex",
-        "& > *:not(:last-child)": {
-            marginRight: theme.spacing(1),
-        },
-    },
-    btnWrapper: {
-        position: "relative",
-    },
-    buttonProgress: {
-        color: green[500],
-        position: "absolute",
-        top: "50%",
-        left: "50%",
-        marginTop: -12,
-        marginLeft: -12,
-    },
+	root: {
+		display: "flex",
+		flexWrap: "wrap",
+	},
+	multFieldLine: {
+		display: "flex",
+		"& > *:not(:last-child)": {
+			marginRight: theme.spacing(1),
+		},
+	},
+	btnWrapper: {
+		position: "relative",
+	},
+	buttonProgress: {
+		color: green[500],
+		position: "absolute",
+		top: "50%",
+		left: "50%",
+		marginTop: -12,
+		marginLeft: -12,
+	},
     colorPicker: {
         width: '100%',
         height: '40px',
@@ -87,19 +86,19 @@ const useStyles = makeStyles(theme => ({
 }));
 
 const SessionSchema = Yup.object().shape({
-    name: Yup.string()
-        .min(2, "Too Short!")
-        .max(50, "Too Long!")
-        .required("Required"),
+	name: Yup.string()
+		.min(2, "Too Short!")
+		.max(50, "Too Long!")
+		.required("Required"),
 });
 
 const WebchatModal = ({ open, onClose, whatsAppId }) => {
-    const classes = useStyles();
-    const initialState = {
-        name: "",
-        greetingMessage: "",
-        farewellMessage: "",
-        isDefault: false,
+	const classes = useStyles();
+	const initialState = {
+		name: "",
+		greetingMessage: "",
+		farewellMessage: "",
+		isDefault: false,
         type: "webchat",
         chatConfig: {
             buttonColor: "#00E676",
@@ -113,64 +112,60 @@ const WebchatModal = ({ open, onClose, whatsAppId }) => {
                 phone: false
             }
         }
-    };
-    const [whatsApp, setWhatsApp] = useState(initialState);
-    const [selectedQueueIds, setSelectedQueueIds] = useState([]);
-    const [selectedTags, setSelectedTags] = useState([]);
+	};
+	const [whatsApp, setWhatsApp] = useState(initialState);
+	const [selectedQueueIds, setSelectedQueueIds] = useState([]);
     const [tab, setTab] = useState(0);
 
-    useEffect(() => {
-        const fetchSession = async () => {
-            if (!whatsAppId) {
+	useEffect(() => {
+		const fetchSession = async () => {
+			if (!whatsAppId) {
                 setWhatsApp(initialState);
                 return;
             }
 
-            try {
-                const { data } = await api.get(`whatsapp/${whatsAppId}`);
+			try {
+				const { data } = await api.get(`whatsapp/${whatsAppId}`);
                 // Ensure chatConfig has defaults if missing
                 if (!data.chatConfig) {
                     data.chatConfig = initialState.chatConfig;
                 }
-                setWhatsApp(data);
+				setWhatsApp(data);
 
-                const whatsQueueIds = data.queues?.map(queue => queue.id);
-                setSelectedQueueIds(whatsQueueIds);
+				const whatsQueueIds = data.queues?.map(queue => queue.id);
+				setSelectedQueueIds(whatsQueueIds);
+			} catch (err) {
+				toastError(err);
+			}
+		};
+		if (open) {
+			fetchSession();
+		}
+	}, [whatsAppId, open]);
 
-                const whatsTags = data.tags?.map(tag => tag.id);
-                setSelectedTags(whatsTags || []);
-            } catch (err) {
-                toastError(err);
-            }
-        };
-        if (open) {
-            fetchSession();
-        }
-    }, [whatsAppId, open]);
-
-    const handleSaveWhatsApp = async values => {
+	const handleSaveWhatsApp = async values => {
         // Merge chatConfig from state (as it might be complex object not fully in Formik values if we don't manage it there)
         // Or better, let Formik handle everything.
         // For simplicity, we'll use values but ensure chatConfig is structured.
-        const whatsappData = { ...values, queueIds: selectedQueueIds, type: "webchat", tags: selectedTags };
+		const whatsappData = { ...values, queueIds: selectedQueueIds, type: "webchat" };
 
-        try {
-            if (whatsAppId) {
-                await api.put(`/whatsapp/${whatsAppId}`, whatsappData);
-            } else {
-                await api.post("/whatsapp", whatsappData);
-            }
-            toast.success(i18n.t("webchatModal.success"));
-            onClose();
-        } catch (err) {
-            toastError(err);
-        }
-    };
+		try {
+			if (whatsAppId) {
+				await api.put(`/whatsapp/${whatsAppId}`, whatsappData);
+			} else {
+				await api.post("/whatsapp", whatsappData);
+			}
+			toast.success(i18n.t("whatsappModal.success"));
+			onClose();
+		} catch (err) {
+			toastError(err);
+		}
+	};
 
-    const handleClose = () => {
-        onClose();
-        setWhatsApp(initialState);
-    };
+	const handleClose = () => {
+		onClose();
+		setWhatsApp(initialState);
+	};
 
     const handleTabChange = (event, newValue) => {
         setTab(newValue);
@@ -182,7 +177,7 @@ const WebchatModal = ({ open, onClose, whatsAppId }) => {
         const script = `<script>
   window.watinkWebchatConfig = {
     url: "${backendUrl}",
-    webchatId: "${whatsAppId}"
+    whatsappId: "${whatsAppId}"
   };
   (function(d, s, id) {
     var js, fjs = d.getElementsByTagName(s)[0];
@@ -209,37 +204,37 @@ const WebchatModal = ({ open, onClose, whatsAppId }) => {
         );
     };
 
-    return (
-        <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-            <DialogTitle>
+	return (
+		<Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
+			<DialogTitle>
                 Configurar Webchat
             </DialogTitle>
-            <Formik
-                initialValues={whatsApp}
-                enableReinitialize={true}
-                validationSchema={SessionSchema}
-                onSubmit={(values, actions) => {
-                    setTimeout(() => {
-                        handleSaveWhatsApp(values);
-                        actions.setSubmitting(false);
-                    }, 400);
-                }}
-            >
-                {({ values, touched, errors, isSubmitting, setFieldValue }) => (
-                    <Form>
+			<Formik
+				initialValues={whatsApp}
+				enableReinitialize={true}
+				validationSchema={SessionSchema}
+				onSubmit={(values, actions) => {
+					setTimeout(() => {
+						handleSaveWhatsApp(values);
+						actions.setSubmitting(false);
+					}, 400);
+				}}
+			>
+				{({ values, touched, errors, isSubmitting, setFieldValue }) => (
+					<Form>
                         <Tabs value={tab} onChange={handleTabChange} indicatorColor="primary" textColor="primary" centered>
                             <Tab label="Geral" />
                             <Tab label="Personalização" />
                             <Tab label="Integração" />
                         </Tabs>
 
-                        <DialogContent dividers>
+						<DialogContent dividers>
                             {tab === 0 && (
                                 <>
                                     <div className={classes.multFieldLine}>
                                         <Field
                                             as={TextField}
-                                            label={i18n.t("webchatModal.form.name")}
+                                            label={i18n.t("whatsappModal.form.name")}
                                             autoFocus
                                             name="name"
                                             error={touched.name && Boolean(errors.name)}
@@ -258,13 +253,13 @@ const WebchatModal = ({ open, onClose, whatsAppId }) => {
                                                     checked={values.isDefault}
                                                 />
                                             }
-                                            label={i18n.t("webchatModal.form.isDefault")}
+                                            label={i18n.t("whatsappModal.form.isDefault")}
                                         />
                                     </div>
                                     <div className={classes.multFieldLine}>
                                         <Field
                                             as={TextField}
-                                            label={i18n.t("webchatModal.form.greetingMessage")}
+                                            label={i18n.t("whatsappModal.form.greetingMessage")}
                                             name="greetingMessage"
                                             error={touched.greetingMessage && Boolean(errors.greetingMessage)}
                                             helperText={touched.greetingMessage && errors.greetingMessage}
@@ -278,7 +273,7 @@ const WebchatModal = ({ open, onClose, whatsAppId }) => {
                                     <div className={classes.multFieldLine}>
                                         <Field
                                             as={TextField}
-                                            label={i18n.t("webchatModal.form.farewellMessage")}
+                                            label={i18n.t("whatsappModal.form.farewellMessage")}
                                             name="farewellMessage"
                                             error={touched.farewellMessage && Boolean(errors.farewellMessage)}
                                             helperText={touched.farewellMessage && errors.farewellMessage}
@@ -293,12 +288,6 @@ const WebchatModal = ({ open, onClose, whatsAppId }) => {
                                         selectedQueueIds={selectedQueueIds}
                                         onChange={selectedIds => setSelectedQueueIds(selectedIds)}
                                     />
-                                    <div style={{ marginTop: 15 }}>
-                                        <TagPicker
-                                            selectedTags={selectedTags}
-                                            onChange={setSelectedTags}
-                                        />
-                                    </div>
                                 </>
                             )}
 
@@ -334,12 +323,12 @@ const WebchatModal = ({ open, onClose, whatsAppId }) => {
                                     </Grid>
                                     <Grid item xs={12} md={6}>
                                         <div className={classes.previewContainer}>
-                                            <div
+                                            <div 
                                                 className={classes.previewButton}
                                                 style={{ backgroundColor: values.chatConfig?.buttonColor || "#00E676" }}
                                             >
                                                 <svg style={{ width: 30, height: 30, fill: '#fff' }} viewBox="0 0 24 24">
-                                                    <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
+                                                    <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
                                                 </svg>
                                             </div>
                                         </div>
@@ -348,34 +337,34 @@ const WebchatModal = ({ open, onClose, whatsAppId }) => {
                             )}
 
                             {tab === 2 && renderEmbedCode()}
-                        </DialogContent>
-                        <DialogActions>
-                            <Button onClick={handleClose} color="secondary" variant="outlined">
-                                {i18n.t("webchatModal.buttons.cancel")}
-                            </Button>
-                            <Button
-                                type="submit"
-                                color="primary"
-                                variant="contained"
-                                disabled={isSubmitting}
-                                className={classes.btnWrapper}
-                            >
-                                {whatsAppId
-                                    ? i18n.t("webchatModal.buttons.okEdit")
-                                    : i18n.t("webchatModal.buttons.okAdd")}
-                                {isSubmitting && (
-                                    <CircularProgress
-                                        size={24}
-                                        className={classes.buttonProgress}
-                                    />
-                                )}
-                            </Button>
-                        </DialogActions>
-                    </Form>
-                )}
-            </Formik>
-        </Dialog>
-    );
+						</DialogContent>
+						<DialogActions>
+							<Button onClick={handleClose} color="secondary" variant="outlined">
+								{i18n.t("whatsappModal.buttons.cancel")}
+							</Button>
+							<Button
+								type="submit"
+								color="primary"
+								variant="contained"
+								disabled={isSubmitting}
+								className={classes.btnWrapper}
+							>
+								{whatsAppId
+									? i18n.t("whatsappModal.buttons.okEdit")
+									: i18n.t("whatsappModal.buttons.okAdd")}
+								{isSubmitting && (
+									<CircularProgress
+										size={24}
+										className={classes.buttonProgress}
+									/>
+								)}
+							</Button>
+						</DialogActions>
+					</Form>
+				)}
+			</Formik>
+		</Dialog>
+	);
 };
 
 export default WebchatModal;

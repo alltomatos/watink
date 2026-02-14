@@ -16,8 +16,7 @@ import {
     Http as HttpIcon,
     LibraryBooks as KnowledgeIcon,
     Language as ApiIcon,
-    Assignment as HelpdeskIcon,
-    LocalOffer as TagIcon
+    Assignment as HelpdeskIcon
 } from '@material-ui/icons';
 import api from '../../services/api';
 
@@ -100,8 +99,7 @@ const useStyles = makeStyles((theme) => ({
     colorEnd: { background: 'linear-gradient(135deg, #f44336 0%, #c62828 100%)' },
     colorDefault: { background: 'linear-gradient(135deg, #607d8b 0%, #455a64 100%)' },
     colorTicket: { background: 'linear-gradient(135deg, #f06292 0%, #c2185b 100%)' },
-    colorHelpdesk: { background: 'linear-gradient(135deg, #009688 0%, #00695c 100%)' },
-    colorTag: { background: 'linear-gradient(135deg, #FFB74D 0%, #F57C00 100%)' } // Laranja
+    colorHelpdesk: { background: 'linear-gradient(135deg, #009688 0%, #00695c 100%)' }
 }));
 
 const onDragStart = (event, nodeType, label) => {
@@ -180,7 +178,6 @@ const NodesSidebar = () => {
                 <DraggableNode type="ticket" label="Ticket" icon={TicketIcon} colorClass="colorTicket" />
                 <DraggableNode type="webhook" label="Webhook" icon={HttpIcon} colorClass="colorWebhook" />
                 <DraggableNode type="api" label="API" icon={ApiIcon} colorClass="colorApi" />
-                <DraggableNode type="tag" label="Tag" icon={TagIcon} colorClass="colorTag" />
             </div>
 
             {/* Categoria: Helpdesk (Condicional) */}

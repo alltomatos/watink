@@ -1,6 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
 import AppError from "../../errors/AppError";
-import Whatsapp from "../../models/Whatsapp";
 import Ticket from "../../models/Ticket";
 import RabbitMQService from "../RabbitMQService";
 import { Envelope } from "../../microservice/contracts";
@@ -97,16 +96,8 @@ const SendWhatsAppCarousel = async ({
             }
         };
 
-        // Determine Engine Type
-        let engineType = ticket.whatsapp?.engineType;
-        if (!engineType) {
-            const whatsapp = await Whatsapp.findByPk(ticket.whatsappId);
-            engineType = whatsapp?.engineType;
-        }
-        if (!engineType) engineType = "whaileys";
-
         await RabbitMQService.publishCommand(
-            `wbot.${ticket.tenantId}.${ticket.whatsappId}.${engineType}.message.send.carousel`,
+            `wbot.${ticket.tenantId}.${ticket.whatsappId}.message.send.carousel`,
             command
         );
 

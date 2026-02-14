@@ -25,7 +25,6 @@ export type CommandType =
 export interface StartSessionPayload {
   proxy?: string;
   sessionId: number;
-  sessionInstanceId?: number; // [NEW] Unique ID per start attempt
   sessionToken?: string;
   usePairingCode?: boolean;
   phoneNumber?: string;

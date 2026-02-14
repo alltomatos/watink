@@ -9,7 +9,7 @@ function connectToSocket() {
   return openSocket(getBackendUrl(), {
     transports: ["websocket"],
     query: {
-      token: token,
+      token: JSON.parse(token),
     },
   });
 }

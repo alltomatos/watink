@@ -1,6 +1,5 @@
 import AppError from "../../errors/AppError";
 import Deal from "../../models/Deal";
-import EntityTagService from "../TagServices/EntityTagService";
 
 interface DealData {
     title?: string;
@@ -8,10 +7,8 @@ interface DealData {
     priority?: number;
     contactId?: number;
     ticketId?: number;
-
     pipelineId?: number;
     stageId?: number;
-    tags?: number[];
 }
 
 interface Request {
@@ -46,18 +43,7 @@ const UpdateDealService = async ({
         stageId
     });
 
-    if (dealData.tags) {
-        await EntityTagService.SyncEntityTags({
-            tagIds: dealData.tags,
-            entityType: 'deal',
-            entityId: deal.id,
-            tenantId: tenantId as string
-        });
-    }
-
-    await deal.reload({
-        include: ["contact", "ticket", "tags"]
-    });
+    await deal.reload();
 
     return deal;
 };

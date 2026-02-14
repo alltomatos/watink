@@ -1,70 +1,37 @@
-import React, { useState, useEffect, useCallback, useContext } from "react";
+import React, { useState, useEffect, useReducer, useContext } from "react";
 import * as Yup from "yup";
 import { Formik, Form, Field } from "formik";
 import { toast } from "react-toastify";
 import { useParams, useHistory } from "react-router-dom";
 
 import {
-    makeStyles,
-    Paper,
-    Grid,
-    Typography,
-    TextField,
     Button,
-    IconButton,
-    Checkbox,
-    FormControlLabel,
-    Collapse,
     CircularProgress,
-    InputAdornment,
-    Chip,
-    MenuItem,
     Select,
     InputLabel,
+    MenuItem,
     FormControl,
-    Fade,
-    Tooltip
+    TextField,
+    InputAdornment,
+    IconButton,
+    Paper,
+    Tabs,
+    Tab,
+    Box,
+    Typography,
+    Grid,
+    Checkbox,
+    FormControlLabel,
+    FormGroup
 } from "@material-ui/core";
 
-import {
-    ArrowBack,
-    Save,
-    ExpandMore,
-    ExpandLess,
-    ContactMail,
-    ConfirmationNumber,
-    Group,
-    QuestionAnswer,
-    AccountTree,
-    MenuBook,
-    Phone,
-    QueuePlayNext,
-    Settings,
-    Dashboard,
-    Code,
-    Business,
-    Storefront,
-    Headset,
-    Drafts,
-    Person,
-    Email,
-    Lock,
-    Visibility,
-    VisibilityOff,
-    WhatsApp,
-    SupervisorAccount,
-    Security,
-    Block,
-    CheckCircle,
-
-    Send,
-    VerifiedUser,
-    Search
-} from "@material-ui/icons";
-import Switch from "@material-ui/core/Switch";
-import InputBase from "@material-ui/core/InputBase";
+import { Visibility, VisibilityOff } from "@material-ui/icons";
+import { makeStyles } from "@material-ui/core/styles";
+import { green } from "@material-ui/core/colors";
 
 import MainContainer from "../../components/MainContainer";
+import MainHeader from "../../components/MainHeader";
+import Title from "../../components/Title";
 import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
 import toastError from "../../errors/toastError";
@@ -75,632 +42,363 @@ import useWhatsApps from "../../hooks/useWhatsApps";
 
 const useStyles = makeStyles((theme) => ({
     root: {
+        display: "flex",
+        flexWrap: "wrap",
+    },
+    paper: {
         padding: theme.spacing(2),
-        animation: "$fadeIn 0.4s ease-out",
-    },
-    "@keyframes fadeIn": {
-        from: { opacity: 0, transform: "translateY(10px)" },
-        to: { opacity: 1, transform: "translateY(0)" },
-    },
-    header: {
         display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        marginBottom: theme.spacing(3),
-        padding: theme.spacing(2),
-        background: `linear-gradient(135deg, ${theme.palette.primary.main}15 0%, ${theme.palette.secondary.main}10 100%)`,
-        borderRadius: 16,
-        backdropFilter: "blur(10px)",
+        overflow: "auto",
+        flexDirection: "column",
     },
-    headerLeft: {
+    multFieldLine: {
         display: "flex",
-        alignItems: "center",
-        gap: theme.spacing(2),
-    },
-    backButton: {
-        background: theme.palette.background.paper,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-        "&:hover": {
-            background: theme.palette.background.paper,
-            transform: "scale(1.05)",
-        },
-        transition: "transform 0.2s ease",
-    },
-    card: {
-        padding: theme.spacing(2.5),
-        borderRadius: 16,
-        background: theme.palette.background.paper,
-        boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
-        border: `1px solid ${theme.palette.divider}`,
-        height: "100%",
-        transition: "box-shadow 0.3s ease, transform 0.2s ease",
-        "&:hover": {
-            boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
+        "& > *:not(:last-child)": {
+            marginRight: theme.spacing(1),
         },
     },
-    cardHeader: {
-        display: "flex",
-        alignItems: "center",
-        gap: theme.spacing(1.5),
-        marginBottom: theme.spacing(2),
-        paddingBottom: theme.spacing(1.5),
-        borderBottom: `1px solid ${theme.palette.divider}`,
+    btnWrapper: {
+        position: "relative",
     },
-    cardIcon: {
-        padding: theme.spacing(1),
-        borderRadius: 10,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
+    buttonProgress: {
+        color: green[500],
+        position: "absolute",
+        top: "50%",
+        left: "50%",
+        marginTop: -12,
+        marginLeft: -12,
     },
-    cardIconUser: {
-        background: `linear-gradient(135deg, ${theme.palette.info.main}20 0%, ${theme.palette.info.light}20 100%)`,
-        color: theme.palette.info.main,
+    formControl: {
+        margin: theme.spacing(1),
+        minWidth: 120,
     },
-    cardIconSettings: {
-        background: `linear-gradient(135deg, ${theme.palette.success.main}20 0%, ${theme.palette.success.light}20 100%)`,
-        color: theme.palette.success.main,
-    },
-    cardIconPermissions: {
-        background: `linear-gradient(135deg, ${theme.palette.warning.main}20 0%, ${theme.palette.warning.light}20 100%)`,
-        color: theme.palette.warning.main,
-    },
-    cardTitle: {
-        fontWeight: 600,
-        fontSize: "1.1rem",
-    },
-    categorySection: {
-        marginBottom: theme.spacing(1),
-    },
-    categoryHeader: {
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: theme.spacing(1, 1.5),
-        borderRadius: 10,
-        cursor: "pointer",
-        transition: "background 0.2s ease",
-        "&:hover": {
-            background: theme.palette.action.hover,
-        },
-    },
-    categoryHeaderLeft: {
-        display: "flex",
-        alignItems: "center",
-        gap: theme.spacing(1),
-    },
-    categoryIcon: {
-        fontSize: 20,
-        opacity: 0.8,
-    },
-    categoryName: {
-        fontWeight: 500,
-        fontSize: "0.95rem",
-    },
-    categoryBadge: {
-        marginLeft: theme.spacing(1),
-    },
-    permissionItem: {
-        paddingLeft: theme.spacing(4),
-    },
-    permissionCheckbox: {
-        padding: theme.spacing(0.5),
-    },
-    permissionLabel: {
-        fontSize: "0.875rem",
-    },
-    permissionsContainer: {
-        maxHeight: 600,
-        overflowY: "auto",
-        ...theme.scrollbarStyles,
-    },
-    saveButton: {
-        borderRadius: 10,
-        padding: theme.spacing(1, 3),
-        textTransform: "none",
-        fontWeight: 600,
-        boxShadow: "0 4px 14px rgba(0,0,0,0.15)",
-        "&:hover": {
-            boxShadow: "0 6px 20px rgba(0,0,0,0.2)",
-        },
-    },
-    loadingContainer: {
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        minHeight: 400,
-    },
-    chip: {
-        marginLeft: theme.spacing(1),
-        height: 22,
-        fontSize: "0.75rem",
-    },
-    fieldSpacing: {
-        marginBottom: theme.spacing(2),
-    },
-    headerButtons: {
-        display: "flex",
-        gap: theme.spacing(1),
-        alignItems: "center",
-    },
-    actionButton: {
-        borderRadius: 10,
-        padding: theme.spacing(1, 2),
-        textTransform: "none",
-        fontWeight: 500,
-    },
-    searchContainer: {
-        display: "flex",
-        alignItems: "center",
-        backgroundColor: theme.palette.background.default,
-        borderRadius: 12,
-        padding: "8px 16px",
-        marginBottom: theme.spacing(2),
-        border: `1px solid ${theme.palette.divider}`,
-        transition: "all 0.2s ease",
-        "&:focus-within": {
-            borderColor: theme.palette.primary.main,
-            boxShadow: `0 0 0 2px ${theme.palette.primary.main}20`,
-        },
-    },
-    searchInput: {
-        marginLeft: theme.spacing(1),
-        flex: 1,
-        fontSize: "0.95rem",
-    },
-    searchIcon: {
-        color: theme.palette.text.secondary,
-    },
+    tabContent: {
+        padding: theme.spacing(2)
+    }
 }));
 
-
-
-const categoryIcons = {
-    "Contatos": ContactMail,
-    "Tickets": ConfirmationNumber,
-    "Usuários": Group,
-    "Grupos": SupervisorAccount,
-    "Respostas Rápidas": QuestionAnswer,
-    "Flow Builder": AccountTree,
-    "Base de Conhecimento": MenuBook,
-    "Conexões": Phone,
-    "Filas": QueuePlayNext,
-    "Configurações": Settings,
-    "Dashboard": Dashboard,
-    "Pipelines": AccountTree,
-    "Desenvolvedor": Code,
-    "Clientes": Business,
-    "Marketplace": Storefront,
-    "Helpdesk": Headset,
-    "Outros": Settings,
-};
+const UserSchema = Yup.object().shape({
+    name: Yup.string()
+        .min(2, "Too Short!")
+        .max(50, "Too Long!")
+        .required("Required"),
+    password: Yup.string().min(5, "Too Short!").max(50, "Too Long!"),
+    email: Yup.string().email("Invalid email").required("Required"),
+});
 
 const UserEdit = () => {
     const classes = useStyles();
     const { userId } = useParams();
     const history = useHistory();
-    const { user: loggedInUser } = useContext(AuthContext);
-    const { loading: loadingWhats, whatsApps } = useWhatsApps();
-
-    const isNew = userId === "new";
 
     const initialState = {
         name: "",
         email: "",
         password: "",
         profile: "user",
-        groupIds: [],
-        queues: [],
-        whatsappId: ""
+        groupId: ""
     };
 
-    const UserSchema = Yup.object().shape({
-        name: Yup.string()
-            .min(2, "Too Short!")
-            .max(50, "Too Long!")
-            .required("Required"),
-        password: Yup.string()
-            .min(5, "Too Short!")
-            .max(50, "Too Long!")
-            .test("password-required", "Required", function (value) {
-                return !isNew || (isNew && !!value);
-            }),
-        email: Yup.string().email("Invalid email").required("Required"),
-    });
+    const { user: loggedInUser } = useContext(AuthContext);
 
     const [user, setUser] = useState(initialState);
-    const [loading, setLoading] = useState(!isNew);
-    const [saving, setSaving] = useState(false);
-    const [showPassword, setShowPassword] = useState(false);
-    const [togglingStatus, setTogglingStatus] = useState(false);
-    const [resendingEmail, setResendingEmail] = useState(false);
-    const [verifyingEmail, setVerifyingEmail] = useState(false);
-    const [smtpPluginActive, setSmtpPluginActive] = useState(false);
-
-    // Data lists
-    const [groups, setGroups] = useState([]);
-    const [roles, setRoles] = useState([]);
-
-
-    // Selected values
     const [selectedQueueIds, setSelectedQueueIds] = useState([]);
-    const [selectedRoleIds, setSelectedRoleIds] = useState([]);
-    const [whatsappId, setWhatsappId] = useState("");
-
-
-
-
-
-
+    const [showPassword, setShowPassword] = useState(false);
+    const [whatsappId, setWhatsappId] = useState(false);
+    const { loading, whatsApps } = useWhatsApps();
+    const [tab, setTab] = useState(0);
+    const [groups, setGroups] = useState([]);
+    const [allPermissions, setAllPermissions] = useState([]);
+    const [selectedPermissions, setSelectedPermissions] = useState([]);
 
     useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
+        const fetchUser = async () => {
             try {
-                const { data: groupsData } = await api.get("/groups");
-                setGroups(groupsData);
-
-                if (!isNew) {
-                    const { data } = await api.get(`/users/${userId}`);
-                    setUser(prevState => ({ ...prevState, ...data, groupId: data.groupId || "" }));
-                    setSelectedQueueIds(data.queues?.map(q => q.id) || []);
-                    setWhatsappId(data.whatsappId || "");
-                }
+                const { data } = await api.get(`/users/${userId}`);
+                setUser((prevState) => {
+                    return { ...prevState, ...data };
+                });
+                const userQueueIds = data.queues?.map((queue) => queue.id);
+                setSelectedQueueIds(userQueueIds);
+                setWhatsappId(data.whatsappId ? data.whatsappId : "");
+                setSelectedPermissions(data.permissions?.map(p => p.id) || []);
             } catch (err) {
                 toastError(err);
-            } finally {
-                setLoading(false);
             }
         };
 
-        fetchData();
-    }, [userId, isNew]);
-
-    // Check if SMTP plugin is active
-    useEffect(() => {
-        const checkSmtpPlugin = async () => {
+        const fetchGroups = async () => {
             try {
-                const { data } = await api.get("/plugins/api/v1/plugins/installed");
-                if (data.active && data.active.includes("smtp")) {
-                    setSmtpPluginActive(true);
-                }
+                const { data } = await api.get("/groups");
+                setGroups(data);
             } catch (err) {
-                setSmtpPluginActive(false);
+                toastError(err);
             }
         };
-        checkSmtpPlugin();
-    }, []);
+
+        const fetchPermissions = async () => {
+            try {
+                const { data } = await api.get("/permissions");
+                setAllPermissions(data);
+            } catch (err) {
+                toastError(err);
+            }
+        };
+
+        fetchUser();
+        fetchGroups();
+        fetchPermissions();
+    }, [userId]);
 
     const handleSaveUser = async (values) => {
-        setSaving(true);
-        const userData = {
-            ...values,
-            whatsappId,
-            queueIds: selectedQueueIds,
-            permissions: []
-        };
-
+        const userData = { ...values, whatsappId, queueIds: selectedQueueIds, permissions: selectedPermissions };
         try {
-            if (isNew) {
-                await api.post("/users", userData);
-                toast.success(i18n.t("userModal.success"));
-                history.push("/users");
+            await api.put(`/users/${userId}`, userData);
+            toast.success(i18n.t("userModal.success"));
+        } catch (err) {
+            toastError(err);
+        }
+    };
+
+    const handleTabChange = (event, newValue) => {
+        setTab(newValue);
+    };
+
+    const handlePermissionChange = (permissionId) => {
+        setSelectedPermissions(prevState => {
+            if (prevState.includes(permissionId)) {
+                return prevState.filter(id => id !== permissionId);
             } else {
-                await api.put(`/users/${userId}`, userData);
-                toast.success(i18n.t("userModal.success"));
+                return [...prevState, permissionId];
             }
-        } catch (err) {
-            toastError(err);
-        } finally {
-            setSaving(false);
-        }
+        });
     };
-
-
-
-    const handleToggleStatus = async () => {
-        setTogglingStatus(true);
-        try {
-            const { data } = await api.post(`/users/${userId}/toggle-status`);
-            setUser(prev => ({ ...prev, enabled: data.enabled }));
-            toast.success(data.enabled ? i18n.t("userModal.toasts.activated") : i18n.t("userModal.toasts.deactivated"));
-        } catch (err) {
-            toastError(err);
-        } finally {
-            setTogglingStatus(false);
-        }
-    };
-
-    const handleResendResetPasswordEmail = async () => {
-        setResendingEmail(true);
-        try {
-            await api.post(`/users/${userId}/resend-welcome`);
-            toast.success(i18n.t("userModal.toasts.resetEmailSent"));
-        } catch (err) {
-            toastError(err);
-        } finally {
-            setResendingEmail(false);
-        }
-    };
-
-    const handleManualVerify = async () => {
-        setVerifyingEmail(true);
-        try {
-            await api.post(`/users/${userId}/manual-verify`);
-            setUser(prev => ({ ...prev, emailVerified: true }));
-            toast.success(i18n.t("userModal.toasts.emailVerified"));
-        } catch (err) {
-            toastError(err);
-        } finally {
-            setVerifyingEmail(false);
-        }
-    };
-
-
-
-    if (loading) {
-        return (
-            <MainContainer>
-                <div className={classes.loadingContainer}>
-                    <CircularProgress />
-                </div>
-            </MainContainer>
-        );
-    }
 
     return (
         <MainContainer>
-            <Formik
-                initialValues={user}
-                enableReinitialize
-                validationSchema={UserSchema}
-                onSubmit={handleSaveUser}
-            >
-                {({ touched, errors, values }) => (
-                    <Form>
-                        <Fade in timeout={400}>
-                            <div className={classes.root}>
-                                {/* Header */}
-                                <div className={classes.header}>
-                                    <div className={classes.headerLeft}>
-                                        <IconButton
-                                            className={classes.backButton}
-                                            onClick={() => history.push("/users")}
-                                        >
-                                            <ArrowBack />
-                                        </IconButton>
-                                        <div>
-                                            <Typography variant="h5" style={{ fontWeight: 600 }}>
-                                                {isNew ? i18n.t("userModal.title.add") : i18n.t("userModal.title.edit")}
-                                            </Typography>
-                                            {!isNew && (
-                                                <Typography variant="body2" color="textSecondary">
-                                                    {user.name}
-                                                </Typography>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className={classes.headerButtons}>
-                                        {!isNew && (
-                                            <>
-                                                <Button
-                                                    variant="outlined"
-                                                    color="primary"
-                                                    startIcon={resendingEmail ? <CircularProgress size={18} /> : <Lock />}
-                                                    className={classes.actionButton}
-                                                    onClick={handleResendResetPasswordEmail}
-                                                    disabled={resendingEmail || saving}
-                                                >
-                                                    {i18n.t("userModal.buttons.sendResetPassword")}
-                                                </Button>
+            <MainHeader>
+                <Title>{user.name}</Title>
+            </MainHeader>
+            <Paper className={classes.paper}>
+                <Tabs value={tab} onChange={handleTabChange} indicatorColor="primary" textColor="primary">
+                    <Tab label="Dados do Usuário" />
+                    <Tab label="Permissões" />
+                </Tabs>
 
-                                                <Can
-                                                    perform="users:verify"
-                                                    yes={() => !user.emailVerified && (
-                                                        <Button
-                                                            variant="outlined"
-                                                            color="secondary"
-                                                            startIcon={verifyingEmail ? <CircularProgress size={18} /> : <VerifiedUser />}
-                                                            className={classes.actionButton}
-                                                            onClick={handleManualVerify}
-                                                            disabled={verifyingEmail || saving}
-                                                        >
-                                                            {i18n.t("userModal.buttons.manualVerify")}
-                                                        </Button>
-                                                    )}
-                                                />
-                                            </>
-                                        )}
-                                        <Button
-                                            variant="contained"
-                                            color="primary"
-                                            startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <Save />}
-                                            className={classes.saveButton}
-                                            type="submit"
-                                            disabled={saving}
-                                        >
-                                            {isNew ? i18n.t("userModal.buttons.okAdd") : i18n.t("userModal.buttons.okEdit")}
-                                        </Button>
-                                    </div>
+                <Box hidden={tab !== 0} className={classes.tabContent}>
+                    <Formik
+                        initialValues={user}
+                        enableReinitialize={true}
+                        validationSchema={UserSchema}
+                        onSubmit={(values, actions) => {
+                            setTimeout(() => {
+                                handleSaveUser(values);
+                                actions.setSubmitting(false);
+                            }, 400);
+                        }}
+                    >
+                        {({ touched, errors, isSubmitting }) => (
+                            <Form>
+                                <div className={classes.multFieldLine}>
+                                    <Field
+                                        as={TextField}
+                                        label={i18n.t("userModal.form.name")}
+                                        name="name"
+                                        error={touched.name && Boolean(errors.name)}
+                                        helperText={touched.name && errors.name}
+                                        variant="outlined"
+                                        margin="dense"
+                                        fullWidth
+                                    />
+                                    <Field
+                                        as={TextField}
+                                        name="password"
+                                        variant="outlined"
+                                        margin="dense"
+                                        label={i18n.t("userModal.form.password")}
+                                        error={touched.password && Boolean(errors.password)}
+                                        helperText={touched.password && errors.password}
+                                        type={showPassword ? "text" : "password"}
+                                        InputProps={{
+                                            endAdornment: (
+                                                <InputAdornment position="end">
+                                                    <IconButton
+                                                        aria-label="toggle password visibility"
+                                                        onClick={() => setShowPassword((e) => !e)}
+                                                    >
+                                                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                                                    </IconButton>
+                                                </InputAdornment>
+                                            ),
+                                        }}
+                                        fullWidth
+                                    />
                                 </div>
+                                <div className={classes.multFieldLine}>
+                                    <Field
+                                        as={TextField}
+                                        label={i18n.t("userModal.form.email")}
+                                        name="email"
+                                        error={touched.email && Boolean(errors.email)}
+                                        helperText={touched.email && errors.email}
+                                        variant="outlined"
+                                        margin="dense"
+                                        fullWidth
+                                    />
+                                    <FormControl
+                                        variant="outlined"
+                                        className={classes.formControl}
+                                        margin="dense"
+                                    >
+                                        <Can
+                                            role={loggedInUser.profile}
+                                            perform="user-modal:editProfile"
+                                            yes={() => (
+                                                <>
+                                                    <InputLabel id="profile-selection-input-label">
+                                                        {i18n.t("userModal.form.profile")}
+                                                    </InputLabel>
 
-                                <Grid container spacing={3}>
-                                    {/* Dados do Usuário */}
-                                    <Grid item xs={12} md={8}>
-                                        <Paper className={classes.card}>
-                                            <div className={classes.cardHeader}>
-                                                <div className={`${classes.cardIcon} ${classes.cardIconUser}`}>
-                                                    <Person />
-                                                </div>
-                                                <Typography className={classes.cardTitle}>
-                                                    Dados do Usuário
-                                                </Typography>
-                                            </div>
+                                                    <Field
+                                                        as={Select}
+                                                        label={i18n.t("userModal.form.profile")}
+                                                        name="profile"
+                                                        labelId="profile-selection-label"
+                                                        id="profile-selection"
+                                                        required
+                                                    >
+                                                        <MenuItem value="admin">Admin</MenuItem>
+                                                        <MenuItem value="user">User</MenuItem>
+                                                    </Field>
+                                                </>
+                                            )}
+                                        />
+                                    </FormControl>
 
-                                            <Field
-                                                as={TextField}
-                                                label={i18n.t("userModal.form.name")}
-                                                name="name"
-                                                variant="outlined"
-                                                fullWidth
-                                                error={touched.name && Boolean(errors.name)}
-                                                helperText={touched.name && errors.name}
-                                                className={classes.fieldSpacing}
-                                                InputProps={{
-                                                    startAdornment: (
-                                                        <InputAdornment position="start">
-                                                            <Person color="action" fontSize="small" />
-                                                        </InputAdornment>
-                                                    ),
-                                                    style: { borderRadius: 12 }
-                                                }}
-                                            />
+                                    <FormControl
+                                        variant="outlined"
+                                        className={classes.formControl}
+                                        margin="dense"
+                                        fullWidth
+                                    >
+                                        <InputLabel id="group-selection-input-label">
+                                            {i18n.t("userModal.form.group")}
+                                        </InputLabel>
+                                        <Field
+                                            as={Select}
+                                            label={i18n.t("userModal.form.group")}
+                                            name="groupId"
+                                            labelId="group-selection-label"
+                                            id="group-selection"
+                                        >
+                                            <MenuItem value=""><em>None</em></MenuItem>
+                                            {groups.map(group => (
+                                                <MenuItem key={group.id} value={group.id}>{group.name}</MenuItem>
+                                            ))}
+                                        </Field>
+                                    </FormControl>
 
-                                            <Field
-                                                as={TextField}
-                                                label={i18n.t("userModal.form.email")}
-                                                name="email"
-                                                variant="outlined"
-                                                fullWidth
-                                                error={touched.email && Boolean(errors.email)}
-                                                helperText={touched.email && errors.email}
-                                                className={classes.fieldSpacing}
-                                                InputProps={{
-                                                    startAdornment: (
-                                                        <InputAdornment position="start">
-                                                            <Email color="action" fontSize="small" />
-                                                        </InputAdornment>
-                                                    ),
-                                                    style: { borderRadius: 12 }
-                                                }}
-                                            />
-
-                                            <Field
-                                                as={TextField}
-                                                name="password"
-                                                variant="outlined"
-                                                label={i18n.t("userModal.form.password")}
-                                                error={touched.password && Boolean(errors.password)}
-                                                helperText={touched.password && errors.password}
-                                                type={showPassword ? "text" : "password"}
-                                                fullWidth
-                                                className={classes.fieldSpacing}
-                                                InputProps={{
-                                                    startAdornment: (
-                                                        <InputAdornment position="start">
-                                                            <Lock color="action" fontSize="small" />
-                                                        </InputAdornment>
-                                                    ),
-                                                    endAdornment: (
-                                                        <InputAdornment position="end">
-                                                            <IconButton
-                                                                aria-label="toggle password visibility"
-                                                                onClick={() => setShowPassword((e) => !e)}
-                                                                size="small"
-                                                            >
-                                                                {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
-                                                            </IconButton>
-                                                        </InputAdornment>
-                                                    ),
-                                                    style: { borderRadius: 12 }
-                                                }}
-                                            />
-
+                                </div>
+                                <Can
+                                    role={loggedInUser.profile}
+                                    perform="user-modal:editQueues"
+                                    yes={() => (
+                                        <QueueSelect
+                                            selectedQueueIds={selectedQueueIds}
+                                            onChange={(values) => setSelectedQueueIds(values)}
+                                        />
+                                    )}
+                                />
+                                <Can
+                                    role={loggedInUser.profile}
+                                    perform="user-modal:editQueues"
+                                    yes={() => (
+                                        !loading && (
                                             <FormControl
                                                 variant="outlined"
+                                                margin="dense"
+                                                className={classes.maxWidth}
                                                 fullWidth
                                             >
-                                                <InputLabel id="group-selection-input-label">
-                                                    {i18n.t("userModal.form.role")}
-                                                </InputLabel>
+                                                <InputLabel>{i18n.t("userModal.form.whatsapp")}</InputLabel>
                                                 <Field
                                                     as={Select}
-                                                    label={i18n.t("userModal.form.role")}
-                                                    name="groupId"
-                                                    labelId="group-selection-label"
-                                                    id="group-selection"
-                                                    style={{ borderRadius: 12 }}
+                                                    value={whatsappId}
+                                                    onChange={(e) => setWhatsappId(e.target.value)}
+                                                    label={i18n.t("userModal.form.whatsapp")}
                                                 >
-                                                    <MenuItem value=""><em>None</em></MenuItem>
-                                                    {groups.map(group => (
-                                                        <MenuItem key={group.id} value={group.id}>{group.name}</MenuItem>
+                                                    <MenuItem value={""}>&nbsp;</MenuItem>
+                                                    {whatsApps.map((whatsapp) => (
+                                                        <MenuItem key={whatsapp.id} value={whatsapp.id}>
+                                                            {whatsapp.name}
+                                                        </MenuItem>
                                                     ))}
                                                 </Field>
                                             </FormControl>
+                                        )
+                                    )}
+                                />
 
-                                        </Paper>
-                                    </Grid>
-
-                                    {/* Configurações Adicionais */}
-                                    <Grid item xs={12} md={4}>
-                                        <Paper className={classes.card}>
-                                            <div className={classes.cardHeader}>
-                                                <div className={`${classes.cardIcon} ${classes.cardIconSettings}`}>
-                                                    <Settings />
-                                                </div>
-                                                <Typography className={classes.cardTitle}>
-                                                    Configurações
-                                                </Typography>
-                                            </div>
-
-                                            <div className={classes.fieldSpacing}>
-                                                <QueueSelect
-                                                    selectedQueueIds={selectedQueueIds}
-                                                    onChange={(values) => setSelectedQueueIds(values)}
-                                                />
-                                            </div>
-
-                                            <Can
-                                                role={loggedInUser.profile}
-                                                perform="user-modal:editQueues"
-                                                yes={() => (
-                                                    !loadingWhats && (
-                                                        <FormControl
-                                                            variant="outlined"
-                                                            fullWidth
-                                                        >
-                                                            <InputLabel>{i18n.t("userModal.form.whatsapp")}</InputLabel>
-                                                            <Field
-                                                                as={Select}
-                                                                value={whatsappId}
-                                                                onChange={(e) => setWhatsappId(e.target.value)}
-                                                                label={i18n.t("userModal.form.whatsapp")}
-                                                                style={{ borderRadius: 12 }}
-                                                            >
-                                                                <MenuItem value={""}>&nbsp;</MenuItem>
-                                                                {whatsApps.map((whatsapp) => (
-                                                                    <MenuItem key={whatsapp.id} value={whatsapp.id}>
-                                                                        {whatsapp.name}
-                                                                    </MenuItem>
-                                                                ))}
-                                                            </Field>
-                                                        </FormControl>
-                                                    )
-                                                )}
+                                <div className={classes.btnWrapper}>
+                                    <Button
+                                        type="submit"
+                                        color="primary"
+                                        disabled={isSubmitting}
+                                        variant="contained"
+                                    >
+                                        {i18n.t("userModal.buttons.okEdit")}
+                                        {isSubmitting && (
+                                            <CircularProgress
+                                                size={24}
+                                                className={classes.buttonProgress}
                                             />
+                                        )}
+                                    </Button>
+                                </div>
+                            </Form>
+                        )}
+                    </Formik>
+                </Box>
 
-                                        </Paper>
+                <Box hidden={tab !== 1} className={classes.tabContent}>
+                    <Can
+                        role={loggedInUser.profile}
+                        perform="user-modal:editProfile"
+                        yes={() => (
+                            <Grid container spacing={2}>
+                                {allPermissions.map(permission => (
+                                    <Grid item xs={12} sm={6} md={4} key={permission.id}>
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
+                                                    checked={selectedPermissions.includes(permission.id)}
+                                                    onChange={() => handlePermissionChange(permission.id)}
+                                                    name={`permission-${permission.id}`}
+                                                    color="primary"
+                                                />
+                                            }
+                                            label={permission.description || permission.name}
+                                        />
                                     </Grid>
+                                ))}
+                            </Grid>
+                        )}
+                        no={() => <Typography variant="h6" color="error">Você não tem permissão para editar permissões.</Typography>}
+                    />
+                    <div className={classes.btnWrapper}>
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            onClick={() => handleSaveUser(user)}
+                        >
+                            Salvar Permissões
+                        </Button>
+                    </div>
+                </Box>
 
-
-
-                                </Grid>
-                            </div >
-                        </Fade >
-                    </Form >
-                )}
-            </Formik >
-        </MainContainer >
+            </Paper>
+        </MainContainer>
     );
 };
-
-// Start of Security Icon definition if it wasn't imported. 
-// Wait, I used Security in the code but didn't import it in the top list.
-// I see I imported 'Security' in GroupEdit but here I missed it in my manual list above?
-// Let me check my generated code imports.
-// Imports: ArrowBack, Save, ExpandMore, ExpandLess, ContactMail...
-// I missed 'Security'. I will add it.
-// Also 'Paper', 'Grid' etc are imported.
-// I'll make sure to add Security to imports.
 
 export default UserEdit;

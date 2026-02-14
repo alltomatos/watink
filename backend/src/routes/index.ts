@@ -12,7 +12,6 @@ import queueRoutes from "./queueRoutes";
 import quickAnswerRoutes from "./quickAnswerRoutes";
 import apiRoutes from "./apiRoutes";
 import microserviceRoutes from "./microserviceRoutes";
-import tenantSmtpSettingsRoutes from "./tenantSmtpSettingsRoutes";
 import tenantRoutes from "./tenantRoutes";
 import versionRoutes from "./versionRoutes";
 import postgresVersionRoutes from "./postgresVersionRoutes";
@@ -28,23 +27,16 @@ import flowRoutes from "./flowRoutes";
 import groupRoutes from "./groupRoutes";
 import knowledgeRoutes from "./knowledgeRoutes";
 import clientRoutes from "./clientRoutes";
-import roleRoutes from "./roleRoutes";
+import protocolRoutes from "./protocolRoutes";
 
 import pluginRoutes from "./pluginRoutes";
 import aiRoutes from "./aiRoutes";
 import webchatRoutes from "./WebchatRoutes";
-import stepRoutes from "./stepRoutes";
-import emailTemplateRoutes from "./emailTemplateRoutes";
-import saasRoutes from "./saasRoutes";
-
-import mobileRoutes from "./mobileRoutes";
-import tagRoutes from "./tagRoutes";
 
 const routes = Router();
 
 // routes.use(userRoutes); // Moved to bottom
 routes.use("/auth", authRoutes);
-routes.use("/mobile/v1", mobileRoutes);
 routes.use(settingRoutes);
 routes.use(contactRoutes);
 routes.use(ticketRoutes);
@@ -58,7 +50,6 @@ routes.use(microserviceRoutes);
 routes.use(tenantRoutes);
 routes.use(groupRoutes);
 routes.use("/version", versionRoutes);
-
 routes.use(postgresVersionRoutes);
 routes.use(rabbitmqVersionRoutes);
 routes.use(redisVersionRoutes);
@@ -69,16 +60,9 @@ routes.use(dealRoutes);
 routes.use(flowRoutes);
 routes.use(knowledgeRoutes);
 routes.use(clientRoutes);
-routes.use(roleRoutes);
-// routes.use(pluginRoutes); // Moved to app.ts to bypass body parser
+routes.use(protocolRoutes);
+routes.use(pluginRoutes);
 routes.use(aiRoutes);
-routes.use(tenantSmtpSettingsRoutes);
-routes.use(emailTemplateRoutes);
-routes.use(webchatRoutes);
-routes.use(stepRoutes);
-routes.use(saasRoutes);
-routes.use(tagRoutes);
 routes.use("/users", userRoutes);
 
 export default routes;
-

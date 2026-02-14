@@ -34,7 +34,6 @@ interface TicketData {
   status: string;
   queueId: number;
   userId: number;
-  tags?: number[];
 }
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
@@ -66,9 +65,7 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     userId,
     queueIds,
     withUnreadMessages,
-    isGroup,
-    tenantId: req.user.tenantId,
-    profile: req.user.profile
+    isGroup
   });
 
   return res.status(200).json({ tickets, count, hasMore });
@@ -187,10 +184,8 @@ export const syncHistory = async (
     }
   };
 
-  const engineType = ticket.whatsapp.engineType || "whaileys";
-
   await RabbitMQService.publishCommand(
-    `wbot.${tenantId}.${ticket.whatsappId}.${engineType}.history.sync`,
+    `wbot.${tenantId}.${ticket.whatsappId}.history.sync`,
     command
   );
 

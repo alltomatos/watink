@@ -55,33 +55,9 @@ module.exports = {
         }
 
         // 4. Update User to belong to this Group
-        const usersTableInfo = await queryInterface.describeTable("Users");
-        if ((usersTableInfo as any)["groupId"]) {
-            await queryInterface.sequelize.query(
-                `UPDATE "Users" SET "groupId" = ${groupId} WHERE id = ${user.id}`
-            );
-        }
-
-        // 4.1. Insert into UserGroups (New Many-to-Many)
-        try {
-            await queryInterface.describeTable("UserGroups");
-            const userGroups = await queryInterface.sequelize.query(
-                `SELECT id FROM "UserGroups" WHERE "userId" = ${user.id} AND "groupId" = ${groupId} LIMIT 1;`
-            );
-
-            if ((userGroups[0] as any[]).length === 0) {
-                await queryInterface.bulkInsert("UserGroups", [{
-                    userId: user.id,
-                    groupId: groupId,
-                    tenantId: tenantId,
-                    createdAt: new Date(),
-                    updatedAt: new Date()
-                }]);
-            }
-        } catch (error) {
-            // UserGroups table might not exist yet if running in old migration order
-            console.log("UserGroups table does not exist. Skipping UserGroups seed.");
-        }
+        await queryInterface.sequelize.query(
+            `UPDATE "Users" SET "groupId" = ${groupId} WHERE id = ${user.id}`
+        );
 
         // 5. Get All Permissions
         const permissions = await queryInterface.sequelize.query(

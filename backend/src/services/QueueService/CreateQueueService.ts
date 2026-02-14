@@ -1,21 +1,15 @@
 import * as Yup from "yup";
 import AppError from "../../errors/AppError";
-import Queue, { DISTRIBUTION_STRATEGIES, DistributionStrategy } from "../../models/Queue";
+import Queue from "../../models/Queue";
 
 interface QueueData {
   name: string;
   color: string;
   greetingMessage?: string;
-  distributionStrategy?: DistributionStrategy;
-  prioritizeWallet?: boolean;
-  whatsappIds?: number[];
 }
 
-// Valid distribution strategies for validation
-const validStrategies = Object.values(DISTRIBUTION_STRATEGIES);
-
 const CreateQueueService = async (queueData: QueueData): Promise<Queue> => {
-  const { color, name, distributionStrategy, prioritizeWallet, whatsappIds } = queueData;
+  const { color, name } = queueData;
 
   const queueSchema = Yup.object().shape({
     name: Yup.string()
@@ -56,27 +50,18 @@ const CreateQueueService = async (queueData: QueueData): Promise<Queue> => {
           }
           return false;
         }
-      ),
-    distributionStrategy: Yup.string()
-      .oneOf(validStrategies, "ERR_QUEUE_INVALID_DISTRIBUTION_STRATEGY")
-      .default("MANUAL"),
-    prioritizeWallet: Yup.boolean().default(false)
+      )
   });
 
   try {
-    await queueSchema.validate({ color, name, distributionStrategy, prioritizeWallet });
-  } catch (err: any) {
+    await queueSchema.validate({ color, name });
+  } catch (err) {
     throw new AppError(err.message);
   }
 
   const queue = await Queue.create(queueData);
 
-  if (whatsappIds) {
-    await queue.$set("whatsapps", whatsappIds);
-  }
-
   return queue;
 };
 
 export default CreateQueueService;
-

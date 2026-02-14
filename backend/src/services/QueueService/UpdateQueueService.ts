@@ -1,26 +1,20 @@
 import { Op } from "sequelize";
 import * as Yup from "yup";
 import AppError from "../../errors/AppError";
-import Queue, { DISTRIBUTION_STRATEGIES, DistributionStrategy } from "../../models/Queue";
+import Queue from "../../models/Queue";
 import ShowQueueService from "./ShowQueueService";
 
 interface QueueData {
   name?: string;
   color?: string;
   greetingMessage?: string;
-  distributionStrategy?: DistributionStrategy;
-  prioritizeWallet?: boolean;
-  whatsappIds?: number[];
 }
-
-// Valid distribution strategies for validation
-const validStrategies = Object.values(DISTRIBUTION_STRATEGIES);
 
 const UpdateQueueService = async (
   queueId: number | string,
   queueData: QueueData
 ): Promise<Queue> => {
-  const { color, name, distributionStrategy, prioritizeWallet, whatsappIds } = queueData;
+  const { color, name } = queueData;
 
   const queueSchema = Yup.object().shape({
     name: Yup.string()
@@ -60,16 +54,12 @@ const UpdateQueueService = async (
           }
           return true;
         }
-      ),
-    distributionStrategy: Yup.string()
-      .oneOf(validStrategies, "ERR_QUEUE_INVALID_DISTRIBUTION_STRATEGY")
-      .nullable(),
-    prioritizeWallet: Yup.boolean().nullable()
+      )
   });
 
   try {
-    await queueSchema.validate({ color, name, distributionStrategy, prioritizeWallet });
-  } catch (err: any) {
+    await queueSchema.validate({ color, name });
+  } catch (err) {
     throw new AppError(err.message);
   }
 
@@ -77,12 +67,7 @@ const UpdateQueueService = async (
 
   await queue.update(queueData);
 
-  if (whatsappIds) {
-    await queue.$set("whatsapps", whatsappIds);
-  }
-
   return queue;
 };
 
 export default UpdateQueueService;
-

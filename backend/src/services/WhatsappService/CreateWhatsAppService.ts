@@ -1,11 +1,8 @@
 import * as Yup from "yup";
 
-import { Op } from "sequelize";
 import AppError from "../../errors/AppError";
-import Tenant from "../../models/Tenant";
 import Whatsapp from "../../models/Whatsapp";
 import AssociateWhatsappQueue from "./AssociateWhatsappQueue";
-import EntityTagService from "../TagServices/EntityTagService";
 
 interface Request {
   name: string;
@@ -20,9 +17,6 @@ interface Request {
   tenantId?: number | string;
   type?: string;
   chatConfig?: any;
-  tags?: number[];
-  engineType?: string;
-  importOldMessages?: string;
 }
 
 interface Response {
@@ -42,10 +36,7 @@ const CreateWhatsAppService = async ({
   keepAlive,
   tenantId,
   type = "whatsapp",
-  chatConfig = {},
-  tags,
-  engineType,
-  importOldMessages
+  chatConfig = {}
 }: Request): Promise<Response> => {
   const schema = Yup.object().shape({
     name: Yup.string()
@@ -69,26 +60,6 @@ const CreateWhatsAppService = async ({
     await schema.validate({ name, status, isDefault });
   } catch (err) {
     throw new AppError(err.message);
-  }
-
-  if (process.env.TENANTS === "true" && tenantId) {
-    const tenant = await Tenant.findOne({ where: { id: tenantId } });
-    if (tenant) {
-      const whatsappCount = await Whatsapp.count({ 
-        where: { 
-          tenantId,
-          status: { [Op.ne]: "DISCONNECTED" } // Only count active or connecting sessions
-        } 
-      });
-      
-      // If rule is stricter (count ALL registered connections regardless of status), remove the status filter above.
-      // Assuming strict SaaS usually limits "Active Slots".
-      
-      if (whatsappCount >= tenant.maxConnections) {
-        console.warn(`[CreateWhatsAppService] Tenant ${tenantId} reached max connections limit (${tenant.maxConnections}).`);
-        throw new AppError("ERR_MAX_CONNECTIONS_REACHED", 403);
-      }
-    }
   }
 
   const whatsappFound = await Whatsapp.findOne();
@@ -122,22 +93,12 @@ const CreateWhatsAppService = async ({
       keepAlive,
       tenantId,
       type,
-      chatConfig: chatConfig ? JSON.stringify(chatConfig) : null,
-      engineType
+      chatConfig
     },
     { include: ["queues"] }
   );
 
   await AssociateWhatsappQueue(whatsapp, queueIds);
-
-  if (tags && tags.length > 0) {
-    await EntityTagService.BulkApplyTags({
-      tagIds: tags,
-      entityType: "whatsapp",
-      entityId: whatsapp.id,
-      tenantId: tenantId ? tenantId.toString() : "1" // Fallback usually not needed if auth middleware works
-    });
-  }
 
   return { whatsapp, oldDefaultWhatsapp };
 };

@@ -1,5 +1,4 @@
 import React, { useState, useContext, useEffect } from "react";
-import { useHistory } from "react-router-dom";
 import clsx from "clsx";
 import {
     makeStyles,
@@ -13,7 +12,6 @@ import {
     Menu,
     IconButton,
     Box,
-    Avatar,
 } from "@material-ui/core";
 import AccountCircle from "@material-ui/icons/AccountCircle";
 import MenuIcon from "@material-ui/icons/Menu";
@@ -26,7 +24,7 @@ import BackdropLoading from "../components/BackdropLoading";
 import { i18n } from "../translate/i18n";
 import VersionFooter from "../components/VersionFooter";
 import api from "../services/api";
-import { getBackendUrl } from "../helpers/urlUtils";
+import { getBackendUrl } from "../config";
 
 const drawerWidth = 260;
 const drawerWidthClosed = 72;
@@ -133,8 +131,7 @@ const useStyles = makeStyles((theme) => ({
 
 const MainLayoutSaaS = ({ children }) => {
     const classes = useStyles();
-    const history = useHistory();
-    // const [userModalOpen, setUserModalOpen] = useState(false);
+    const [userModalOpen, setUserModalOpen] = useState(false);
     const [anchorEl, setAnchorEl] = useState(null);
     const [menuOpen, setMenuOpen] = useState(false);
     const { handleLogout, loading, user } = useContext(AuthContext);
@@ -182,7 +179,12 @@ const MainLayoutSaaS = ({ children }) => {
                 }
                 // Update browser favicon dynamically
                 if (faviconSetting && faviconSetting.value) {
-                    link.href = getBackendUrl(faviconSetting.value);
+                    const faviconPath = faviconSetting.value.startsWith('/')
+                        ? faviconSetting.value.slice(1)
+                        : faviconSetting.value;
+                    const link = document.querySelector("link[rel~='icon']") || document.createElement('link');
+                    link.rel = 'icon';
+                    link.href = `${getBackendUrl()}${faviconPath}`;
                     document.head.appendChild(link);
                 }
             } catch (err) {
@@ -239,7 +241,7 @@ const MainLayoutSaaS = ({ children }) => {
                 <Box className={classes.logoContainer}>
                     {drawerOpen && systemLogo && logoEnabled ? (
                         <img
-                            src={getBackendUrl(systemLogo)}
+                            src={`${getBackendUrl()}${systemLogo.startsWith('/') ? systemLogo.slice(1) : systemLogo}`}
                             alt="Logo"
                             className={classes.systemLogo}
                         />
@@ -257,13 +259,11 @@ const MainLayoutSaaS = ({ children }) => {
                 <VersionFooter collapsed={!drawerOpen} />
             </Drawer>
 
-            {/*
             <UserModal
                 open={userModalOpen}
                 onClose={() => setUserModalOpen(false)}
                 userId={user?.id}
             />
-            */}
 
             <AppBar
                 position="absolute"
@@ -298,16 +298,7 @@ const MainLayoutSaaS = ({ children }) => {
                             onClick={handleMenu}
                             color="inherit"
                         >
-                            {user.profileImage ? (
-                                <Avatar
-                                    alt={user.name}
-                                    src={getBackendUrl(user.profileImage)}
-                                    className={classes.avatar}
-                                    style={{ width: 32, height: 32 }}
-                                />
-                            ) : (
-                                <AccountCircle />
-                            )}
+                            <AccountCircle />
                         </IconButton>
                         <Menu
                             id="menu-appbar"
@@ -324,11 +315,7 @@ const MainLayoutSaaS = ({ children }) => {
                             open={menuOpen}
                             onClose={handleCloseMenu}
                         >
-                            <MenuItem onClick={() => {
-                                console.log("Profile menu clicked SaaS - Redirecting to /profile");
-                                handleCloseMenu();
-                                history.push("/profile");
-                            }}>
+                            <MenuItem onClick={handleOpenUserModal}>
                                 {i18n.t("mainDrawer.appBar.user.profile")}
                             </MenuItem>
                             <MenuItem onClick={handleClickLogout}>

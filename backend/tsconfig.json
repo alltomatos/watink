@@ -3,7 +3,6 @@
     "target": "es2020",
     "lib": ["es2020", "dom"],
     "module": "commonjs",
-    "rootDir": "./src",
     "outDir": "./dist",
     "strict": false,
     "strictPropertyInitialization": false,
@@ -17,5 +16,8 @@
   },
   "include": [
     "src/**/*"
+  ],
+  "exclude": [
+    "src/__tests__/**/*"
   ]
 }

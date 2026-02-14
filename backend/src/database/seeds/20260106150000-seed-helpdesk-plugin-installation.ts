@@ -35,8 +35,7 @@ module.exports = {
                 pluginId: helpdeskPluginId,
                 status: "inactive", // Plugin comes disabled by default
                 installedAt: new Date(),
-                activatedAt: null,
-                updatedAt: new Date()
+                activatedAt: null
             }
         ]);
         console.log("Helpdesk plugin installed as INACTIVE for default tenant.");

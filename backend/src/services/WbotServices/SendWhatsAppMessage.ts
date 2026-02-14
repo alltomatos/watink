@@ -1,6 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
 import AppError from "../../errors/AppError";
-import Whatsapp from "../../models/Whatsapp";
 import Ticket from "../../models/Ticket";
 import formatBody from "../../helpers/Mustache";
 import RabbitMQService from "../RabbitMQService";
@@ -89,23 +88,8 @@ const SendWhatsAppMessage = async ({
       }
     };
 
-    // Determine Routing Key based on Engine Type
-    let engineType = ticket.whatsapp?.engineType;
-    if (!engineType) {
-      const whatsapp = await Whatsapp.findByPk(ticket.whatsappId);
-      engineType = whatsapp?.engineType;
-    }
-
-    if (!engineType) {
-      // Default to whaileys if not found (legacy fallback)
-      engineType = "whaileys";
-    }
-
-    const routingKey = `wbot.${ticket.tenantId}.${ticket.whatsappId}.${engineType}.message.send.text`;
-
-
     await RabbitMQService.publishCommand(
-      routingKey,
+      `wbot.${ticket.tenantId}.${ticket.whatsappId}.message.send.text`,
       command
     );
 

@@ -23,22 +23,7 @@ class Tenant extends Model<Tenant> {
 
   @Default("active")
   @Column
-  @Column
   status: string;
-
-  @Column
-  plan: string;
-
-  @Column
-  externalId: string;
-
-  @Default(1)
-  @Column
-  maxUsers: number;
-
-  @Default(1)
-  @Column
-  maxConnections: number;
 
   @Column
   ownerId: number;

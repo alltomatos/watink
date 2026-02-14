@@ -4,7 +4,6 @@ import Contact from "../../models/Contact";
 import Ticket from "../../models/Ticket";
 import Pipeline from "../../models/Pipeline";
 import PipelineStage from "../../models/PipelineStage";
-import Tag from "../../models/Tag";
 
 interface Request {
     tenantId: number | string;
@@ -66,8 +65,7 @@ const ListDealsService = async ({
             { model: Contact, as: "contact", attributes: ["id", "name", "number", "profilePicUrl"] },
             { model: Ticket, as: "ticket", attributes: ["id", "status"] },
             { model: Pipeline, as: "pipeline", attributes: ["id", "name", "color"] },
-            { model: PipelineStage, as: "stage", attributes: ["id", "name"] },
-            { model: Tag, as: "tags", attributes: ["id", "name", "color", "icon"] }
+            { model: PipelineStage, as: "stage", attributes: ["id", "name"] }
         ],
         order: [["updatedAt", "DESC"]]
     });

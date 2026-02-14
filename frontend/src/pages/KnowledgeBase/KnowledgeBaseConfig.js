@@ -85,9 +85,6 @@ const KnowledgeBaseConfig = () => {
 
     useEffect(() => {
         const socket = openSocket();
-
-        if (!socket) return;
-
         socket.on("knowledgeSource", (data) => {
             if (data.action === "update" || data.action === "create") {
                 setSources((prev) => {

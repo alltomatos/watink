@@ -22,7 +22,6 @@ import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
 import toastError from "../../errors/toastError";
 import QueueSelect from "../QueueSelect";
-import TagPicker from "../TagPicker";
 
 const useStyles = makeStyles(theme => ({
 	root: {
@@ -58,7 +57,7 @@ const SessionSchema = Yup.object().shape({
 		.required("Required"),
 });
 
-const WhatsAppModal = ({ open, onClose, whatsAppId, engineType }) => {
+const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 	const classes = useStyles();
 	const initialState = {
 		name: "",
@@ -68,18 +67,13 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, engineType }) => {
 		syncHistory: false,
 		syncPeriod: "",
 		keepAlive: true,
-		engineType: engineType || "whaileys", // Default to whaileys if not specified
 	};
 	const [whatsApp, setWhatsApp] = useState(initialState);
 	const [selectedQueueIds, setSelectedQueueIds] = useState([]);
-	const [selectedTags, setSelectedTags] = useState([]);
 
 	useEffect(() => {
 		const fetchSession = async () => {
-			if (!whatsAppId) {
-				setWhatsApp(prevState => ({ ...prevState, engineType: engineType || "whaileys" }));
-				return;
-			}
+			if (!whatsAppId) return;
 
 			try {
 				const { data } = await api.get(`whatsapp/${whatsAppId}`);
@@ -87,9 +81,6 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, engineType }) => {
 
 				const whatsQueueIds = data.queues?.map(queue => queue.id);
 				setSelectedQueueIds(whatsQueueIds);
-
-				const whatsTags = data.tags?.map(tag => tag.id);
-				setSelectedTags(whatsTags || []);
 			} catch (err) {
 				toastError(err);
 			}
@@ -97,10 +88,10 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, engineType }) => {
 		if (open) {
 			fetchSession();
 		}
-	}, [whatsAppId, open, engineType]);
+	}, [whatsAppId, open]);
 
 	const handleSaveWhatsApp = async values => {
-		const whatsappData = { ...values, queueIds: selectedQueueIds, tags: selectedTags, engineType: values.engineType || engineType };
+		const whatsappData = { ...values, queueIds: selectedQueueIds };
 
 		try {
 			if (whatsAppId) {
@@ -255,12 +246,6 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, engineType }) => {
 									selectedQueueIds={selectedQueueIds}
 									onChange={selectedIds => setSelectedQueueIds(selectedIds)}
 								/>
-								<div style={{ marginTop: 15 }}>
-									<TagPicker
-										selectedTags={selectedTags}
-										onChange={setSelectedTags}
-									/>
-								</div>
 							</DialogContent>
 							<DialogActions>
 								<Button

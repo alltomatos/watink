@@ -29,7 +29,6 @@ import {
   ExpandMore,
   GetApp,
   History as HistoryIcon,
-  ErrorOutline,
 } from "@material-ui/icons";
 
 import MarkdownWrapper from "../MarkdownWrapper";
@@ -98,15 +97,24 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: "#ffffff",
     color: "#303030",
     alignSelf: "flex-start",
-    borderRadius: "0px 12px 12px 12px",
-    padding: "8px 10px",
-    boxShadow: "0 2px 5px rgba(0,0,0,0.05)",
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 8,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+    paddingLeft: 5,
+    paddingRight: 5,
+    paddingTop: 5,
+    paddingBottom: 0,
+    boxShadow: "0 1px 1px #b3b3b3",
   },
 
   messageLeftSaas: {
     backgroundColor: "#f3f4f6",
     color: "#303030",
-    borderRadius: "12px 12px 12px 0px",
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    borderBottomLeftRadius: 0, // Tail on bottom left
+    borderBottomRightRadius: 12,
     boxShadow: "none",
     border: "1px solid #e5e7eb",
   },
@@ -114,7 +122,7 @@ const useStyles = makeStyles((theme) => ({
   quotedContainerLeft: {
     margin: "-3px -80px 6px -6px",
     overflow: "hidden",
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#f0f0f0",
     borderRadius: "7.5px",
     display: "flex",
     position: "relative",
@@ -154,12 +162,18 @@ const useStyles = makeStyles((theme) => ({
     },
 
     whiteSpace: "pre-wrap",
-    backgroundColor: "#5061db", // Premium Blue
-    color: "#ffffff",
+    backgroundColor: "#dcf8c6",
+    color: "#303030",
     alignSelf: "flex-end",
-    borderRadius: "12px 12px 0px 12px",
-    padding: "8px 10px",
-    boxShadow: "0 2px 5px rgba(80, 97, 219, 0.3)",
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 0,
+    paddingLeft: 5,
+    paddingRight: 5,
+    paddingTop: 5,
+    paddingBottom: 0,
+    boxShadow: "0 1px 1px #b3b3b3",
   },
 
   messageRightSaas: {
@@ -175,7 +189,7 @@ const useStyles = makeStyles((theme) => ({
   quotedContainerRight: {
     margin: "-3px -80px 6px -6px",
     overflowY: "hidden",
-    backgroundColor: "rgba(0, 0, 0, 0.2)",
+    backgroundColor: "#cfe9ba",
     borderRadius: "7.5px",
     display: "flex",
     position: "relative",
@@ -186,13 +200,12 @@ const useStyles = makeStyles((theme) => ({
     maxWidth: 300,
     height: "auto",
     whiteSpace: "pre-wrap",
-    color: "#ffffff",
   },
 
   quotedSideColorRight: {
     flex: "none",
     width: "4px",
-    backgroundColor: "#ffffff",
+    backgroundColor: "#35cd96",
   },
 
   messageActionsButton: {
@@ -245,12 +258,11 @@ const useStyles = makeStyles((theme) => ({
     alignItems: "center",
     textAlign: "center",
     alignSelf: "center",
-    width: "auto",
-    padding: "0 12px",
-    backgroundColor: "#f5f7fa",
-    margin: "12px",
-    borderRadius: "20px",
-    boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
+    width: "110px",
+    backgroundColor: "#e1f3fb",
+    margin: "10px",
+    borderRadius: "10px",
+    boxShadow: "0 1px 1px #b3b3b3",
   },
 
   dailyTimestampText: {
@@ -407,7 +419,7 @@ const reducer = (state, action) => {
   }
 };
 
-const MessagesList = ({ ticketId, isGroup, isWebchat }) => {
+const MessagesList = ({ ticketId, isGroup }) => {
   const classes = useStyles();
   const muiTheme = useTheme();
   const { appTheme } = useThemeContext();
@@ -476,7 +488,6 @@ const MessagesList = ({ ticketId, isGroup, isWebchat }) => {
 
   useEffect(() => {
     const socket = openSocket();
-    if (!socket) return;
 
     socket.on("connect", () => socket.emit("joinChatBox", ticketId));
 
@@ -672,18 +683,8 @@ const MessagesList = ({ ticketId, isGroup, isWebchat }) => {
       return null;
     }
 
-    // Hide icons for Webchat
-    if (isWebchat) {
-      return null;
-    }
-
-    // Hide icons for received messages
-    if (!message.fromMe) {
-      return null;
-    }
-
     if (message.ack === 0) {
-      return <Done fontSize="small" className={classes.ackIcons} />;
+      return <AccessTime fontSize="small" className={classes.ackIcons} />;
     }
     if (message.ack === 1) {
       return <Done fontSize="small" className={classes.ackIcons} />;

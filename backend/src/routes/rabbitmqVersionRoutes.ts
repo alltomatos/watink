@@ -21,7 +21,10 @@ rabbitRoutes.get("/rabbitmq/version", async (req, res) => {
     const user = m?.[1] || "guest";
     const pass = m?.[2] || "guest";
     const host = m?.[3] || "rabbitmq";
-    const mgmt = `http://${host}:15672/api/overview`;
+
+    // Allow overriding management URL entirely, or fallback to auto-detection
+    const mgmt = process.env.RABBITMQ_MGMT_URL || `http://${host}:15672/api/overview`;
+
     const { data } = await axios.get(mgmt, {
       auth: { username: user, password: pass },
       headers: { "Cache-Control": "no-store" },

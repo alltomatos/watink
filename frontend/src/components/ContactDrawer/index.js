@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect } from "react";
 
 import { makeStyles } from "@material-ui/core/styles";
 import Typography from "@material-ui/core/Typography";
@@ -32,16 +32,13 @@ import Tab from "@material-ui/core/Tab";
 import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
 import { toast } from "react-toastify";
-import { AuthContext } from "../../context/Auth/AuthContext";
 
 import ContactModal from "../ContactModal";
-import { Can } from "../Can";
 import ClientModal from "../../pages/Clients/ClientModal"; // Import ClientModal
 import ContactDrawerSkeleton from "../ContactDrawerSkeleton";
 import MarkdownWrapper from "../MarkdownWrapper";
 import ContactAIInsights from "../ContactAIInsights";
 import ProtocolDrawer from "../../pages/Helpdesk/ProtocolDrawer";
-import TagPicker from "../TagPicker";
 import { getBackendUrl } from "../../helpers/urlUtils";
 
 const drawerWidth = 320;
@@ -137,9 +134,8 @@ const stageColors = [
 
 const getStageColor = (index) => stageColors[index % stageColors.length];
 
-const ContactDrawer = ({ open, handleDrawerClose, contact, ticketId, loading, ticket }) => {
+const ContactDrawer = ({ open, handleDrawerClose, contact, ticketId, loading }) => {
 	const classes = useStyles();
-	const { user } = useContext(AuthContext);
 
 	const [modalOpen, setModalOpen] = useState(false);
 	const [deals, setDeals] = useState([]);
@@ -148,7 +144,6 @@ const ContactDrawer = ({ open, handleDrawerClose, contact, ticketId, loading, ti
 	const [selectedPipeline, setSelectedPipeline] = useState("");
 	const [selectedStage, setSelectedStage] = useState("");
 	const [stages, setStages] = useState([]);
-	const [dealTags, setDealTags] = useState([]);
 
 	// Protocol creation state
 	const [protocolDrawerOpen, setProtocolDrawerOpen] = useState(false);
@@ -160,57 +155,6 @@ const ContactDrawer = ({ open, handleDrawerClose, contact, ticketId, loading, ti
 	const [activeTab, setActiveTab] = useState(0);
 	const [aiEnabled, setAiEnabled] = useState(false);
 	const [aiAssistantEnabled, setAiAssistantEnabled] = useState(false);
-
-	// Ticket Tags state
-	const [ticketTags, setTicketTags] = useState([]);
-	// Contact Tags state - Local state needed for immediate UI update
-	const [contactTags, setContactTags] = useState([]);
-
-	useEffect(() => {
-		if (ticket && ticket.tags) {
-			setTicketTags(ticket.tags.map(tag => tag.id));
-		}
-	}, [ticket]);
-
-	// Initialize contact tags from props or fetch if missing
-	useEffect(() => {
-		const loadTags = async () => {
-			if (!contact?.id) return;
-			
-			// If tags are already in props, use them
-			if (contact.tags && contact.tags.length > 0) {
-				setContactTags(contact.tags.map(tag => tag.id));
-			} else {
-				// Otherwise fetch from API (now that ShowContactService includes tags)
-				try {
-					const { data } = await api.get(`/contacts/${contact.id}`);
-					if (data.tags) {
-						setContactTags(data.tags.map(tag => tag.id));
-					}
-				} catch (err) {
-					console.error("Erro ao carregar tags do contato:", err);
-				}
-			}
-		};
-		loadTags();
-	}, [contact]);
-
-	const handleTagsChange = async (selectedIds) => {
-		setTicketTags(selectedIds);
-		try {
-			await api.put(`/tickets/${ticketId}`, {
-				tags: selectedIds
-			});
-		} catch (err) {
-			toast.error("Erro ao atualizar tags");
-		}
-	};
-
-	const handleContactTagsChange = async (selectedIds) => {
-		setContactTags(selectedIds);
-		// API call is handled by TagPicker via entityType/entityId, 
-		// but we keep local state for UI responsiveness
-	};
 
 	useEffect(() => {
 		const fetchAISettings = async () => {
@@ -274,8 +218,7 @@ const ContactDrawer = ({ open, handleDrawerClose, contact, ticketId, loading, ti
 				pipelineId: selectedPipeline,
 				stageId: selectedStage,
 				contactId: contact.id,
-				ticketId: ticketId,
-				tags: dealTags
+				ticketId: ticketId
 			};
 			await api.post("/deals", dealData);
 			toast.success("Deal criado com sucesso!");
@@ -425,33 +368,6 @@ const ContactDrawer = ({ open, handleDrawerClose, contact, ticketId, loading, ti
 								contactId={contact.id}
 							></ContactModal>
 
-							{/* Tags do Contato */}
-							<Paper square variant="outlined" className={classes.contactDetails}>
-								<Typography variant="subtitle1" style={{ marginBottom: 8 }}>
-									🏷️ Tags do Contato
-								</Typography>
-								<TagPicker
-									entityType="contact"
-									entityId={contact.id}
-									selectedTags={contactTags}
-									onChange={handleContactTagsChange}
-									placeholder="Adicionar tag"
-								/>
-							</Paper>
-
-							<Paper square variant="outlined" className={classes.contactDetails}>
-								<Typography variant="subtitle1" style={{ marginBottom: 8 }}>
-									🎫 Tags do Ticket
-								</Typography>
-								<TagPicker
-									selectedTags={ticketTags}
-									onChange={handleTagsChange}
-									placeholder="Adicionar tag ao ticket"
-								/>
-							</Paper>
-							{/* Tags do Ticket */}
-
-
 							<Paper square variant="outlined" className={classes.contactDetails}>
 								<Typography variant="subtitle1" style={{ marginBottom: 8 }}>
 									Fluxos (Pipelines)
@@ -508,26 +424,20 @@ const ContactDrawer = ({ open, handleDrawerClose, contact, ticketId, loading, ti
 
 							{/* Helpdesk - Protocolos Section */}
 							{activePlugins.includes("helpdesk") && (
-								<Can
-									user={user}
-									perform="helpdesk:write"
-									yes={() => (
-										<Paper square variant="outlined" className={classes.contactDetails}>
-											<Typography variant="subtitle1" style={{ marginBottom: 8 }}>
-												🎫 Helpdesk - Protocolos
-											</Typography>
-											<Button
-												variant="outlined"
-												color="primary"
-												startIcon={<AssignmentIcon />}
-												onClick={() => setProtocolDrawerOpen(true)}
-												fullWidth
-											>
-												Abrir Protocolo
-											</Button>
-										</Paper>
-									)}
-								/>
+								<Paper square variant="outlined" className={classes.contactDetails}>
+									<Typography variant="subtitle1" style={{ marginBottom: 8 }}>
+										🎫 Helpdesk - Protocolos
+									</Typography>
+									<Button
+										variant="outlined"
+										color="primary"
+										startIcon={<AssignmentIcon />}
+										onClick={() => setProtocolDrawerOpen(true)}
+										fullWidth
+									>
+										Abrir Protocolo
+									</Button>
+								</Paper>
 							)}
 
 							<Dialog open={pipelineModalOpen} onClose={() => setPipelineModalOpen(false)}>
@@ -557,13 +467,6 @@ const ContactDrawer = ({ open, handleDrawerClose, contact, ticketId, loading, ti
 											</Select>
 										</FormControl>
 									)}
-									<div style={{ marginTop: 15 }}>
-										<TagPicker
-											selectedTags={dealTags}
-											onChange={setDealTags}
-											placeholder="Tags do Deal"
-										/>
-									</div>
 								</DialogContent>
 								<DialogActions>
 									<Button onClick={() => setPipelineModalOpen(false)} color="secondary">

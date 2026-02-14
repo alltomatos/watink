@@ -33,14 +33,10 @@ import MainHeader from "../../components/MainHeader";
 import MainHeaderButtonsWrapper from "../../components/MainHeaderButtonsWrapper";
 import Title from "../../components/Title";
 import ListItemCard from "../../components/ListItemCard";
-import TagChip from "../../components/TagChip";
-import { getTagColorStyles } from "../../helpers/tagColors";
-import { Chip } from "@material-ui/core";
 
 import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
 import ContactModal from "../../components/ContactModal";
-import ContactImportModal from "../../components/ContactImportModal";
 import ConfirmationModal from "../../components/ConfirmationModal/";
 import toastError from "../../errors/toastError";
 import { AuthContext } from "../../context/Auth/AuthContext";
@@ -113,45 +109,6 @@ const getContactStatus = (contact) => {
   return { label: "Pendente", color: "default" };
 };
 
-const TagFilter = ({ selectedTags, onChange, tags }) => {
-  return (
-    <Box display="flex" gap={1} mb={2} style={{ overflowX: "auto", paddingBottom: 8 }}>
-      <Chip
-        label="Todas"
-        color={selectedTags.length === 0 ? "primary" : "default"}
-        onClick={() => onChange([])}
-        size="small"
-        clickable
-      />
-      {tags.map((tag) => {
-        const colors = getTagColorStyles(tag.color);
-        const isSelected = selectedTags.includes(tag.id);
-
-        return (
-          <Chip
-            key={tag.id}
-            label={tag.name}
-            onClick={() => {
-              const newTags = isSelected
-                ? selectedTags.filter(t => t !== tag.id)
-                : [...selectedTags, tag.id];
-              onChange(newTags);
-            }}
-            size="small"
-            clickable
-            style={{
-              backgroundColor: isSelected ? colors.bg : "#f0f0f0",
-              color: isSelected ? colors.text : "#666",
-              border: isSelected ? `1px solid ${colors.border}` : "none",
-              fontWeight: isSelected ? 600 : 400
-            }}
-          />
-        );
-      })}
-    </Box>
-  );
-};
-
 const Contacts = () => {
   const classes = useStyles();
   const history = useHistory();
@@ -161,8 +118,6 @@ const Contacts = () => {
   const [loading, setLoading] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
   const [searchParam, setSearchParam] = useState("");
-  const [selectedTagIds, setSelectedTagIds] = useState([]);
-  const [allTags, setAllTags] = useState([]);
   const [contacts, dispatch] = useReducer(reducer, []);
   const [selectedContactId, setSelectedContactId] = useState(null);
   const [contactModalOpen, setContactModalOpen] = useState(false);
@@ -176,25 +131,10 @@ const Contacts = () => {
   const [clientModalOpen, setClientModalOpen] = useState(false);
   const [selectedInitialContact, setSelectedInitialContact] = useState(null);
 
-  // Import Modal State
-  const [importModalOpen, setImportModalOpen] = useState(false);
-
   useEffect(() => {
     dispatch({ type: "RESET" });
     setPageNumber(1);
-  }, [searchParam, selectedTagIds]);
-
-  useEffect(() => {
-    const fetchTags = async () => {
-      try {
-        const { data } = await api.get("/tags");
-        setAllTags(data);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-    fetchTags();
-  }, []);
+  }, [searchParam]);
 
   useEffect(() => {
     setLoading(true);
@@ -202,9 +142,9 @@ const Contacts = () => {
       const fetchContacts = async () => {
         try {
           const { data } = await api.get("/contacts/", {
-            params: { searchParam, pageNumber, tags: selectedTagIds },
+            params: { searchParam, pageNumber },
           });
-          dispatch({ type: "LOAD_CONTACTS", payload: data.contacts });
+          dispatch({ type: "LOAD_CONTACTS", payload: data.contacts || [] });
           setHasMore(data.hasMore);
           setLoading(false);
         } catch (err) {
@@ -214,12 +154,10 @@ const Contacts = () => {
       fetchContacts();
     }, 500);
     return () => clearTimeout(delayDebounceFn);
-  }, [searchParam, pageNumber, selectedTagIds]);
+  }, [searchParam, pageNumber]);
 
   useEffect(() => {
     const socket = openSocket();
-
-    if (!socket) return;
 
     socket.on("contact", (data) => {
       if (data.action === "update" || data.action === "create") {
@@ -293,10 +231,13 @@ const Contacts = () => {
     setPageNumber(1);
   };
 
-  const handleImportSuccess = () => {
-    // Reload contacts after successful import
-    dispatch({ type: "RESET" });
-    setPageNumber(1);
+  const handleimportContact = async () => {
+    try {
+      await api.post("/contacts/import");
+      history.go(0);
+    } catch (err) {
+      toastError(err);
+    }
   };
 
   const loadMore = () => {
@@ -325,11 +266,6 @@ const Contacts = () => {
         client={null}
         initialContact={selectedInitialContact}
       />
-      <ContactImportModal
-        open={importModalOpen}
-        onClose={() => setImportModalOpen(false)}
-        onSuccess={handleImportSuccess}
-      />
       <ConfirmationModal
         title={
           deletingContact
@@ -339,9 +275,15 @@ const Contacts = () => {
         }
         open={confirmOpen}
         onClose={setConfirmOpen}
-        onConfirm={(e) => handleDeleteContact(deletingContact.id)}
+        onConfirm={(e) =>
+          deletingContact
+            ? handleDeleteContact(deletingContact.id)
+            : handleimportContact()
+        }
       >
-        {`${i18n.t("contacts.confirmationModal.deleteMessage")}`}
+        {deletingContact
+          ? `${i18n.t("contacts.confirmationModal.deleteMessage")}`
+          : `${i18n.t("contacts.confirmationModal.importMessage")}`}
       </ConfirmationModal>
       <MainHeader>
         <Title>{i18n.t("contacts.title")}</Title>
@@ -362,7 +304,7 @@ const Contacts = () => {
           <Button
             variant="contained"
             color="primary"
-            onClick={() => setImportModalOpen(true)}
+            onClick={(e) => setConfirmOpen(true)}
           >
             {i18n.t("contacts.buttons.import")}
           </Button>
@@ -381,15 +323,7 @@ const Contacts = () => {
         </MainHeaderButtonsWrapper>
       </MainHeader>
 
-
-
       <Box className={classes.mainPaper} onScroll={handleScroll}>
-        <TagFilter
-          tags={allTags}
-          selectedTags={selectedTagIds}
-          onChange={setSelectedTagIds}
-        />
-
         {view === "card" ? (
           <Grid container spacing={2}>
             {contacts.map((contact) => (
@@ -423,7 +357,7 @@ const Contacts = () => {
                         <AddIcon fontSize="small" />
                       </IconButton>
                       <Can
-                        user={user}
+                        role={user.profile}
                         perform="contacts-page:deleteContact"
                         yes={() => (
                           <IconButton
@@ -439,11 +373,6 @@ const Contacts = () => {
                         )}
                       />
                     </>
-                  }
-                  tags={
-                    contact.tags?.map((tag) => (
-                      <TagChip key={tag.id} tag={tag} size="small" />
-                    ))
                   }
                 />
               </Grid>
@@ -463,9 +392,6 @@ const Contacts = () => {
                     {i18n.t("contacts.table.email")}
                   </TableCell>
                   <TableCell align="center">
-                    Tags
-                  </TableCell>
-                  <TableCell align="center">
                     {i18n.t("contacts.table.actions")}
                   </TableCell>
                 </TableRow>
@@ -479,13 +405,6 @@ const Contacts = () => {
                     <TableCell>{contact.name}</TableCell>
                     <TableCell align="center">{contact.number}</TableCell>
                     <TableCell align="center">{contact.email}</TableCell>
-                    <TableCell align="center">
-                      <div style={{ display: "flex", gap: 4, justifyContent: "center", flexWrap: "wrap" }}>
-                        {contact.tags?.map((tag) => (
-                          <TagChip key={tag.id} tag={tag} size="small" />
-                        ))}
-                      </div>
-                    </TableCell>
                     <TableCell align="center">
                       <IconButton
                         size="small"
@@ -507,7 +426,7 @@ const Contacts = () => {
                         <AddIcon fontSize="small" />
                       </IconButton>
                       <Can
-                        user={user}
+                        role={user.profile}
                         perform="contacts-page:deleteContact"
                         yes={() => (
                           <IconButton
@@ -535,7 +454,7 @@ const Contacts = () => {
           </Box>
         )}
       </Box>
-    </MainContainer >
+    </MainContainer>
   );
 };
 

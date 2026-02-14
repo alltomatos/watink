@@ -4,7 +4,6 @@ import ProtocolHistory from "../models/ProtocolHistory";
 import ProtocolAttachment from "../models/ProtocolAttachment";
 import User from "../models/User";
 import Tenant from "../models/Tenant";
-import Setting from "../models/Setting";
 import AppError from "../errors/AppError";
 
 export const show = async (req: Request, res: Response): Promise<Response> => {
@@ -45,8 +44,7 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
             "priority",
             "createdAt",
             "resolvedAt",
-            "closedAt",
-            "tenantId"
+            "closedAt"
         ]
     });
 
@@ -54,21 +52,5 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
         throw new AppError("Protocol not found", 404);
     }
 
-    const systemTitle = await Setting.findOne({
-        where: { key: "systemTitle", tenantId: protocol.tenantId }
-    });
-
-    const systemLogo = await Setting.findOne({
-        where: { key: "systemLogo", tenantId: protocol.tenantId }
-    });
-
-    const response = {
-        ...protocol.toJSON(),
-        tenantConfig: {
-            systemTitle: systemTitle?.value,
-            systemLogo: systemLogo?.value
-        }
-    };
-
-    return res.json(response);
+    return res.json(protocol);
 };

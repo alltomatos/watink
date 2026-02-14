@@ -25,7 +25,7 @@ import { i18n } from "../../translate/i18n";
 
 import { AuthContext } from "../../context/Auth/AuthContext";
 import api from "../../services/api";
-import { getBackendUrl } from "../../helpers/urlUtils";
+import { getBackendUrl } from "../../config";
 
 // const Copyright = () => {
 // 	return (
@@ -65,10 +65,7 @@ const Login = () => {
 
   const [user, setUser] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(() => {
-    // Se há email salvo, mantém rememberMe como true
-    return localStorage.getItem("rememberedEmail") !== null;
-  });
+  const [rememberMe, setRememberMe] = useState(true);
   const [settings, setSettings] = useState({
     loginLayout: "split_left", // split_left, split_right, centered
     loginBackground: "", // url
@@ -76,15 +73,6 @@ const Login = () => {
   });
 
   const { handleLogin } = useContext(AuthContext);
-
-  // Carregar email salvo do localStorage
-  useEffect(() => {
-    const savedEmail = localStorage.getItem("rememberedEmail");
-    if (savedEmail) {
-      setUser(prev => ({ ...prev, email: savedEmail }));
-      setRememberMe(true);
-    }
-  }, []);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -95,13 +83,11 @@ const Login = () => {
         const layoutSetting = settingsData.find(s => s.key === "login_layout");
         const bgSetting = settingsData.find(s => s.key === "login_backgroundImage");
         const logoSetting = settingsData.find(s => s.key === "systemLogo");
-        const userCreationSetting = settingsData.find(s => s.key === "userCreation");
 
         setSettings({
           loginLayout: layoutSetting?.value || "split_left",
-          loginBackground: bgSetting?.value ? getBackendUrl(bgSetting.value) : "/login-background.png",
-          systemLogo: logoSetting?.value ? getBackendUrl(logoSetting.value) : "/logo.png",
-          userCreation: userCreationSetting?.value || "enabled",
+          loginBackground: bgSetting?.value ? `${getBackendUrl()}${bgSetting.value.startsWith('/') ? bgSetting.value.slice(1) : bgSetting.value}` : "/login-background.png",
+          systemLogo: logoSetting?.value ? `${getBackendUrl()}${logoSetting.value.startsWith('/') ? logoSetting.value.slice(1) : logoSetting.value}` : "/logo.png",
         });
       } catch (err) {
         console.error("Error fetching settings for login", err);
@@ -116,14 +102,6 @@ const Login = () => {
 
   const handlSubmit = (e) => {
     e.preventDefault();
-
-    // Salvar ou remover email do localStorage baseado no rememberMe
-    if (rememberMe) {
-      localStorage.setItem("rememberedEmail", user.email);
-    } else {
-      localStorage.removeItem("rememberedEmail");
-    }
-
     handleLogin(user, rememberMe);
   };
 
@@ -213,18 +191,14 @@ const Login = () => {
         </Button>
         <Grid container>
           <Grid item>
-            {settings.userCreation === "enabled" && (
-              <Grid item>
-                <Link
-                  href="#"
-                  variant="body2"
-                  component={RouterLink}
-                  to="/signup"
-                >
-                  {i18n.t("login.buttons.register")}
-                </Link>
-              </Grid>
-            )}
+            <Link
+              href="#"
+              variant="body2"
+              component={RouterLink}
+              to="/signup"
+            >
+              {i18n.t("login.buttons.register")}
+            </Link>
           </Grid>
         </Grid>
       </form>

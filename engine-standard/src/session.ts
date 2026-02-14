@@ -255,7 +255,7 @@ class SessionManager {
 
 
   private async startSession(payload: StartSessionPayload, tenantId: string | number) {
-    logger.info(`[SessionManager] startSession called for ${payload.sessionId} (Instance: ${payload.sessionInstanceId})`);
+    logger.info(`[SessionManager] startSession called for ${payload.sessionId}`);
 
     try {
       logger.info(`[SessionManager] Checking existing sessions...`);
@@ -663,7 +663,7 @@ class SessionManager {
 
             const baileystatus = update.update?.status || update.status;
             let status = 0;
-
+            
             // Ensure numeric comparison
             const bStatus = Number(baileystatus);
 
@@ -1181,7 +1181,7 @@ class SessionManager {
     // Determine participant (especially for groups)
     let participant = msg.key.participant || "";
     if (msg.key.fromMe && !participant && sock.user?.id) {
-      participant = jidNormalizedUser(sock.user.id);
+       participant = jidNormalizedUser(sock.user.id);
     }
 
     // --- Quoted Message & Link Preview Extraction ---

@@ -71,7 +71,7 @@ authRoutes.post("/login", SessionController.store);
 /**
  * @swagger
  * /auth/refresh_token:
- *   get:
+ *   post:
  *     summary: Refresh authentication token
  *     tags: [Auth]
  *     responses:
@@ -85,12 +85,8 @@ authRoutes.post("/login", SessionController.store);
  *                 token:
  *                   type: string
  */
-authRoutes.get("/refresh_token", SessionController.update);
+authRoutes.post("/refresh_token", SessionController.update);
 
 authRoutes.delete("/logout", isAuth, SessionController.remove);
-
-authRoutes.post("/forgot-password", UserController.forgotPassword);
-authRoutes.post("/reset-password", UserController.resetPassword);
-authRoutes.post("/complete-registration", UserController.completeRegistration);
 
 export default authRoutes;

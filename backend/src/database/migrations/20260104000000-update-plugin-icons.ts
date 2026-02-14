@@ -16,7 +16,12 @@ module.exports = {
       WHERE "slug" = 'helpdesk';
     `);
 
-
+    // Update 'whatsmeow' plugin
+    await queryInterface.sequelize.query(`
+      UPDATE "Plugins"
+      SET "iconUrl" = '/public/assets/icons/ico-chat.png'
+      WHERE "slug" = 'whatsmeow';
+    `);
   },
 
   down: async (queryInterface: QueryInterface) => {
@@ -33,6 +38,10 @@ module.exports = {
       WHERE "slug" = 'helpdesk';
     `);
 
-
+    await queryInterface.sequelize.query(`
+      UPDATE "Plugins"
+      SET "iconUrl" = 'https://plugins.watink.com/whatsmeow/icon.png'
+      WHERE "slug" = 'whatsmeow';
+    `);
   }
 };

@@ -4,17 +4,8 @@ import { verify } from "jsonwebtoken";
 import AppError from "../errors/AppError";
 import { logger } from "../utils/logger";
 import authConfig from "../config/auth";
-import UserOnlineService from "../services/UserServices/UserOnlineService";
 
 let io: SocketIO;
-
-// Define token payload interface
-interface TokenPayload {
-  id: number;
-  username: string;
-  iat: number;
-  exp: number;
-}
 
 export const initIO = (httpServer: Server): SocketIO => {
   io = new SocketIO(httpServer, {
@@ -23,34 +14,18 @@ export const initIO = (httpServer: Server): SocketIO => {
         callback(null, true);
       },
       credentials: true
-    },
-    allowEIO3: true
+    }
   });
 
-  io.on("connection", async socket => {
-    logger.info("Socket Connection Attempt");
-    let { token } = socket.handshake.query;
+  io.on("connection", socket => {
+    const { token } = socket.handshake.query;
+    logger.info(`[Socket Debug] Connection attempt. Token provided: ${token ? "YES" : "NO"}`);
 
-    if (!token && socket.handshake.auth?.token) {
-      token = socket.handshake.auth.token;
-      logger.info(`[Socket Debug] Token found in handshake.auth`);
-    }
-
-    if (!token && socket.handshake.headers?.authorization) {
-      const authHeader = socket.handshake.headers.authorization;
-      if (authHeader.startsWith("Bearer ")) {
-        token = authHeader.substring(7);
-        logger.info(`[Socket Debug] Token found in Authorization header`);
-      }
-    }
-
-    logger.info(`[Socket Debug] Final Token provided: ${token ? "YES" : "NO"}`);
-
-    let tokenData: TokenPayload | null = null;
+    let tokenData = null;
     try {
-      tokenData = verify(token as string, authConfig.secret) as TokenPayload;
+      tokenData = verify(token, authConfig.secret);
       logger.debug(JSON.stringify(tokenData), "io-onConnection: tokenData");
-    } catch (err: any) {
+    } catch (err) {
       logger.error(`[Socket Debug] Token verification failed: ${err.message}`);
       if (err.name === "TokenExpiredError") {
         logger.warn(`Socket authentication failed: Token expired at ${err.expiredAt}`);
@@ -61,20 +36,7 @@ export const initIO = (httpServer: Server): SocketIO => {
       return io;
     }
 
-    // Extract userId from token
-    const userId = tokenData?.id;
-
-    // Track user as online in Redis
-    if (userId) {
-      await UserOnlineService.setUserOnline(userId, socket.id);
-
-      // Store userId in socket data for disconnect handler
-      socket.data = socket.data || {};
-      socket.data.userId = userId;
-    }
-
-    logger.info(`Client Connected (userId: ${userId || "unknown"}, socketId: ${socket.id})`);
-
+    logger.info("Client Connected");
     socket.on("joinChatBox", (ticketId: string) => {
       logger.info("A client joined a ticket channel");
       socket.join(ticketId);
@@ -95,21 +57,8 @@ export const initIO = (httpServer: Server): SocketIO => {
       socket.join("helpdesk-kanban");
     });
 
-    // Heartbeat event to refresh online status (optional client-side ping)
-    socket.on("heartbeat", async () => {
-      if (socket.data.userId) {
-        await UserOnlineService.refreshUserOnline(socket.data.userId);
-      }
-    });
-
-    socket.on("disconnect", async () => {
-      const disconnectedUserId = socket.data.userId;
-
-      if (disconnectedUserId) {
-        await UserOnlineService.setUserOffline(disconnectedUserId, socket.id);
-      }
-
-      logger.info(`Client disconnected (userId: ${disconnectedUserId || "unknown"}, socketId: ${socket.id})`);
+    socket.on("disconnect", () => {
+      logger.info("Client disconnected");
     });
 
     return socket;
@@ -123,4 +72,3 @@ export const getIO = (): SocketIO => {
   }
   return io;
 };
-

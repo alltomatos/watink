@@ -16,7 +16,8 @@ const engineRoutes = Router();
  */
 engineRoutes.get("/engine/version", async (req, res) => {
   try {
-    const { data } = await axios.get("http://whaileys-engine:3334/version", {
+    const engineUrl = process.env.ENGINE_STANDARD_URL || "http://whaileys-engine:3334";
+    const { data } = await axios.get(`${engineUrl}/version`, {
       headers: { "Cache-Control": "no-store" },
       timeout: 1500,
     });

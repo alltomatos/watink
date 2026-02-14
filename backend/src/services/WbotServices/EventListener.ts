@@ -27,19 +27,7 @@ export const EventListener = async () => {
     "wbot.*.*.message.reaction",
     "wbot.*.*.contact.update",
     "wbot.*.*.message.ack",
-    "wbot.*.*.message.revoke",
-    "wbot.*.*.*.session.qrcode",
-    "wbot.*.*.*.session.pairingcode",
-    "wbot.*.*.*.session.status",
-    "wbot.*.*.*.message.received",
-    "wbot.*.*.*.message.reaction",
-    "wbot.*.*.*.contact.update",
-    "wbot.*.*.*.message.ack",
-    "wbot.*.*.*.message.revoke",
-    // Wildcard fallback for engines that append extra segments or use different naming
-    "wbot.*.*.*.event",
-    "wbot.*.*.event",
-    "wbot.#"
+    "wbot.*.*.message.revoke"
   ];
 
   await RabbitMQService.consumeEvents("api.events.process", routingKeys, async (msg: Envelope) => {
@@ -360,8 +348,7 @@ const handleMessageReceived = async (payload: MessageReceivedPayload, tenantId: 
   } else {
     // Individual Contact
     const isLid = message.from.includes("@lid");
-    const isWebchat = message.from.startsWith("webchat-");
-    const number = isWebchat ? message.from : message.from.replace(/\D/g, "");
+    const number = message.from.replace(/\D/g, "");
     const providedLid = message.senderLid;
 
     const contactData: any = {

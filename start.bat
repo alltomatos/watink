@@ -5,9 +5,20 @@ echo ======================================================
 echo   Watink Core - Inicializacao Standalone
 echo ======================================================
 
-:: Verificar Docker
+:: Verificar Docker Desktop instalado
+set "DOCKER_DESKTOP_EXE=%ProgramFiles%\Docker\Docker\Docker Desktop.exe"
+if not exist "%DOCKER_DESKTOP_EXE%" (
+  set "DOCKER_DESKTOP_EXE=%ProgramFiles(x86)%\Docker\Docker\Docker Desktop.exe"
+)
+if not exist "%DOCKER_DESKTOP_EXE%" goto :erro_docker_desktop
+
+:: Verificar Docker CLI no PATH
 where docker >nul 2>&1
 if errorlevel 1 goto :erro_docker
+
+:: Verificar Docker Engine respondendo
+for /f %%s in ('docker info --format "{{.ServerVersion}}" 2^>nul') do set "DOCKER_SERVER=%%s"
+if "%DOCKER_SERVER%"=="" goto :erro_docker_not_running
 
 :: Tentar docker-compose
 where docker-compose >nul 2>&1
@@ -74,8 +85,22 @@ timeout /t 5
 %COMPOSE_CMD% -f docker-compose.standalone.yml logs -f
 goto :eof
 
+:erro_docker_desktop
+echo [ERRO] Docker Desktop nao encontrado neste computador.
+echo Instale o Docker Desktop para Windows e tente novamente:
+echo https://www.docker.com/products/docker-desktop/
+pause
+exit /b 1
+
 :erro_docker
-echo [ERRO] Docker nao encontrado.
+echo [ERRO] Docker CLI nao encontrado no PATH.
+echo Abra o Docker Desktop, aguarde inicializar e tente novamente.
+pause
+exit /b 1
+
+:erro_docker_not_running
+echo [ERRO] Docker Desktop instalado, mas o Engine nao esta respondendo.
+echo Abra o Docker Desktop e aguarde o status ^"Engine running^".
 pause
 exit /b 1
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useContext } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
     Container,
     Paper,
@@ -31,7 +31,7 @@ import api from "../../services/api";
 import ClientModal from "./ClientModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import { Can } from "../../components/Can";
-import { AuthContext } from "../../context/Auth/AuthContext";
+import useAuth from "../../hooks/useAuth";
 
 const useStyles = makeStyles((theme) => ({
     root: {
@@ -67,7 +67,7 @@ const useStyles = makeStyles((theme) => ({
 
 const Clients = () => {
     const classes = useStyles();
-    const { user } = useContext(AuthContext);
+    const { user } = useAuth();
     const [clients, setClients] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchParam, setSearchParam] = useState("");
@@ -125,7 +125,7 @@ const Clients = () => {
     return (
         <Can
             user={user}
-            perform="clients:read"
+            perform="view_clients"
             yes={() => (
                 <Container maxWidth="lg" className={classes.root}>
                     <Paper elevation={0} style={{ padding: 24 }}>
@@ -133,7 +133,7 @@ const Clients = () => {
                             <Typography variant="h4">👥 Clientes</Typography>
                             <Can
                                 user={user}
-                                perform="clients:write"
+                                perform="edit_clients"
                                 yes={() => (
                                     <Button
                                         variant="contained"
@@ -208,7 +208,7 @@ const Clients = () => {
                                                     <TableCell align="right">
                                                     <Can
                                                             user={user}
-                                                            perform="clients:write"
+                                                            perform="edit_clients"
                                                             yes={() => (
                                                                 <>
                                                                     <IconButton
@@ -219,7 +219,7 @@ const Clients = () => {
                                                                     </IconButton>
                                                                     <Can
                                                                         user={user}
-                                                                        perform="clients:delete"
+                                                                        perform="delete_clients"
                                                                         yes={() => (
                                                                             <IconButton
                                                                                 size="small"

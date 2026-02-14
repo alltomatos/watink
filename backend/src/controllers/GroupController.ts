@@ -2,37 +2,45 @@ import * as Yup from "yup";
 import { Request, Response } from "express";
 import AppError from "../errors/AppError";
 import Group from "../models/Group";
-import Role from "../models/Role";
+import Permission from "../models/Permission";
 import User from "../models/User";
-import Permission from "../models/Permission"; // Keep for listPermissions
 
 type StoreGroupData = {
     name: string;
-    roleIds?: number[];
-    userIds?: number[];
     permissions?: number[];
+    userIds?: number[];
 };
 
 type UpdateGroupData = {
     name: string;
-    roleIds?: number[];
-    userIds?: number[];
     permissions?: number[];
+    userIds?: number[];
+};
+
+type GroupFilter = {
+    searchParam?: string;
+    pageNumber?: string;
 };
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
-    const { tenantId } = req.user;
+    try {
+        const { tenantId } = req.user;
+        console.log("DEBUG: GroupController.index tenantId:", tenantId, "UserID:", req.user.id);
+        console.log("DEBUG: GroupController.index tenantId:", tenantId, "User:", req.user);
 
-    const groups = await Group.findAll({
-        where: { tenantId },
-        include: [
-            { model: Role, as: "roles", attributes: ["id", "name"] },
-            { model: User, as: "users", attributes: ["id", "name"] },
-            { model: Permission, as: "permissions", attributes: ["id", "resource", "action"] }
-        ]
-    });
+        const groups = await Group.findAll({
+            where: { tenantId },
+            include: [
+                { model: Permission, as: "permissions", attributes: ["id", "name"] },
+                { model: User, as: "users", attributes: ["id", "name"] }
+            ]
+        });
 
-    return res.json(groups);
+        return res.json(groups);
+    } catch (err) {
+        console.error("DEBUG: GroupController.index Error:", err);
+        throw new AppError("INTERNAL_SERVER_ERROR", 500);
+    }
 };
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
@@ -54,9 +62,20 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
         tenantId
     });
 
-    if (data.roleIds && data.roleIds.length > 0) {
-        const roles = await Role.findAll({ where: { id: data.roleIds } });
-        await group.$set("roles", roles, { through: { tenantId } });
+    if (data.permissions && data.permissions.length > 0) {
+        await group.$set("permissions", data.permissions);
+    }
+
+    // Associar IDs de permissão pivot com tenantId (Se necessário customizar a pivot, faríamos loop)
+    // Mas como a pivot tem tenantId, o sequelize pode não preencher auto se usarmos apenas $set ids.
+    // Vamos corrigir isso: para GroupPermission precisamos setar tenantId.
+    // Como o Sequelize BelongsToMany set padrão é simples, é melhor iterar se quisermos garantir tenantId na pivot.
+    // OBS: Na migration, GroupPermissions.tenantId é NotNull.
+    // Vamos usar addPermissions passando through options.
+
+    if (data.permissions && data.permissions.length > 0) {
+        const permissions = await Permission.findAll({ where: { id: data.permissions } });
+        await group.$set("permissions", permissions, { through: { tenantId } });
     }
 
     if (data.userIds && data.userIds.length > 0) {
@@ -64,16 +83,10 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
         await group.$set("users", users);
     }
 
-    if (data.permissions && data.permissions.length > 0) {
-        const permissions = await Permission.findAll({ where: { id: data.permissions } });
-        await group.$set("permissions", permissions, { through: { tenantId } });
-    }
-
     await group.reload({
         include: [
-            { model: Role, as: "roles" },
-            { model: User, as: "users" },
-            { model: Permission, as: "permissions" }
+            { model: Permission, as: "permissions" },
+            { model: User, as: "users" }
         ]
     });
 
@@ -87,9 +100,8 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
     const group = await Group.findOne({
         where: { id: groupId, tenantId },
         include: [
-            { model: Role, as: "roles" },
-            { model: User, as: "users", attributes: ["id", "name", "email"] },
-            { model: Permission, as: "permissions" }
+            { model: Permission, as: "permissions" },
+            { model: User, as: "users", attributes: ["id", "name", "email"] }
         ]
     });
 
@@ -125,9 +137,10 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
 
     await group.update({ name: data.name });
 
-    if (data.roleIds) {
-        const roles = await Role.findAll({ where: { id: data.roleIds } });
-        await group.$set("roles", roles, { through: { tenantId } });
+    if (data.permissions) {
+        // Atualiza permissões garantindo tenantId na pivot
+        const permissions = await Permission.findAll({ where: { id: data.permissions } });
+        await group.$set("permissions", permissions, { through: { tenantId } });
     }
 
     if (data.userIds) {
@@ -135,16 +148,10 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
         await group.$set("users", users);
     }
 
-    if (data.permissions) {
-        const permissions = await Permission.findAll({ where: { id: data.permissions } });
-        await group.$set("permissions", permissions, { through: { tenantId } });
-    }
-
     await group.reload({
         include: [
-            { model: Role, as: "roles" },
-            { model: User, as: "users" },
-            { model: Permission, as: "permissions" }
+            { model: Permission, as: "permissions" },
+            { model: User, as: "users" }
         ]
     });
 
@@ -169,8 +176,7 @@ export const remove = async (req: Request, res: Response): Promise<Response> => 
 };
 
 export const listPermissions = async (req: Request, res: Response): Promise<Response> => {
-    // Mantém listagem de Permissões (Capabilities) para UI de criação de Roles (se houver)
-    // Se o frontend esperar Roles aqui, devemos ajustar. Mas o nome é listPermissions.
+    // Listar todas as permissões disponíveis (Seeds globais ou custom)
     const permissions = await Permission.findAll();
     return res.json(permissions);
 };

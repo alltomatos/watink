@@ -14,89 +14,76 @@ const useAuth = () => {
 	const [loading, setLoading] = useState(true);
 	const [user, setUser] = useState({});
 
-	useEffect(() => {
-		const requestInterceptor = api.interceptors.request.use(
-			config => {
-				const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-				if (token) {
-					config.headers["Authorization"] = `Bearer ${token}`;
-					setIsAuth(true);
-				}
-				return config;
-			},
-			error => {
-				Promise.reject(error);
+	api.interceptors.request.use(
+		config => {
+			const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+			if (token) {
+				config.headers["Authorization"] = `Bearer ${JSON.parse(token)}`;
+				setIsAuth(true);
 			}
-		);
+			return config;
+		},
+		error => {
+			Promise.reject(error);
+		}
+	);
 
-		const responseInterceptor = api.interceptors.response.use(
-			response => {
-				return response;
-			},
-			async error => {
-				const originalRequest = error.config;
+	api.interceptors.response.use(
+		response => {
+			return response;
+		},
+		async error => {
+			const originalRequest = error.config;
+			if (error?.response?.status === 403 && !originalRequest._retry) {
+				originalRequest._retry = true;
 
-				if (error?.response?.status === 403) {
-					toast.error("Você não tem permissão para acessar este recurso.", {
-						autoClose: 7000,
-					});
+				try {
+					const { data } = await api.post("/auth/refresh_token");
+					if (data) {
+						// Detect where the token was and update it there
+						if (localStorage.getItem("token")) {
+							localStorage.setItem("token", JSON.stringify(data.token));
+						} else {
+							sessionStorage.setItem("token", JSON.stringify(data.token));
+						}
+
+						api.defaults.headers.Authorization = `Bearer ${data.token}`;
+					}
+					return api(originalRequest);
+				} catch (err) {
+					console.error("RefreshToken failed", err);
 				}
-
-				if (error?.response?.status === 401) {
-					localStorage.removeItem("token");
-					sessionStorage.removeItem("token");
-					api.defaults.headers.Authorization = undefined;
-					setIsAuth(false);
-				}
-				return Promise.reject(error);
 			}
-		);
-
-		return () => {
-			api.interceptors.request.eject(requestInterceptor);
-			api.interceptors.response.eject(responseInterceptor);
-		};
-	}, [history]);
+			if (error?.response?.status === 401) {
+				localStorage.removeItem("token");
+				sessionStorage.removeItem("token");
+				api.defaults.headers.Authorization = undefined;
+				setIsAuth(false);
+			}
+			return Promise.reject(error);
+		}
+	);
 
 	useEffect(() => {
 		const token = localStorage.getItem("token") || sessionStorage.getItem("token");
 		(async () => {
-			try {
-				const { data } = await api.get("/auth/refresh_token");
-
-				const tokenStr = data.token;
-				if (!tokenStr) return; // Prevent setting undefined/null token
-
-				// If we have a stored token preference (localStorage vs sessionStorage), respect it.
-				// If neither, default to localStorage (or keep in memory only, but existing logic uses storage).
-				// We'll update the storage to keep the fresh token available for other tabs/logic.
-				if (sessionStorage.getItem("token")) {
-					sessionStorage.setItem("token", tokenStr);
-				} else {
-					// Default to localStorage if previously there OR if completely new (fallback)
-					localStorage.setItem("token", tokenStr);
-				}
-
-				api.defaults.headers.Authorization = `Bearer ${data.token}`;
-				setIsAuth(true);
-				setUser(data.user);
-			} catch (err) {
-				// Only if we HAD a token but refresh failed, we clear it and redirect.
-				// If we didn't have a token and refresh failed (no cookie), it's just a normal unauthenticated state.
-				if (token) {
+			if (token) {
+				try {
+					const { data } = await api.post("/auth/refresh_token");
+					api.defaults.headers.Authorization = `Bearer ${data.token}`;
+					setIsAuth(true);
+					setUser(data.user);
+				} catch (err) {
 					toastError(err);
+					// Robust Login Failure: Redirect immediately if validation fails
 					localStorage.removeItem("token");
 					sessionStorage.removeItem("token");
 					api.defaults.headers.Authorization = undefined;
 					setIsAuth(false);
-					history.push("/login");
-				} else {
-					// Silent fail - user just isn't logged in
-					setIsAuth(false);
+					history.push("/login"); // Force redirect
 				}
-			} finally {
-				setLoading(false);
 			}
+			setLoading(false);
 		})();
 	}, []);
 
@@ -120,9 +107,9 @@ const useAuth = () => {
 		setLoading(true);
 
 		try {
-			const { data } = await api.post("/auth/login", { ...userData, rememberMe });
+			const { data } = await api.post("/auth/login", userData);
 
-			const tokenStr = data.token; // JSON.stringify removed
+			const tokenStr = JSON.stringify(data.token);
 			if (rememberMe) {
 				localStorage.setItem("token", tokenStr);
 				sessionStorage.removeItem("token"); // Cleanup

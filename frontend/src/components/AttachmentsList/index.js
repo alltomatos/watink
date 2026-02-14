@@ -17,7 +17,7 @@ import {
     Description as DocIcon,
     Image as ImageIcon,
 } from "@material-ui/icons";
-import { getBackendUrl } from "../../helpers/urlUtils";
+import { getBackendUrl } from "../../config";
 
 const useStyles = makeStyles((theme) => ({
     container: {
@@ -140,7 +140,12 @@ const AttachmentsList = ({
     const [selectedImage, setSelectedImage] = useState(null);
 
     const getUrl = (attachment) => {
-        return getBackendUrl(attachment.filePath);
+        if (!attachment.filePath) return "";
+        const url = attachment.filePath.startsWith("/") ? attachment.filePath : `/${attachment.filePath}`;
+        if (url.startsWith("/public")) {
+            return getBackendUrl() + url;
+        }
+        return getBackendUrl() + "/public" + url;
     };
 
     const handleDownload = (attachment, e) => {

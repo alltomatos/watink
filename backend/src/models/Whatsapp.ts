@@ -19,8 +19,6 @@ import Tenant from "./Tenant";
 import Queue from "./Queue";
 import Ticket from "./Ticket";
 import WhatsappQueue from "./WhatsappQueue";
-import Tag from "./Tag";
-import EntityTag from "./EntityTag";
 
 @Table
 class Whatsapp extends Model<Whatsapp> {
@@ -64,15 +62,9 @@ class Whatsapp extends Model<Whatsapp> {
   @Column(DataType.TEXT)
   farewellMessage: string;
 
-  @Column(DataType.TEXT)
-  chatConfig: string;
-
-  @Column(DataType.STRING)
-  type: string;
-
-  @Default('whaileys')
-  @Column(DataType.ENUM('whaileys', 'whatsmeow', 'papi'))
-  engineType: "whaileys" | "whatsmeow" | "papi";
+  // Campos opcionais usados por módulos mais novos (compatibilidade de build)
+  type?: string;
+  chatConfig?: any;
 
   @Default(false)
   @AllowNull
@@ -104,19 +96,6 @@ class Whatsapp extends Model<Whatsapp> {
 
   @HasMany(() => WhatsappQueue)
   whatsappQueues: WhatsappQueue[];
-
-  @BelongsToMany(() => Tag, {
-    through: {
-      model: () => EntityTag,
-      scope: {
-        entityType: "whatsapp"
-      }
-    },
-    foreignKey: "entityId",
-    otherKey: "tagId",
-    constraints: false
-  })
-  tags: Tag[];
 
   @ForeignKey(() => Tenant)
   @Column(DataType.UUID)

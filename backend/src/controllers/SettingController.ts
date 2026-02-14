@@ -9,30 +9,19 @@ import UpdateSettingService from "../services/SettingServices/UpdateSettingServi
 import ListSettingsService from "../services/SettingServices/ListSettingsService";
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
-
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
+    throw new AppError("ERR_NO_PERMISSION", 403);
+  }
 
   const { tenantId } = req.user;
   const settings = await ListSettingsService({ tenantId });
 
-  // Convert to plain object to inject virtual settings
-  const settingsList: any[] = Array.isArray(settings) ? settings.map((s: any) => (s.toJSON ? s.toJSON() : s)) : [];
-
-  if (process.env.TENANTS === "True" || process.env.TENANTS === "true") {
-    settingsList.push({
-      key: "allowTenantControl",
-      value: "true",
-      tenantId: tenantId,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    });
-  }
-
-  return res.status(200).json(settingsList);
+  return res.status(200).json(settings);
 };
 
 export const getPublicSettings = async (req: Request, res: Response): Promise<Response> => {
   const settings = await ListSettingsService();
-  const publicKeys = ["systemLogo", "login_backgroundImage", "login_layout", "systemFavicon", "userCreation", "mobileLogo"];
+  const publicKeys = ["systemLogo", "login_backgroundImage", "login_layout", "systemFavicon"];
   const publicSettings = (settings || []).filter(s => publicKeys.includes(s.key));
   return res.status(200).json(publicSettings);
 };
@@ -41,7 +30,9 @@ export const update = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
+    throw new AppError("ERR_NO_PERMISSION", 403);
+  }
   const { settingKey: key } = req.params;
   const { value } = req.body;
   const { tenantId } = req.user;
@@ -65,7 +56,9 @@ export const uploadLogo = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
+    throw new AppError("ERR_NO_PERMISSION", 403);
+  }
 
   if (!req.file) {
     throw new AppError("ERR_NO_FILE_UPLOADED", 400);
@@ -111,7 +104,9 @@ export const uploadFavicon = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
+    throw new AppError("ERR_NO_PERMISSION", 403);
+  }
 
   if (!req.file) {
     throw new AppError("ERR_NO_FILE_UPLOADED", 400);
@@ -148,52 +143,13 @@ export const uploadFavicon = async (
   return res.status(200).json({ faviconUrl });
 };
 
-export const uploadMobileLogo = async (
-  req: Request,
-  res: Response
-): Promise<Response> => {
-
-
-  if (!req.file) {
-    throw new AppError("ERR_NO_FILE_UPLOADED", 400);
-  }
-
-  const file = req.file;
-  const { tenantId } = req.user;
-  const publicDir = path.resolve(__dirname, "..", "..", "public");
-
-  if (!fs.existsSync(publicDir)) {
-    fs.mkdirSync(publicDir, { recursive: true });
-  }
-
-  const ext = path.extname(file.originalname);
-  const filename = `mobile-logo-${Date.now()}${ext}`;
-  const filepath = path.join(publicDir, filename);
-
-  fs.writeFileSync(filepath, file.buffer);
-
-  const mobileLogoUrl = `public/${filename}`;
-
-  const setting = await UpdateSettingService({
-    key: "mobileLogo",
-    value: mobileLogoUrl,
-    tenantId
-  });
-
-  const io = getIO();
-  io.emit("settings", {
-    action: "update",
-    setting
-  });
-
-  return res.status(200).json({ mobileLogoUrl });
-};
-
 export const uploadLoginImage = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-
+  if (req.user.profile !== "admin" && req.user.profile !== "superadmin") {
+    throw new AppError("ERR_NO_PERMISSION", 403);
+  }
 
   if (!req.file) {
     throw new AppError("ERR_NO_FILE_UPLOADED", 400);

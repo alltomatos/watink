@@ -54,11 +54,11 @@ const initRecorder = async () => {
 
 const useStyles = makeStyles(theme => ({
   mainWrapper: {
-    background: "#f0f2f5",
+    background: "#eee",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    borderTop: "1px solid rgba(0, 0, 0, 0.05)",
+    borderTop: "1px solid rgba(0, 0, 0, 0.12)",
     [theme.breakpoints.down("sm")]: {
       position: "fixed",
       bottom: 0,
@@ -67,35 +67,29 @@ const useStyles = makeStyles(theme => ({
   },
 
   newMessageBox: {
-    background: "#ffffff",
+    background: "#eee",
     width: "100%",
     display: "flex",
-    padding: "12px 16px",
+    padding: "7px",
     alignItems: "center",
   },
 
   messageInputWrapper: {
-    padding: "8px 12px",
-    marginRight: 10,
-    background: "#f9f9f9",
+    padding: 6,
+    marginRight: 7,
+    background: "#fff",
     display: "flex",
-    borderRadius: 24,
+    borderRadius: 20,
     flex: 1,
     position: "relative",
-    border: "1px solid #eee",
-    transition: "border-color 0.2s, box-shadow 0.2s",
-    "&:focus-within": {
-      borderColor: theme.palette.primary.main,
-      boxShadow: "0 0 0 2px rgba(80, 97, 219, 0.1)",
-    }
   },
 
   messageInputWrapperSaas: {
-    padding: "8px 12px",
-    marginRight: 10,
-    background: "#f9f9f9",
+    padding: 6,
+    marginRight: 7,
+    background: "#fff",
     display: "flex",
-    borderRadius: 24,
+    borderRadius: 20,
     flex: 1,
     position: "relative",
     border: "1px solid #e5e7eb",
@@ -106,15 +100,10 @@ const useStyles = makeStyles(theme => ({
     paddingLeft: 10,
     flex: 1,
     border: "none",
-    background: "transparent",
   },
 
   sendMessageIcons: {
-    color: "#8e8e8e",
-    transition: "color 0.2s",
-    "&:hover": {
-      color: theme.palette.primary.main,
-    }
+    color: "grey",
   },
 
   uploadInput: {

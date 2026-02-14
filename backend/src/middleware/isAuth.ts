@@ -8,8 +8,8 @@ import User from "../models/User";
 interface TokenPayload {
   id: string;
   username: string;
-  tenantId: string;
-  profile?: string;
+  profile: string;
+  tenantId: string | number;
   iat: number;
   exp: number;
 }
@@ -25,7 +25,7 @@ const isAuth = async (req: Request, res: Response, next: NextFunction): Promise<
 
   try {
     const decoded = verify(token, authConfig.secret);
-    const { id, tenantId, profile } = decoded as TokenPayload;
+    const { id, profile, tenantId } = decoded as TokenPayload;
 
     const user = await User.findByPk(id);
     if (!user) {
@@ -34,11 +34,11 @@ const isAuth = async (req: Request, res: Response, next: NextFunction): Promise<
 
     req.user = {
       id,
-      tenantId: user.tenantId.toString(),
-      profile
+      profile,
+      tenantId: user.tenantId
     };
   } catch (err) {
-    console.log("DEBUG: isAuth failed. Header:", authHeader ? "YES" : "NO", "Token:", token ? token.slice(-6) : "NONE", "Error:", err.message);
+    console.log("DEBUG: isAuth failed for token:", token.slice(-6), "Error:", err.message);
     throw new AppError(
       "Invalid token. We'll try to assign a new one on next request",
       401

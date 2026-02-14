@@ -10,9 +10,7 @@ import {
   HasMany,
   AutoIncrement,
   Default,
-  DataType,
-  AllowNull,
-  BelongsToMany
+  DataType
 } from "sequelize-typescript";
 
 import Contact from "./Contact";
@@ -21,9 +19,6 @@ import Queue from "./Queue";
 import User from "./User";
 import Whatsapp from "./Whatsapp";
 import Tenant from "./Tenant";
-import Step from "./Step";
-import Tag from "./Tag";
-import EntityTag from "./EntityTag";
 
 @Table
 class Ticket extends Model<Ticket> {
@@ -31,12 +26,6 @@ class Ticket extends Model<Ticket> {
   @AutoIncrement
   @Column
   id: number;
-
-  @Column({
-    type: DataType.UUID,
-    defaultValue: DataType.UUIDV4
-  })
-  uuid: string;
 
   @Column({ defaultValue: "pending" })
   status: string;
@@ -85,14 +74,6 @@ class Ticket extends Model<Ticket> {
   @BelongsTo(() => Queue)
   queue: Queue;
 
-  @ForeignKey(() => Step)
-  @AllowNull(true)
-  @Column
-  stepId: number;
-
-  @BelongsTo(() => Step)
-  step: Step;
-
   @HasMany(() => Message)
   messages: Message[];
 
@@ -102,20 +83,6 @@ class Ticket extends Model<Ticket> {
 
   @BelongsTo(() => Tenant)
   tenant: Tenant;
-
-  @BelongsToMany(() => Tag, {
-    through: {
-      model: () => EntityTag,
-      scope: {
-        entityType: "ticket"
-      }
-    },
-    foreignKey: "entityId",
-    otherKey: "tagId",
-    constraints: false
-  })
-  tags: Tag[];
 }
 
 export default Ticket;
-

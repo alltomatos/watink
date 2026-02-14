@@ -28,8 +28,6 @@ import { Can } from "../../components/Can";
 import pluginApi from "../../services/pluginApi";
 import { toast } from "react-toastify";
 import { getBackendUrl } from "../../helpers/urlUtils";
-import { i18n } from "../../translate/i18n";
-
 
 const useStyles = makeStyles((theme) => ({
     root: {
@@ -98,36 +96,26 @@ const PluginDetail = () => {
     const loadPlugin = async () => {
         try {
             setLoading(true);
-            const [{ data: catalogRes }, { data: installedRes }] = await Promise.all([
-                pluginApi.get("/api/v1/plugins/catalog"),
-                pluginApi.get("/api/v1/plugins/installed")
-            ]);
-
+            const { data: catalogRes } = await pluginApi.get("/api/v1/plugins/catalog");
             const all = Array.isArray(catalogRes?.plugins) ? catalogRes.plugins : [];
-            const activeSlugs = Array.isArray(installedRes?.active) ? installedRes.active : [];
-
-            const p = all.find(x => x.slug === slug);
-            const isActive = activeSlugs.includes(slug);
-
-            if (p) {
+            const p = all.find(x => x.slug === slug && ["clientes", "helpdesk"].includes(x.slug));
+            if (!p) {
+                setPlugin(null);
+            } else {
                 setPlugin({
                     ...p,
-                    installed: isActive,
-                    active: isActive,
+                    installed: p.status !== 'not_installed' && p.status !== null && p.status !== undefined,
+                    active: p.status === 'active',
                     // Force use of local icons based on slug
                     iconUrl: `/public/plugins/${p.slug}.png`,
                     longDescription:
                         p.slug === "clientes"
                             ? `O Plugin de Clientes adiciona ao Watink uma gestão completa de clientes, permitindo:\n\n• Cadastro detalhado de clientes (pessoa física e jurídica)\n• Múltiplos contatos vinculados ao mesmo cliente\n• Múltiplos endereços por cliente\n• Integração automática com API ViaCEP para autocompletar endereços\n• Vinculação de contatos do WhatsApp a clientes cadastrados\n• Histórico de interações por cliente`
-                            : p.slug === "smtp"
-                                ? `O Plugin de SMTP permite configurar seu próprio servidor de e-mail para envio de notificações e mensagens do sistema.\n\n• Configuração personalizada de Host, Porta e Autenticação\n• Suporte a SSL/TLS\n• Definição de remetente padrão`
-                                : p.slug === "webchat"
-                                    ? `O Webchat oferece um widget de chat em tempo real para seu site:\n\n• Converse com visitantes do seu site diretamente pelo sistema\n• Personalize a aparência do widget\n• Histórico de conversas integrado\n• Suporte a múltiplos atendentes`
-                                    : `O Plugin de Helpdesk transforma seu atendimento em um sistema de suporte profissional:\n\n• Criação de protocolos de atendimento\n• Vinculação de protocolos a tickets\n• Gestão de status, prioridade e SLA\n• Histórico completo de interações no protocolo\n• Relatórios de atendimento`,
+                            : `O Plugin de Helpdesk transforma seu atendimento em um sistema de suporte profissional:\n\n• Criação de protocolos de atendimento\n• Vinculação de protocolos a tickets\n• Gestão de status, prioridade e SLA\n• Histórico completo de interações no protocolo\n• Relatórios de atendimento`,
                 });
             }
         } catch (err) {
-            toast.error(i18n.t("marketplace.pluginDetail.loadError"));
+            toast.error("Erro ao carregar plugin");
         } finally {
             setLoading(false);
         }
@@ -145,13 +133,13 @@ const PluginDetail = () => {
             await pluginApi.post(`/api/v1/plugins/${plugin.slug}/activate`, {
                 licenseKey: licenseKey || undefined,
             });
-            toast.success(i18n.t("marketplace.pluginDetail.activateSuccess").replace("{name}", plugin.name));
+            toast.success(`Plugin ${plugin.name} ativado com sucesso!`);
             setPlugin({ ...plugin, installed: true, active: true });
             setTimeout(() => {
                 window.location.reload();
             }, 1000);
         } catch (err) {
-            toast.error(i18n.t("marketplace.pluginDetail.activateError"));
+            toast.error("Erro ao ativar plugin");
         } finally {
             setActivating(false);
         }
@@ -161,13 +149,13 @@ const PluginDetail = () => {
         try {
             setActivating(true);
             await pluginApi.post(`/api/v1/plugins/${plugin.slug}/deactivate`);
-            toast.success(i18n.t("marketplace.pluginDetail.deactivateSuccess"));
+            toast.success(`Plugin ${plugin.name} desativado.`);
             setPlugin({ ...plugin, active: false });
             setTimeout(() => {
                 window.location.reload();
             }, 1000);
         } catch (err) {
-            toast.error(i18n.t("marketplace.pluginDetail.deactivateError"));
+            toast.error("Erro ao desativar plugin");
         } finally {
             setActivating(false);
         }
@@ -175,7 +163,7 @@ const PluginDetail = () => {
 
     const handleLicenseSubmit = async () => {
         if (!licenseKey.trim()) {
-            toast.error(i18n.t("marketplace.pluginDetail.enterLicense"));
+            toast.error("Informe a chave de licença");
             return;
         }
 
@@ -183,7 +171,7 @@ const PluginDetail = () => {
             setActivating(true);
             await pluginApi.post(`/api/v1/plugins/${plugin.slug}/install`, { licenseKey });
             await pluginApi.post(`/api/v1/plugins/${plugin.slug}/activate`, { licenseKey });
-            toast.success(i18n.t("marketplace.pluginDetail.activateSuccess").replace("{name}", plugin.name));
+            toast.success(`Plugin ${plugin.name} ativado com sucesso!`);
             setPlugin({ ...plugin, installed: true, active: true });
             setTimeout(() => {
                 window.location.reload();
@@ -191,7 +179,7 @@ const PluginDetail = () => {
             setLicenseDialogOpen(false);
             setLicenseKey("");
         } catch (err) {
-            toast.error(i18n.t("marketplace.pluginDetail.invalidLicense"));
+            toast.error("Chave de licença inválida");
         } finally {
             setActivating(false);
         }
@@ -210,7 +198,7 @@ const PluginDetail = () => {
     if (!plugin) {
         return (
             <Container maxWidth="lg" className={classes.root}>
-                <Typography>{i18n.t("marketplace.pluginDetail.pluginNotFound")}</Typography>
+                <Typography>Plugin não encontrado</Typography>
             </Container>
         );
     }
@@ -218,7 +206,7 @@ const PluginDetail = () => {
     return (
         <Can
             user={user}
-            perform="marketplace:read"
+            perform="view_marketplace"
             yes={() => (
                 <Container maxWidth="lg" className={classes.root}>
                     <Button
@@ -226,7 +214,7 @@ const PluginDetail = () => {
                         className={classes.backButton}
                         onClick={() => history.push("/admin/settings/marketplace")}
                     >
-                        {i18n.t("marketplace.pluginDetail.backToMarketplace")}
+                        Voltar ao Marketplace
                     </Button>
 
                     <Paper elevation={0} style={{ padding: 24 }}>
@@ -247,7 +235,7 @@ const PluginDetail = () => {
                                 </Box>
                                 <Box mt={1} display="flex" gap={1}>
                                     <Chip
-                                        label={plugin.type === "free" ? i18n.t("marketplace.free") : `R$ ${plugin.price}`}
+                                        label={plugin.type === "free" ? "Gratuito" : `R$ ${plugin.price}`}
                                         className={plugin.type === "free" ? classes.chipFree : classes.chipPremium}
                                     />
                                     <Chip label={`v${plugin.version}`} variant="outlined" />
@@ -263,7 +251,7 @@ const PluginDetail = () => {
 
                         <Box className={classes.section}>
                             <Typography variant="h6" gutterBottom>
-                                {i18n.t("marketplace.pluginDetail.aboutPlugin")}
+                                Sobre este plugin
                             </Typography>
                             <Typography variant="body1" style={{ whiteSpace: "pre-line" }}>
                                 {plugin.longDescription}
@@ -279,7 +267,7 @@ const PluginDetail = () => {
                                     onClick={handleDeactivate}
                                     disabled={activating}
                                 >
-                                    {activating ? <CircularProgress size={20} /> : i18n.t("marketplace.pluginDetail.deactivatePlugin")}
+                                    {activating ? <CircularProgress size={20} /> : "Desativar Plugin"}
                                 </Button>
                             ) : (
                                 <Button
@@ -289,23 +277,22 @@ const PluginDetail = () => {
                                     onClick={handleActivate}
                                     disabled={activating}
                                 >
-                                    {activating ? <CircularProgress size={20} /> : i18n.t("marketplace.pluginDetail.activatePlugin")}
+                                    {activating ? <CircularProgress size={20} /> : "Ativar Plugin"}
                                 </Button>
                             )}
                         </Box>
-
                     </Paper>
 
                     <Dialog open={licenseDialogOpen} onClose={() => setLicenseDialogOpen(false)}>
-                        <DialogTitle>{i18n.t("marketplace.pluginDetail.activatePremium")}</DialogTitle>
+                        <DialogTitle>Ativar Plugin Premium</DialogTitle>
                         <DialogContent>
                             <Typography variant="body2" gutterBottom>
-                                {i18n.t("marketplace.pluginDetail.premiumDescription")}
+                                Este é um plugin premium. Insira sua chave de licença para ativar.
                             </Typography>
                             <TextField
                                 autoFocus
                                 margin="dense"
-                                label={i18n.t("marketplace.pluginDetail.licenseKey")}
+                                label="Chave de Licença"
                                 fullWidth
                                 variant="outlined"
                                 value={licenseKey}
@@ -314,14 +301,14 @@ const PluginDetail = () => {
                             />
                         </DialogContent>
                         <DialogActions>
-                            <Button onClick={() => setLicenseDialogOpen(false)}>{i18n.t("marketplace.pluginDetail.cancel")}</Button>
+                            <Button onClick={() => setLicenseDialogOpen(false)}>Cancelar</Button>
                             <Button
                                 onClick={handleLicenseSubmit}
                                 color="primary"
                                 variant="contained"
                                 disabled={activating}
                             >
-                                {activating ? <CircularProgress size={20} /> : i18n.t("marketplace.pluginDetail.activate")}
+                                {activating ? <CircularProgress size={20} /> : "Ativar"}
                             </Button>
                         </DialogActions>
                     </Dialog>
@@ -329,9 +316,9 @@ const PluginDetail = () => {
             )}
             no={() => (
                 <Container maxWidth="lg" className={classes.root}>
-                    <Typography variant="h5">{i18n.t("marketplace.noPermission")}</Typography>
+                    <Typography variant="h5">Sem permissão</Typography>
                     <Typography variant="body2" color="textSecondary">
-                        {i18n.t("marketplace.adminOnly")}
+                        Apenas o Admin pode acessar o Marketplace.
                     </Typography>
                 </Container>
             )}

@@ -1,5 +1,4 @@
 import React, { useState, useContext, useEffect } from "react";
-import { useHistory } from "react-router-dom";
 import clsx from "clsx";
 import {
     makeStyles,
@@ -13,7 +12,6 @@ import {
     IconButton,
     Menu,
     Box,
-    Avatar,
 } from "@material-ui/core";
 import MenuIcon from "@material-ui/icons/Menu";
 import ChevronLeftIcon from "@material-ui/icons/ChevronLeft";
@@ -27,7 +25,7 @@ import BackdropLoading from "../components/BackdropLoading";
 import { i18n } from "../translate/i18n";
 import VersionFooter from "../components/VersionFooter";
 import api from "../services/api";
-import { getBackendUrl } from "../helpers/urlUtils";
+import { getBackendUrl } from "../config";
 
 const drawerWidth = 240;
 
@@ -140,8 +138,7 @@ const useStyles = makeStyles((theme) => ({
 
 const MainLayoutDefault = ({ children }) => {
     const classes = useStyles();
-    const history = useHistory();
-    // const [userModalOpen, setUserModalOpen] = useState(false);
+    const [userModalOpen, setUserModalOpen] = useState(false);
     const [anchorEl, setAnchorEl] = useState(null);
     const [menuOpen, setMenuOpen] = useState(false);
     const { handleLogout, loading } = useContext(AuthContext);
@@ -162,7 +159,7 @@ const MainLayoutDefault = ({ children }) => {
     useEffect(() => {
         const fetchSettings = async () => {
             try {
-                const { data } = await api.get("/public-settings");
+                const { data } = await api.get("/settings");
                 const settingsData = Array.isArray(data) ? data : [];
 
                 const logoSetting = settingsData.find(s => s.key === "systemLogo");
@@ -182,7 +179,12 @@ const MainLayoutDefault = ({ children }) => {
                 }
                 // Update browser favicon dynamically
                 if (faviconSetting && faviconSetting.value) {
-                    link.href = getBackendUrl(faviconSetting.value);
+                    const faviconPath = faviconSetting.value.startsWith('/')
+                        ? faviconSetting.value.slice(1)
+                        : faviconSetting.value;
+                    const link = document.querySelector("link[rel~='icon']") || document.createElement('link');
+                    link.rel = 'icon';
+                    link.href = `${getBackendUrl()}${faviconPath}`;
                     document.head.appendChild(link);
                 }
             } catch (err) {
@@ -247,7 +249,7 @@ const MainLayoutDefault = ({ children }) => {
                 <Box className={classes.logoContainer}>
                     {drawerOpen && systemLogo && logoEnabled ? (
                         <img
-                            src={getBackendUrl(systemLogo)}
+                            src={`${getBackendUrl()}${systemLogo.startsWith('/') ? systemLogo.slice(1) : systemLogo}`}
                             alt="Logo"
                             className={classes.systemLogo}
                         />
@@ -264,13 +266,11 @@ const MainLayoutDefault = ({ children }) => {
                 <Divider />
                 <VersionFooter collapsed={!drawerOpen} />
             </Drawer>
-            {/* 
             <UserModal
                 open={userModalOpen}
                 onClose={() => setUserModalOpen(false)}
                 userId={user?.id}
-            /> 
-            */}
+            />
             <AppBar
                 position="absolute"
                 className={clsx(classes.appBar, drawerOpen && classes.appBarShift)}
@@ -295,7 +295,7 @@ const MainLayoutDefault = ({ children }) => {
                         {systemTitle}
                     </Typography>
 
-                    {user?.id && <NotificationsPopOver />}
+                    {user.id && <NotificationsPopOver />}
 
                     <div>
                         <IconButton
@@ -305,16 +305,7 @@ const MainLayoutDefault = ({ children }) => {
                             onClick={handleMenu}
                             color="inherit"
                         >
-                            {user?.profileImage ? (
-                                <Avatar
-                                    alt={user?.name}
-                                    src={getBackendUrl(user.profileImage)}
-                                    className={classes.avatar}
-                                    style={{ width: 32, height: 32 }}
-                                />
-                            ) : (
-                                <AccountCircle />
-                            )}
+                            <AccountCircle />
                         </IconButton>
                         <Menu
                             id="menu-appbar"
@@ -331,11 +322,7 @@ const MainLayoutDefault = ({ children }) => {
                             open={menuOpen}
                             onClose={handleCloseMenu}
                         >
-                            <MenuItem onClick={() => {
-                                console.log("Profile menu clicked - Redirecting to /profile");
-                                handleCloseMenu();
-                                history.push("/profile");
-                            }}>
+                            <MenuItem onClick={handleOpenUserModal}>
                                 {i18n.t("mainDrawer.appBar.user.profile")}
                             </MenuItem>
                             <MenuItem onClick={handleClickLogout}>

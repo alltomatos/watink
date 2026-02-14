@@ -1,6 +1,5 @@
-
-
 import React, { useState, useEffect, useContext } from "react";
+
 import * as Yup from "yup";
 import { Formik, Form, Field } from "formik";
 import { toast } from "react-toastify";
@@ -18,10 +17,8 @@ import {
 	FormControl,
 	TextField,
 	InputAdornment,
-	IconButton,
-	Checkbox,
-	ListItemText
-} from '@material-ui/core';
+	IconButton
+  } from '@material-ui/core';
 
 import { Visibility, VisibilityOff } from '@material-ui/icons';
 
@@ -83,7 +80,7 @@ const UserModal = ({ open, onClose, userId }) => {
 		name: "",
 		email: "",
 		password: "",
-		groupIds: []
+		profile: "user"
 	};
 
 	const { user: loggedInUser } = useContext(AuthContext);
@@ -92,45 +89,18 @@ const UserModal = ({ open, onClose, userId }) => {
 	const [selectedQueueIds, setSelectedQueueIds] = useState([]);
 	const [showPassword, setShowPassword] = useState(false);
 	const [whatsappId, setWhatsappId] = useState(false);
-	const [groups, setGroups] = useState([]);
-	const [roles, setRoles] = useState([]);
-	const [selectedRoleIds, setSelectedRoleIds] = useState([]);
-	const { loading, whatsApps } = useWhatsApps();
-
-	useEffect(() => {
-		const fetchGroups = async () => {
-			try {
-				const { data } = await api.get("/groups");
-				setGroups(data);
-			} catch (err) {
-				toastError(err);
-			}
-		};
-		const fetchRoles = async () => {
-			try {
-				const { data } = await api.get("/roles");
-				setRoles(data);
-			} catch (err) {
-				toastError(err);
-			}
-		};
-		fetchGroups();
-		fetchRoles();
-	}, []);
+	const {loading, whatsApps} = useWhatsApps();
 
 	useEffect(() => {
 		const fetchUser = async () => {
 			if (!userId) return;
 			try {
 				const { data } = await api.get(`/users/${userId}`);
-				const userGroupIds = data.groups?.map(group => group.id) || [];
-				const userRoleIds = data.roles?.map(role => role.id) || [];
 				setUser(prevState => {
-					return { ...prevState, ...data, groupIds: userGroupIds };
+					return { ...prevState, ...data };
 				});
 				const userQueueIds = data.queues?.map(queue => queue.id);
 				setSelectedQueueIds(userQueueIds);
-				setSelectedRoleIds(userRoleIds);
 				setWhatsappId(data.whatsappId ? data.whatsappId : '');
 			} catch (err) {
 				toastError(err);
@@ -143,11 +113,10 @@ const UserModal = ({ open, onClose, userId }) => {
 	const handleClose = () => {
 		onClose();
 		setUser(initialState);
-		setSelectedRoleIds([]);
 	};
 
 	const handleSaveUser = async values => {
-		const userData = { ...values, whatsappId, queueIds: selectedQueueIds, roleIds: selectedRoleIds };
+		const userData = { ...values, whatsappId, queueIds: selectedQueueIds };
 		try {
 			if (userId) {
 				await api.put(`/users/${userId}`, userData);
@@ -211,16 +180,16 @@ const UserModal = ({ open, onClose, userId }) => {
 										helperText={touched.password && errors.password}
 										type={showPassword ? 'text' : 'password'}
 										InputProps={{
-											endAdornment: (
-												<InputAdornment position="end">
-													<IconButton
-														aria-label="toggle password visibility"
-														onClick={() => setShowPassword((e) => !e)}
-													>
-														{showPassword ? <VisibilityOff /> : <Visibility />}
-													</IconButton>
-												</InputAdornment>
-											)
+										endAdornment: (
+											<InputAdornment position="end">
+											<IconButton
+												aria-label="toggle password visibility"
+												onClick={() => setShowPassword((e) => !e)}
+											>
+												{showPassword ? <VisibilityOff /> : <Visibility />}
+											</IconButton>
+											</InputAdornment>
+										)
 										}}
 										fullWidth
 									/>
@@ -236,73 +205,38 @@ const UserModal = ({ open, onClose, userId }) => {
 										margin="dense"
 										fullWidth
 									/>
-									{/* Removed Profile Selection - Legacy Field */}
-								</div>
-								<div className={classes.multFieldLine}>
 									<FormControl
 										variant="outlined"
 										className={classes.formControl}
 										margin="dense"
-										fullWidth
 									>
-										<InputLabel id="role-selection-input-label">
-											{i18n.t("userModal.form.role")}
-										</InputLabel>
-										<Field
-											as={Select}
-											label={i18n.t("userModal.form.role")}
-											name="roleIds"
-											labelId="role-selection-label"
-											id="role-selection"
-											multiple
-											value={selectedRoleIds}
-											onChange={(e) => setSelectedRoleIds(e.target.value)}
-											renderValue={(selected) => {
-												const selectedRoles = roles.filter(r => selected.includes(r.id));
-												return selectedRoles.map(r => r.name).join(', ');
-											}}
-										>
-											{roles.map(role => (
-												<MenuItem key={role.id} value={role.id}>
-													<Checkbox checked={selectedRoleIds.includes(role.id)} />
-													<ListItemText primary={role.name} />
-												</MenuItem>
-											))}
-										</Field>
-									</FormControl>
-								</div>
-								<div className={classes.multFieldLine}>
-									<FormControl
-										variant="outlined"
-										className={classes.formControl}
-										margin="dense"
-										fullWidth
-									>
-										<InputLabel id="group-selection-input-label">
-											{i18n.t("userModal.form.group")}
-										</InputLabel>
-										<Field
-											as={Select}
-											label={i18n.t("userModal.form.group")}
-											name="groupIds"
-											labelId="group-selection-label"
-											id="group-selection"
-											multiple
-											renderValue={(selected) => {
-												const selectedGroups = groups.filter(g => selected.includes(g.id));
-												return selectedGroups.map(g => g.name).join(', ');
-											}}
-										>
-											{groups.map(group => (
-												<MenuItem key={group.id} value={group.id}>
-													<Checkbox checked={user.groupIds?.includes(group.id) || false} />
-													<ListItemText primary={group.name} />
-												</MenuItem>
-											))}
-										</Field>
+										<Can
+											role={loggedInUser.profile}
+											perform="user-modal:editProfile"
+											yes={() => (
+												<>
+													<InputLabel id="profile-selection-input-label">
+														{i18n.t("userModal.form.profile")}
+													</InputLabel>
+
+													<Field
+														as={Select}
+														label={i18n.t("userModal.form.profile")}
+														name="profile"
+														labelId="profile-selection-label"
+														id="profile-selection"
+														required
+													>
+														<MenuItem value="admin">Admin</MenuItem>
+														<MenuItem value="user">User</MenuItem>
+													</Field>
+												</>
+											)}
+										/>
 									</FormControl>
 								</div>
 								<Can
+									role={loggedInUser.profile}
 									perform="user-modal:editQueues"
 									yes={() => (
 										<QueueSelect
@@ -312,6 +246,7 @@ const UserModal = ({ open, onClose, userId }) => {
 									)}
 								/>
 								<Can
+									role={loggedInUser.profile}
 									perform="user-modal:editQueues"
 									yes={() => (!loading &&
 										<FormControl variant="outlined" margin="dense" className={classes.maxWidth} fullWidth>

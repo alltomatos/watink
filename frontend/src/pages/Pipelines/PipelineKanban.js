@@ -7,8 +7,7 @@ import {
     Button,
     Card,
     CardContent,
-    Chip,
-    Tooltip
+    Chip
 } from "@material-ui/core";
 import AddIcon from "@material-ui/icons/Add";
 import api from "../../services/api";
@@ -240,23 +239,6 @@ const PipelineKanban = ({ pipeline, columns, setColumns, onDragEnd, isEnterprise
                                                                     <Typography className={classes.cardValue}>
                                                                         R$ {item.value || "0,00"}
                                                                     </Typography>
-                                                                )}
-                                                                {item.tags && item.tags.length > 0 && (
-                                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
-                                                                        {item.tags.map(tag => (
-                                                                            <Tooltip title={tag.name} key={tag.id}>
-                                                                                <span
-                                                                                    style={{
-                                                                                        backgroundColor: tag.color,
-                                                                                        width: "10px",
-                                                                                        height: "10px",
-                                                                                        borderRadius: "50%",
-                                                                                        display: "inline-block"
-                                                                                    }}
-                                                                                />
-                                                                            </Tooltip>
-                                                                        ))}
-                                                                    </div>
                                                                 )}
                                                             </CardContent>
                                                         </Card>

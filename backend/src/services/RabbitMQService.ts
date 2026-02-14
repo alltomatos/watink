@@ -41,24 +41,17 @@ class RabbitMQService {
 
     await this.channel.assertExchange("wbot.commands", "topic", { durable: true });
     await this.channel.assertExchange("wbot.events", "topic", { durable: true });
-
-    // Setup Engine Queues
-    const standardQueue = await this.channel.assertQueue("wbot_standard_commands", { durable: true });
-    await this.channel.bindQueue(standardQueue.queue, "wbot.commands", "wbot.*.*.whaileys.#");
-
-    const goQueue = await this.channel.assertQueue("wbot_go_commands", { durable: true });
-    await this.channel.bindQueue(goQueue.queue, "wbot.commands", "wbot.*.*.whatsmeow.#");
   }
 
-  async publishCommand(routingKey: string, message: Envelope, exchange: string = "wbot.commands"): Promise<void> {
+  async publishCommand(routingKey: string, message: Envelope): Promise<void> {
     if (!this.channel) {
       logger.warn("Cannot publish command, channel is closed");
       return;
     }
 
-    logger.info(`[RabbitMQ] Publishing command to ${routingKey} on exchange ${exchange}`);
+    logger.info(`[RabbitMQ] Publishing command to ${routingKey}`);
     this.channel.publish(
-      exchange,
+      "wbot.commands",
       routingKey,
       Buffer.from(JSON.stringify(message))
     );
@@ -118,25 +111,6 @@ class RabbitMQService {
           this.channel?.ack(msg);
         } catch (error) {
           logger.error("Error processing command", error);
-          this.channel?.nack(msg, false, false);
-        }
-      }
-    });
-  }
-
-  async consumeQueue(queueName: string, handler: (msg: any) => Promise<void>): Promise<void> {
-    if (!this.channel) return;
-
-    await this.channel.assertQueue(queueName, { durable: true });
-
-    this.channel.consume(queueName, async (msg: ConsumeMessage | null) => {
-      if (msg) {
-        try {
-          const content = JSON.parse(msg.content.toString());
-          await handler(content);
-          this.channel?.ack(msg);
-        } catch (error) {
-          logger.error(`Error processing queue message: ${(error as Error).message}`);
           this.channel?.nack(msg, false, false);
         }
       }
