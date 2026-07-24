@@ -7,9 +7,10 @@ import ProtocolModal from "../../Helpdesk/ProtocolModal";
 interface HelpdeskSectionProps {
   contactId: number;
   contactName: string;
+  ticketId?: number;
 }
 
-const HelpdeskSection: React.FC<HelpdeskSectionProps> = ({ contactId, contactName }) => {
+const HelpdeskSection: React.FC<HelpdeskSectionProps> = ({ contactId, contactName, ticketId }) => {
   const [helpdeskActive, setHelpdeskActive] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -50,6 +51,7 @@ const HelpdeskSection: React.FC<HelpdeskSectionProps> = ({ contactId, contactNam
         onClose={() => setModalOpen(false)}
         initialContactId={contactId}
         initialContactName={contactName}
+        initialTicketId={ticketId}
       />
     </>
   );

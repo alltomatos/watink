@@ -61,6 +61,11 @@ func (m *MockWatinkCore) GetStatus() sdk.PluginStatus {
 	return args.Get(0).(sdk.PluginStatus)
 }
 
+func (m *MockWatinkCore) SendTicketMessage(tenantID uuid.UUID, ticketID int, body string) error {
+	args := m.Called(tenantID, ticketID, body)
+	return args.Error(0)
+}
+
 // ---- Helpers ----
 
 func setupPluginTestDB(t *testing.T) *gorm.DB {

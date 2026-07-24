@@ -32,6 +32,7 @@ export function useProtocolModal(
   onClose: () => void,
   initialContactId?: number,
   initialContactName?: string,
+  initialTicketId?: number,
   onSuccess?: () => void
 ) {
   const [loading, setLoading] = useState(false);
@@ -152,7 +153,7 @@ export function useProtocolModal(
 
     try {
       setLoading(true);
-      await api.post("/protocols", formData);
+      await api.post("/protocols", { ...formData, ticketId: initialTicketId });
       toast.success("Protocolo criado com sucesso");
       onSuccess?.();
       onClose();

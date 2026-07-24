@@ -2,6 +2,7 @@ package sdk
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -37,6 +38,11 @@ type WatinkCore interface {
 	RegisterPublicRoute(method string, path string, handler gin.HandlerFunc)
 	EmitSocketEvent(room string, event string, payload interface{})
 	GetStatus() PluginStatus
+	// SendTicketMessage sends an outbound WhatsApp text message through the
+	// ticket's session — same pipeline as POST /messages/:ticketId (publishes
+	// to engine-go, persists the Message, emits real-time events). Returns an
+	// error if the ticket doesn't belong to tenantID or has no contact.
+	SendTicketMessage(tenantID uuid.UUID, ticketID int, body string) error
 }
 
 // WatinkPlugin is the interface that every backend plugin must implement
