@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/alltomatos/watinkdev/business/internal/models"
@@ -54,8 +53,35 @@ func generateProtocolToken() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
+// protocolNumberLetters is the alphabet for the 4-letter uniqueness suffix —
+// uppercase A-Z only (no digits), so it's visually distinct from the
+// date/time prefix at a glance.
+const protocolNumberLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+// generateProtocolNumber builds ANOMESDIAHORARIO (YYYYMMDDHHMMSS, 14 digits,
+// second-precision) + 4 random uppercase letters. The timestamp alone isn't
+// enough to dedupe two protocols opened in the same second (e.g. two agents
+// clicking "Abrir Protocolo" simultaneously); the letter suffix — not
+// derived from the clock — is what actually prevents the collision.
 func generateProtocolNumber() string {
-	return "PROTO-" + strconv.FormatInt(time.Now().UnixNano(), 36)
+	return time.Now().Format("20060102150405") + randomProtocolLetters(4)
+}
+
+func randomProtocolLetters(n int) string {
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		// crypto/rand failing is effectively unreachable in practice; fall
+		// back to a nanosecond-seeded pick rather than block protocol
+		// creation on it.
+		for i := range b {
+			b[i] = byte(time.Now().UnixNano() >> uint(i*8))
+		}
+	}
+	letters := make([]byte, n)
+	for i, v := range b {
+		letters[i] = protocolNumberLetters[int(v)%len(protocolNumberLetters)]
+	}
+	return string(letters)
 }
 
 // handleListProtocols — GET /helpdesk/protocols?searchParam=&status=&priority=

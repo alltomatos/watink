@@ -14,11 +14,11 @@ import type { HistoryEntry } from "../publicProtocolTypes";
 
 const historyIcon = (action: string): React.ReactElement => {
   switch (action) {
-    case "created":
+    case "create":
       return <ClipboardList className="h-4 w-4" />;
     case "attachment":
       return <Paperclip className="h-4 w-4" />;
-    case "comment_added":
+    case "comment":
       return <User className="h-4 w-4" />;
     default:
       return <Calendar className="h-4 w-4" />;
@@ -65,9 +65,9 @@ const ProtocolTimeline: React.FC<ProtocolTimelineProps> = ({ history }) => (
             <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1.5">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold">
-                  {i18n.t(
-                    `publicProtocol.history.actions.${hist.action}`
-                  ) || hist.action}
+                  {i18n.t(`publicProtocol.history.actions.${hist.action}`, {
+                    defaultValue: hist.action,
+                  })}
                 </p>
                 <time className="text-xs text-muted-foreground shrink-0">
                   {format(new Date(hist.createdAt), "dd/MM HH:mm")}
