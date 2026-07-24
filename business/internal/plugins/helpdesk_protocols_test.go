@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -18,6 +19,18 @@ import (
 	"github.com/stretchr/testify/mock"
 	"gorm.io/gorm"
 )
+
+var protocolNumberPattern = regexp.MustCompile(`^\d{14}[A-Z]{4}$`)
+
+func TestGenerateProtocolNumber_FormatAndUniqueness(t *testing.T) {
+	seen := make(map[string]bool)
+	for i := 0; i < 200; i++ {
+		n := generateProtocolNumber()
+		assert.Regexp(t, protocolNumberPattern, n, "expected YYYYMMDDHHMMSS + 4 uppercase letters")
+		assert.False(t, seen[n], "generated a duplicate protocol number: %s", n)
+		seen[n] = true
+	}
+}
 
 // removeMediaFile limpa o arquivo que mediastore.SaveMediaReader gravou em
 // disco (path relativo, ex. "/public/media/<hash>.png") — mediaPublicDir é

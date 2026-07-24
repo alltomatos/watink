@@ -896,16 +896,16 @@ const messages = {
         },
         history: {
           title: "Histórico de Movimentações",
+          // Chaves espelham exatamente os valores de Action gravados em
+          // ProtocolLog (business/internal/plugins/helpdesk_protocols.go) —
+          // "create"/"status"/"priority"/"comment", não os particípios em
+          // inglês que soam naturais em prosa ("created", "status_changed").
           actions: {
-            created: "Criado",
-            status_changed: "Status alterado",
-            priority_changed: "Prioridade alterada",
+            create: "Criado",
+            status: "Status alterado",
+            priority: "Prioridade alterada",
             attachment: "Anexo",
-            comment_added: "Comentário adicionado",
-            user_assigned: "Atribuído a usuário",
-            resolved: "Resolvido",
-            closed: "Fechado",
-            reopened: "Reaberto",
+            comment: "Comentário adicionado",
           },
         },
         notFound: {
