@@ -29,6 +29,21 @@ func publicProtocolURL(c *gin.Context, token string) string {
 	return fmt.Sprintf("%s://%s/public/protocols/%s", scheme, c.Request.Host, token)
 }
 
+// priorityLabelPtBR mirrors the frontend's PRIORITY_LABELS map
+// (frontend/src/pages/Helpdesk/helpdeskTypes.ts) — keep both in sync.
+func priorityLabelPtBR(priority string) string {
+	switch priority {
+	case "low":
+		return "Baixa"
+	case "high":
+		return "Alta"
+	case "urgent":
+		return "Urgente"
+	default:
+		return "Média"
+	}
+}
+
 // generateProtocolToken devolve 32 chars hex (16 bytes) — credencial do link
 // público (GET /public/protocols/:token), nunca reaproveitado.
 func generateProtocolToken() (string, error) {
@@ -169,7 +184,14 @@ func handleCreateProtocol(core sdk.WatinkCore) gin.HandlerFunc {
 		// manually.
 		if req.TicketID != nil {
 			link := publicProtocolURL(c, protocol.Token)
-			msg := fmt.Sprintf("Protocolo *%s* aberto: %s\nAcompanhe em: %s", protocol.ProtocolNumber, protocol.Subject, link)
+			msg := fmt.Sprintf(
+				"Olá! Seu protocolo de atendimento foi criado com sucesso.\n\n"+
+					"*Protocolo:* #%s\n"+
+					"*Assunto:* %s\n"+
+					"*Prioridade:* %s\n\n"+
+					"🔗 Acompanhe seu protocolo clicando aqui:\n%s",
+				protocol.ProtocolNumber, protocol.Subject, priorityLabelPtBR(protocol.Priority), link,
+			)
 			if err := core.SendTicketMessage(tenantID, *req.TicketID, msg); err != nil {
 				log.Printf("[handleCreateProtocol] failed to notify ticket %d: %v", *req.TicketID, err)
 			}
