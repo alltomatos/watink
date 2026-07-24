@@ -195,7 +195,7 @@ const DadosTab: React.FC<DadosTabProps> = ({ ticket, loading }) => {
 
         {/* Helpdesk — somente para tickets individuais, plugin "helpdesk" ativo */}
         {!isGroup && contact?.id && (
-          <HelpdeskSection contactId={contact.id} contactName={contact.name} />
+          <HelpdeskSection contactId={contact.id} contactName={contact.name} ticketId={ticket?.id} />
         )}
       </div>
 

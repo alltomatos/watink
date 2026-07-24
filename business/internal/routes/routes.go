@@ -143,7 +143,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		// RegisterPublicRoute (e.g. the helpdesk public share link, no login).
 		// Reuses pluginRegistry (above) so gating is the exact same license x
 		// allocation cross the marketplace endpoints above already use.
-		pluginManager := plugins.NewPluginManagerWithRegistry(db, protected, group, pluginRegistry, container.Broadcast)
+		pluginManager := plugins.NewPluginManagerWithRegistry(db, protected, group, pluginRegistry, container.Broadcast, rabbitMQ)
 		pluginManager.Register(&plugins.HelpdeskPlugin{})
 		pluginManager.Register(&plugins.WebchatPlugin{})
 

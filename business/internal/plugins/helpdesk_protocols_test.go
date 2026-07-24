@@ -108,6 +108,61 @@ func TestHandleCreateProtocol_Success(t *testing.T) {
 	mc.AssertCalled(t, "EmitSocketEvent", "tenant:"+tenantID.String(), "protocol", mock.Anything)
 }
 
+func TestHandleCreateProtocol_WithTicketID_NotifiesViaWhatsApp(t *testing.T) {
+	db := setupPluginTestDB(t)
+	tenantID := uuid.New()
+	contact := createTestContact(t, db, tenantID)
+	ticket := models.Ticket{ContactID: contact.ID, WhatsappID: 1, TenantID: tenantID}
+	if err := db.Create(&ticket).Error; err != nil {
+		t.Fatalf("failed to create ticket: %v", err)
+	}
+
+	mc := new(MockWatinkCore)
+	mc.On("GetDB").Return(db)
+	mc.On("EmitSocketEvent", mock.Anything, mock.Anything, mock.Anything).Return()
+	mc.On("SendTicketMessage", tenantID, ticket.ID, mock.AnythingOfType("string")).Return(nil)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(tenantMiddleware(tenantID, 1))
+	r.POST("/protocols", handleCreateProtocol(mc))
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"subject":   "Não recebo notificações",
+		"contactId": contact.ID,
+		"ticketId":  ticket.ID,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/protocols", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code, w.Body.String())
+
+	var resp protocolDetailDTO
+	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+
+	mc.AssertCalled(t, "SendTicketMessage", tenantID, ticket.ID, mock.MatchedBy(func(body string) bool {
+		return strings.Contains(body, resp.ProtocolNumber) && strings.Contains(body, "/public/protocols/"+resp.Token)
+	}))
+}
+
+func TestHandleCreateProtocol_WithoutTicketID_DoesNotNotify(t *testing.T) {
+	db := setupPluginTestDB(t)
+	tenantID := uuid.New()
+	contact := createTestContact(t, db, tenantID)
+	r, mc := newHelpdeskTestRouter(t, db, tenantID)
+
+	body, _ := json.Marshal(map[string]interface{}{"subject": "x", "contactId": contact.ID})
+	req := httptest.NewRequest(http.MethodPost, "/protocols", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code, w.Body.String())
+	mc.AssertNotCalled(t, "SendTicketMessage", mock.Anything, mock.Anything, mock.Anything)
+}
+
 func TestHandleCreateProtocol_UnknownContact_Returns422(t *testing.T) {
 	db := setupPluginTestDB(t)
 	tenantID := uuid.New()

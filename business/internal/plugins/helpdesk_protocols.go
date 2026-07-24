@@ -3,6 +3,8 @@ package plugins
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -12,6 +14,20 @@ import (
 	"github.com/alltomatos/watinkdev/business/pkg/sdk"
 	"github.com/gin-gonic/gin"
 )
+
+// publicProtocolURL builds the absolute link to the public protocol tracking
+// page, same-origin with whatever host served this request (business embeds
+// the frontend — see Dockerfile.business/CLAUDE.md). Honors
+// X-Forwarded-Proto so it resolves correctly behind the Cloudflare Tunnel.
+func publicProtocolURL(c *gin.Context, token string) string {
+	scheme := "http"
+	if proto := c.GetHeader("X-Forwarded-Proto"); proto != "" {
+		scheme = proto
+	} else if c.Request.TLS != nil {
+		scheme = "https"
+	}
+	return fmt.Sprintf("%s://%s/public/protocols/%s", scheme, c.Request.Host, token)
+}
 
 // generateProtocolToken devolve 32 chars hex (16 bytes) — credencial do link
 // público (GET /public/protocols/:token), nunca reaproveitado.
@@ -70,6 +86,11 @@ type createProtocolRequest struct {
 	Priority    string `json:"priority"`
 	Category    string `json:"category"`
 	ContactID   int    `json:"contactId" binding:"required"`
+	// TicketID is optional — set when the protocol is opened from within a
+	// ticket conversation (HelpdeskSection), so we know which WhatsApp
+	// session to notify. Absent when created from the standalone /helpdesk
+	// page, where there's no ticket in context.
+	TicketID *int `json:"ticketId"`
 }
 
 // handleCreateProtocol — POST /helpdesk/protocols
@@ -140,6 +161,19 @@ func handleCreateProtocol(core sdk.WatinkCore) gin.HandlerFunc {
 			"action":   "create",
 			"protocol": toKanbanProtocolDTO(protocol),
 		})
+
+		// Best-effort WhatsApp notification — mirrors the geocode pattern
+		// (CLAUDE.md): never block/fail protocol creation on this. The
+		// protocol already exists and its kanban card already emitted;
+		// a failed notify just means the agent has to tell the customer
+		// manually.
+		if req.TicketID != nil {
+			link := publicProtocolURL(c, protocol.Token)
+			msg := fmt.Sprintf("Protocolo *%s* aberto: %s\nAcompanhe em: %s", protocol.ProtocolNumber, protocol.Subject, link)
+			if err := core.SendTicketMessage(tenantID, *req.TicketID, msg); err != nil {
+				log.Printf("[handleCreateProtocol] failed to notify ticket %d: %v", *req.TicketID, err)
+			}
+		}
 
 		c.JSON(http.StatusCreated, toDetailDTO(protocol, nil))
 	}

@@ -20,6 +20,7 @@ interface ProtocolModalProps {
   onClose: () => void;
   initialContactId?: number;
   initialContactName?: string;
+  initialTicketId?: number;
   onSuccess?: () => void;
 }
 
@@ -28,6 +29,7 @@ const ProtocolModal: React.FC<ProtocolModalProps> = ({
   onClose,
   initialContactId,
   initialContactName,
+  initialTicketId,
   onSuccess,
 }) => {
   const {
@@ -43,7 +45,7 @@ const ProtocolModal: React.FC<ProtocolModalProps> = ({
     handleContactSearch,
     handleContactSelect,
     handleSubmit,
-  } = useProtocolModal(open, onClose, initialContactId, initialContactName, onSuccess);
+  } = useProtocolModal(open, onClose, initialContactId, initialContactName, initialTicketId, onSuccess);
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
