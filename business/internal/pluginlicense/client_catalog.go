@@ -26,9 +26,6 @@ type CatalogPlugin struct {
 	// preço no Marketplace — mesma taxa para todo plugin, vem do Hub via
 	// plugin-manager (HubPlugin.TaxRatePercent).
 	TaxRatePercent int `json:"taxRatePercent"`
-	// MPPublicKey é a chave pública do Mercado Pago (conta própria do Hub),
-	// usada pelo frontend para montar o Payment Brick. Não é segredo.
-	MPPublicKey string `json:"mpPublicKey"`
 }
 
 // CatalogResponse é o corpo de resposta de GET /api/v1/plugins/catalog:
@@ -89,19 +86,24 @@ func (c *Client) GetInstance() (InstanceResponse, error) {
 }
 
 // checkoutRequestBody é o corpo enviado a POST /api/v1/plugins/checkout no
-// plugin-manager -- {"slug": "..."}. O plugin-manager é quem traduz esse
-// campo para {instanceId, pluginSlug} antes de chamar o Hub (essa tradução
-// não é responsabilidade do business).
+// plugin-manager -- {"slug": "...", "returnUrl": "..."}. O plugin-manager é
+// quem traduz `slug` para `pluginSlug` antes de chamar o Hub (essa tradução
+// não é responsabilidade do business). returnUrl é a página do plugin no
+// domínio da própria instância — usada pelo Hub pra montar as back_urls do
+// Checkout Pro.
 type checkoutRequestBody struct {
-	Slug string `json:"slug"`
+	Slug      string `json:"slug"`
+	ReturnURL string `json:"returnUrl"`
 }
 
-// CheckoutOrderResponse é o corpo devolvido por Checkout (Fase 2) — um
-// PluginOrder pending, ainda sem licença. O valor já vem com o imposto
-// embutido (congelado pelo Hub na criação do pedido).
+// CheckoutOrderResponse é o corpo devolvido por Checkout — um PluginOrder
+// pending, ainda sem licença, junto com a URL de redirect pro Checkout Pro.
+// O valor já vem com o imposto embutido (congelado pelo Hub na criação do
+// pedido).
 type CheckoutOrderResponse struct {
-	OrderID     uint  `json:"orderId"`
-	AmountCents int64 `json:"amountCents"`
+	OrderID     uint   `json:"orderId"`
+	AmountCents int64  `json:"amountCents"`
+	CheckoutURL string `json:"checkoutUrl"`
 }
 
 // Checkout solicita ao plugin-manager a criação (ou reaproveitamento
@@ -109,12 +111,13 @@ type CheckoutOrderResponse struct {
 // `slug` junto ao Hub (POST /api/v1/plugins/checkout). Sem cache -- é uma
 // ação, não uma leitura.
 //
-// IMPORTANTE (Fase 2): isto NÃO cria licença — só um PluginOrder pending. A
-// licença só nasce quando Pay confirma o pagamento (aprovado na hora, ou
-// depois via webhook para PIX). O chamador usa o orderId devolvido aqui
-// para montar o Payment Brick e depois chamar Pay.
-func (c *Client) Checkout(slug string) (CheckoutOrderResponse, error) {
-	payload, err := json.Marshal(checkoutRequestBody{Slug: slug})
+// IMPORTANTE: isto NÃO cria licença — só um PluginOrder pending. A licença
+// só nasce quando o webhook do Mercado Pago confirma o pagamento (não há
+// chamada síncrona de pagamento no nosso backend — o Checkout Pro processa
+// o cartão/PIX inteiramente na página hospedada pelo MP). O chamador usa o
+// checkoutUrl devolvido aqui pra redirecionar o usuário.
+func (c *Client) Checkout(slug, returnURL string) (CheckoutOrderResponse, error) {
+	payload, err := json.Marshal(checkoutRequestBody{Slug: slug, ReturnURL: returnURL})
 	if err != nil {
 		return CheckoutOrderResponse{}, fmt.Errorf("pluginlicense: erro ao montar payload de checkout: %w", err)
 	}
@@ -132,51 +135,6 @@ func (c *Client) Checkout(slug string) (CheckoutOrderResponse, error) {
 	var body CheckoutOrderResponse
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return CheckoutOrderResponse{}, fmt.Errorf("pluginlicense: erro ao decodificar resposta de checkout: %w", err)
-	}
-	return body, nil
-}
-
-// payRequestBody é o corpo enviado a POST
-// /api/v1/plugins/checkout/orders/{id}/pay no plugin-manager.
-type payRequestBody struct {
-	FormData map[string]any `json:"formData"`
-}
-
-// PayResponse é o resultado do pagamento — approved já libera a licença
-// (LicenseActive=true); pending (PIX) devolve o QR code para o usuário
-// pagar fora do fluxo síncrono, aguardando o webhook confirmar; rejected
-// traz uma mensagem para o usuário tentar de novo.
-type PayResponse struct {
-	Status        string `json:"status"`
-	LicenseActive bool   `json:"licenseActive"`
-	QRCode        string `json:"qrCode,omitempty"`
-	QRCodeBase64  string `json:"qrCodeBase64,omitempty"`
-	Message       string `json:"message,omitempty"`
-}
-
-// Pay envia o formData que o Payment Brick devolveu no onSubmit ao
-// plugin-manager (POST /api/v1/plugins/checkout/orders/{id}/pay), que
-// repassa ao Hub. Nunca loga formData — pode conter token de cartão.
-func (c *Client) Pay(orderID uint, formData map[string]any) (PayResponse, error) {
-	payload, err := json.Marshal(payRequestBody{FormData: formData})
-	if err != nil {
-		return PayResponse{}, fmt.Errorf("pluginlicense: erro ao montar payload de pagamento: %w", err)
-	}
-
-	url := fmt.Sprintf("%s/api/v1/plugins/checkout/orders/%d/pay", c.baseURL, orderID)
-	resp, err := c.httpClient.Post(url, "application/json", bytes.NewReader(payload))
-	if err != nil {
-		return PayResponse{}, fmt.Errorf("pluginlicense: erro ao processar pagamento no plugin-manager: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return PayResponse{}, fmt.Errorf("pluginlicense: pagamento retornou status %d", resp.StatusCode)
-	}
-
-	var body PayResponse
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return PayResponse{}, fmt.Errorf("pluginlicense: erro ao decodificar resposta de pagamento: %w", err)
 	}
 	return body, nil
 }

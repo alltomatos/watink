@@ -24,8 +24,7 @@ import (
 type PluginManagerProxy interface {
 	GetCatalog() (pluginlicense.CatalogResponse, error)
 	GetInstance() (pluginlicense.InstanceResponse, error)
-	Checkout(slug string) (pluginlicense.CheckoutOrderResponse, error)
-	Pay(orderID uint, formData map[string]any) (pluginlicense.PayResponse, error)
+	Checkout(slug, returnURL string) (pluginlicense.CheckoutOrderResponse, error)
 }
 
 type PluginController struct {
@@ -60,8 +59,12 @@ func (pc *PluginController) Checkout(c *gin.Context) {
 	c.JSON(http.StatusServiceUnavailable, gin.H{"error": "use POST /plugins/:slug/activate"})
 }
 
-// @Summary      Iniciar checkout de plugin pro (Fase 2 — pagamento real)
-// @Description  Cria (ou reaproveita, idempotente) um pedido de compra pending para o plugin `pro` indicado — ainda sem licença, que só nasce em POST /plugins/:slug/checkout/pay quando o pagamento é confirmado.
+type createCheckoutOrderRequest struct {
+	ReturnURL string `json:"returnUrl" binding:"required"`
+}
+
+// @Summary      Iniciar checkout de plugin pro (Checkout Pro — pagamento real)
+// @Description  Cria (ou reaproveita, idempotente) um pedido de compra pending para o plugin `pro` indicado e devolve a URL de redirect pro Checkout Pro do Mercado Pago — a licença só nasce quando o webhook confirma o pagamento.
 // @Tags         plugins
 // @Produce      json
 // @Success      201  {object}  pluginlicense.CheckoutOrderResponse
@@ -74,38 +77,7 @@ func (pc *PluginController) CreateCheckoutOrder(c *gin.Context) {
 		return
 	}
 
-	if pc.pmProxy == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "checkout service unavailable"})
-		return
-	}
-
-	order, err := pc.pmProxy.Checkout(slug)
-	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "checkout_failed", "message": err.Error()})
-		return
-	}
-	c.JSON(http.StatusCreated, order)
-}
-
-type payOrderRequest struct {
-	OrderID  uint           `json:"orderId" binding:"required"`
-	FormData map[string]any `json:"formData" binding:"required"`
-}
-
-// @Summary      Pagar um pedido de checkout (Fase 2 — Payment Brick)
-// @Description  Envia o formData que o Payment Brick devolveu no onSubmit — approved libera a licença na hora; pending (PIX) devolve QR code aguardando o webhook confirmar; rejected traz mensagem de erro.
-// @Tags         plugins
-// @Produce      json
-// @Success      200  {object}  pluginlicense.PayResponse
-// @Security     BearerAuth
-// @Router       /plugins/{slug}/checkout/pay [post]
-func (pc *PluginController) Pay(c *gin.Context) {
-	_, _, ok := auth.GetScoped(c, "Plugins")
-	if !ok {
-		return
-	}
-
-	var req payOrderRequest
+	var req createCheckoutOrderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request", "message": err.Error()})
 		return
@@ -116,12 +88,12 @@ func (pc *PluginController) Pay(c *gin.Context) {
 		return
 	}
 
-	result, err := pc.pmProxy.Pay(req.OrderID, req.FormData)
+	order, err := pc.pmProxy.Checkout(slug, req.ReturnURL)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "payment_failed", "message": err.Error()})
+		c.JSON(http.StatusBadGateway, gin.H{"error": "checkout_failed", "message": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, result)
+	c.JSON(http.StatusCreated, order)
 }
 
 // @Summary      Catálogo de plugins
@@ -235,7 +207,13 @@ func (pc *PluginController) Activate(c *gin.Context) {
 			return
 		}
 
-		if _, checkoutErr := pc.pmProxy.Checkout(slug); checkoutErr != nil {
+		// Fluxo legado (fire-and-forget, nunca segue o checkoutUrl devolvido
+		// aqui — o cliente só faz poll de /activate depois) ainda precisa de
+		// um returnUrl não-vazio porque o Hub exige o campo pra montar as
+		// back_urls da preferência; usa a própria origem da requisição como
+		// melhor esforço, já que ninguém vai de fato seguir esse link aqui.
+		legacyReturnURL := "https://" + c.Request.Host + "/admin/settings/marketplace/" + slug
+		if _, checkoutErr := pc.pmProxy.Checkout(slug, legacyReturnURL); checkoutErr != nil {
 			c.JSON(http.StatusPaymentRequired, gin.H{
 				"error":             "plugin_unlicensed",
 				"checkoutRequested": false,
