@@ -98,7 +98,7 @@ type checkoutRequestBody struct {
 
 // CheckoutOrderResponse é o corpo devolvido por Checkout (Fase 2) — um
 // PluginOrder pending, ainda sem licença. O valor já vem com o imposto
-// embutido (congelado pelo Hub no momento da criação do pedido).
+// embutido (congelado pelo Hub na criação do pedido).
 type CheckoutOrderResponse struct {
 	OrderID     uint  `json:"orderId"`
 	AmountCents int64 `json:"amountCents"`
