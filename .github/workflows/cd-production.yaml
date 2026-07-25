@@ -1,8 +1,8 @@
-name: CD Homolog
+name: CD Production
 
 on:
   push:
-    branches: [develop]
+    branches: [main]
 
 env:
   REGISTRY: ghcr.io
@@ -33,7 +33,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-business
           tags: |
-            type=sha,prefix=homolog-
+            type=sha,prefix=prod-
 
       - name: Docker metadata frontend
         id: meta-frontend
@@ -41,7 +41,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend
           tags: |
-            type=sha,prefix=homolog-
+            type=sha,prefix=prod-
 
       - name: Build and push backend
         uses: docker/build-push-action@v7.3.0
@@ -60,42 +60,44 @@ jobs:
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
 
-  # deploy-homolog builda a partir do source já atualizado direto na VPS (o
-  # mesmo processo manual já usado antes desta automação) -- não depende das
-  # imagens publicadas em build-and-push, que existem só como rastro/
-  # auditoria de cada commit no GHCR, não como fonte do deploy.
-  deploy-homolog:
-    name: deploy-homolog
+  # deploy-production builda a partir do source já atualizado direto na VPS,
+  # no clone separado de produção (/opt/watink/app-prod, branch main) -- o
+  # mesmo mecanismo do deploy-homolog, mas isolado por diretório, project
+  # name (`-p watink-prod`) e `.env.prod` próprio. Nunca compartilha banco,
+  # Redis, RabbitMQ nem segredos com o stack de homolog, mesmo rodando na
+  # mesma VPS.
+  deploy-production:
+    name: deploy-production
     runs-on: ubuntu-latest
     needs: build-and-push
-    environment: homolog-ssh
+    environment: production-ssh
 
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.HOMOLOG_SSH_HOST }}
-          username: ${{ secrets.HOMOLOG_SSH_USER }}
-          key: ${{ secrets.HOMOLOG_SSH_KEY }}
+          host: ${{ secrets.PROD_SSH_HOST }}
+          username: ${{ secrets.PROD_SSH_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
           script: |
             set -euo pipefail
-            cd /opt/watink/app
-            git fetch origin develop
-            git reset --hard origin/develop
-            docker compose -p watink-homolog -f docker-compose.prod.yml --env-file .env build --pull
-            docker compose -p watink-homolog -f docker-compose.prod.yml --env-file .env up -d
+            cd /opt/watink/app-prod
+            git fetch origin main
+            git reset --hard origin/main
+            docker compose -p watink-prod -f docker-compose.prod.yml --env-file .env.prod build --pull
+            docker compose -p watink-prod -f docker-compose.prod.yml --env-file .env.prod up -d
 
   smoke-tests:
     name: smoke-tests
     runs-on: ubuntu-latest
-    needs: deploy-homolog
+    needs: deploy-production
 
     steps:
       - name: API Health
         env:
-          HOMOLOG_URL: ${{ secrets.HOMOLOG_URL }}
+          PROD_URL: ${{ secrets.PROD_URL }}
         run: |
-          URL="${HOMOLOG_URL:-https://homolog.watink.com}"
+          URL="${PROD_URL:-https://app.watink.com}"
           echo "Checking API health at $URL/api/health"
           curl --fail --retry 5 --retry-delay 10 --retry-connrefused \
             "$URL/api/health" || exit 1

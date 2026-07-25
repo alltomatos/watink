@@ -1,0 +1,198 @@
+# Watink — stack de produção/homologação (deploy real via CD).
+#
+# Este MESMO arquivo serve tanto homolog quanto produção — o que diferencia
+# os dois ambientes é o `.env` usado (segredos/valores distintos, nunca
+# compartilhados) e o project name do Compose (`-p`), que namespeia
+# containers/rede/volumes automaticamente e permite os dois stacks
+# coexistirem na mesma VPS sem colisão:
+#
+#   Homolog:    docker compose -p watink-homolog -f docker-compose.prod.yml --env-file .env      up -d --build
+#   Produção:   docker compose -p watink-prod    -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#
+# Propositalmente SEM `container_name:` fixo em nenhum serviço — dois stacks
+# com o mesmo nome de container colidiriam no Docker. A comunicação interna
+# usa nome de SERVIÇO (ex. `DB_HOST=postgres`), não nome de container, então
+# isso não quebra nada.
+#
+# Frontend embutido no binário Go via Dockerfile.business (1 container serve
+# API + UI same-origin). Infra (postgres/redis/rabbitmq) bindada em
+# 127.0.0.1 — NUNCA exposta à internet; acesso só interno (rede do stack)
+# ou via túnel SSH.
+#
+# Como os dois stacks rodam na MESMA VPS, as portas publicadas no host (não
+# só o nome do container) também colidiriam se ambos usassem o default — por
+# isso BUSINESS_HOST_PORT/POSTGRES_HOST_PORT/REDIS_HOST_PORT/
+# RABBITMQ_MGMT_HOST_PORT são configuráveis via .env. Homolog usa os
+# defaults (80/5432/6379/15672); produção define valores diferentes no
+# `.env.prod` (ex. 81/5433/6380/15673) para não colidir. O ingress público de
+# verdade é sempre via Cloudflare Tunnel (rede interna do stack, não host
+# port) — essas portas no host são só para acesso de manutenção via túnel SSH.
+
+services:
+  # ── Infraestrutura ────────────────────────────────────────────
+  postgres:
+    build:
+      context: ./infra/postgres
+      dockerfile: Dockerfile
+    image: watink/postgres-postgis-pgvector:16
+    environment:
+      POSTGRES_DB: watink
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASS}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+    networks: [watink_net]
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    ports:
+      - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [watink_net]
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    ports:
+      - "127.0.0.1:${RABBITMQ_MGMT_HOST_PORT:-15672}:15672"   # management UI — via túnel SSH apenas
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+    networks: [watink_net]
+    restart: unless-stopped
+
+  # ── Aplicação ────────────────────────────────────────────────
+  watink-business:
+    build:
+      context: .
+      dockerfile: Dockerfile.business
+    image: watink/business:prod
+    ports:
+      - "${BUSINESS_HOST_PORT:-80}:8082"   # HTTP público — API + UI
+    environment:
+      - PORT_GO=8082
+      - GIN_MODE=release
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASS=${DB_PASS}
+      - DB_NAME=watink
+      - AMQP_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672
+      - REDIS_URL=redis://redis:6379
+      - ENGINE_HEALTH_URL=http://watink-engine:8083/health
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - PROXY_ENC_KEY=${PROXY_ENC_KEY}
+      - INTERNAL_TOKEN=${INTERNAL_TOKEN}
+      - DOCS_PUBLIC=false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - uploads_data:/root/public
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8082/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+    networks: [watink_net]
+    restart: unless-stopped
+
+  watink-engine:
+    build:
+      context: ./engine-go
+      dockerfile: Dockerfile
+    image: watink/engine:prod
+    # Resolvers públicos — o resolver embutido do Docker (127.0.0.11) às vezes
+    # falha em resolver web.whatsapp.com, quebrando reconexões.
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    environment:
+      - AMQP_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASS=${DB_PASS}
+      - DB_NAME=watink
+      - HEALTH_PORT=8083
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks: [watink_net]
+    restart: unless-stopped
+
+  # Plugin Manager (licenciamento + catálogo). Imagem PÚBLICA no Docker Hub.
+  # HUB_URL aponta para a API PÚBLICA do Watink Hub (apiv1-hub.watink.com, sem
+  # Cloudflare Access — ver RUNBOOK do repo hub); os subpaths /register,/heartbeat,
+  # /catalog,/checkout são anexados. PM_ENV=production = modo Hub real (verifica
+  # tokens Ed25519, fail-closed). O business alcança este serviço pelo nome
+  # hardcoded `plugin-manager:8081` (ADR 0024) — SERVICE key = exatamente `plugin-manager`.
+  plugin-manager:
+    image: ronaldodavi/watink-plugin-manager:latest
+    environment:
+      - PORT=8081
+      - HUB_URL=https://apiv1-hub.watink.com/api/v1/plugins
+      - PM_ENV=production
+    volumes:
+      - plugin_manager_data:/data
+    networks: [watink_net]
+    restart: unless-stopped
+
+  # Cloudflare Tunnel (Zero Trust) — publica o hostname público (homolog.watink.com
+  # ou app.watink.com, conforme o ambiente/token) por HTTPS SEM abrir portas de
+  # entrada na VPS. Conecta de saída ao edge da Cloudflare e o hostname público
+  # (configurado no dashboard) roteia para http://watink-business:8082 (mesma
+  # rede do stack). O TUNNEL_TOKEN vem do dashboard (Zero Trust > Networks >
+  # Tunnels) e fica no .env — um Tunnel DIFERENTE por ambiente (nunca reusar o
+  # token de homolog em produção nem vice-versa). Sobe só sob demanda: `--profile tunnel`.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run
+    profiles: ["tunnel"]
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    depends_on:
+      - watink-business
+    networks: [watink_net]
+    restart: unless-stopped
+
+networks:
+  watink_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  uploads_data:
+  plugin_manager_data:
