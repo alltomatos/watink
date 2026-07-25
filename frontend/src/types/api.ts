@@ -55,6 +55,10 @@ export interface CatalogPlugin {
   version: string;
   type: "free" | "pro";
   price: number;
+  /** Global tax rate (e.g. 8) shown alongside price for `pro` plugins — same for every plugin, not per-item. */
+  taxRatePercent?: number;
+  /** Mercado Pago public key (Hub's own account) — used to mount the Payment Brick. Not a secret. */
+  mpPublicKey?: string;
   category: string;
   iconUrl?: string;
   /** Gallery images sourced from the plugin's Hub catalog registration. */
@@ -92,5 +96,21 @@ export interface PluginInstalledResponse {
 export interface PluginActivateUnlicensedResponse {
   error: "plugin_unlicensed" | "plugin_tenant_cap_reached" | string;
   checkoutRequested?: boolean;
+  message?: string;
+}
+
+/** Response shape of POST /plugins/:slug/checkout (Fase 2 — Mercado Pago) */
+export interface CheckoutOrderResponse {
+  orderId: number;
+  /** Preço já com o imposto embutido (congelado pelo Hub), em centavos. */
+  amountCents: number;
+}
+
+/** Response shape of POST /plugins/:slug/checkout/pay */
+export interface CheckoutPayResponse {
+  status: "approved" | "pending" | "rejected" | string;
+  licenseActive: boolean;
+  qrCode?: string;
+  qrCodeBase64?: string;
   message?: string;
 }

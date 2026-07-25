@@ -41,7 +41,7 @@ export function PluginGrid({ plugins, onPluginClick }: PluginGridProps) {
               <div className="flex items-center gap-2">
                 {plugin.price !== undefined && (
                   <Badge variant="outline" className="text-[10px]">
-                    {plugin.price ? `R$ ${plugin.price}` : "Gratuito"}
+                    {plugin.price ? `R$ ${plugin.price} + impostos` : "Gratuito"}
                   </Badge>
                 )}
                 {plugin.installed && (

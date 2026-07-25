@@ -14,13 +14,22 @@ import type {
   PluginCatalogResponse,
   PluginInstalledResponse,
   PluginActivateUnlicensedResponse,
+  CheckoutOrderResponse,
+  CheckoutPayResponse,
 } from "../../types/api";
 
 import { PageContainer, PageHeader, PageContent } from "../../components/ui/page-layout";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import { Card, CardContent } from "../../components/ui/card";
-import { Dialog, DialogContent } from "../../components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from "../../components/ui/dialog";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -44,6 +53,27 @@ const CHECKOUT_POLL_MAX_ATTEMPTS = 6;
 
 const FALLBACK_DESCRIPTION = "Plugin profissional para expandir recursos do Watink no seu ambiente.";
 
+// SDK do Mercado Pago (Checkout Bricks) — carregado dinamicamente só quando
+// o modal de pagamento abre, sem adicionar dependência nova no package.json.
+const MP_SDK_URL = "https://sdk.mercadopago.com/js/v2";
+
+function loadMercadoPagoSDK(): Promise<void> {
+  if ((window as unknown as { MercadoPago?: unknown }).MercadoPago) {
+    return Promise.resolve();
+  }
+  const existing = document.querySelector(`script[src="${MP_SDK_URL}"]`);
+  if (existing) {
+    return new Promise((resolve) => existing.addEventListener("load", () => resolve(), { once: true }));
+  }
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = MP_SDK_URL;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Falha ao carregar o SDK do Mercado Pago"));
+    document.body.appendChild(script);
+  });
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const PluginDetail: React.FC = () => {
@@ -56,7 +86,19 @@ const PluginDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [activating, setActivating] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  // Fase 2: o modal de checkout tem duas etapas — "review" (Preço/Imposto/
+  // Total, igual à Fase 1) e "payment" (Payment Brick do Mercado Pago
+  // montado). "pix-pending" mostra o QR code enquanto aguarda o webhook.
+  const [checkoutStep, setCheckoutStep] = useState<"review" | "payment" | "pix-pending">("review");
+  const [checkoutOrder, setCheckoutOrder] = useState<CheckoutOrderResponse | null>(null);
+  const [checkoutSubmitting, setCheckoutSubmitting] = useState(false);
+  const [pixData, setPixData] = useState<{ qrCode?: string; qrCodeBase64?: string } | null>(null);
   const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Guarda o controller do Brick para poder desmontar ao fechar o modal —
+  // o SDK do MP não tem tipos TS oficiais para este projeto, então o
+  // controller circula como unknown até ser chamado.
+  const brickControllerRef = useRef<{ unmount: () => void } | null>(null);
 
   // Clears any in-flight checkout poll on unmount/slug change so it never
   // fires against a stale/unmounted view.
@@ -136,6 +178,112 @@ const PluginDetail: React.FC = () => {
     [],
   );
 
+  // Fase 2: "Prosseguir para pagamento" cria o pedido (PluginOrder pending
+  // no Hub, valor já com imposto congelado) e avança pra etapa do Payment
+  // Brick — nada é cobrado ainda aqui, só o pedido é aberto.
+  const handleProceedToPayment = async () => {
+    if (!plugin) return;
+    setCheckoutSubmitting(true);
+    try {
+      const { data: order } = await pluginApi.post<CheckoutOrderResponse>(`/plugins/${plugin.slug}/checkout`);
+      setCheckoutOrder(order);
+      setCheckoutStep("payment");
+    } catch {
+      toast.error("Não foi possível iniciar o checkout. Tente novamente.");
+    } finally {
+      setCheckoutSubmitting(false);
+    }
+  };
+
+  // Monta o Payment Brick assim que a etapa "payment" abre com um pedido
+  // válido. onSubmit do Brick devolve o formData (token de cartão OU dados
+  // de PIX) que vai direto pro backend processar o pagamento de verdade.
+  useEffect(() => {
+    const mpPublicKey = plugin?.mpPublicKey;
+    if (checkoutStep !== "payment" || !checkoutOrder || !mpPublicKey) return;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        await loadMercadoPagoSDK();
+        if (cancelled) return;
+
+        const MercadoPago = (window as unknown as { MercadoPago: new (key: string) => { bricks: () => { create: (type: string, containerId: string, settings: unknown) => Promise<{ unmount: () => void }> } } }).MercadoPago;
+        const mp = new MercadoPago(mpPublicKey);
+        const controller = await mp.bricks().create("payment", "checkout-brick-container", {
+          initialization: { amount: checkoutOrder.amountCents / 100 },
+          customization: {
+            paymentMethods: { creditCard: "all", bankTransfer: "all" },
+          },
+          callbacks: {
+            onError: (error: unknown) => {
+              // eslint-disable-next-line no-console
+              console.error("Payment Brick error:", error);
+            },
+            onSubmit: ({ formData }: { formData: Record<string, unknown> }) => {
+              return handleBrickSubmit(formData);
+            },
+          },
+        });
+        if (cancelled) {
+          controller.unmount();
+          return;
+        }
+        brickControllerRef.current = controller;
+      } catch {
+        toast.error("Não foi possível carregar o formulário de pagamento.");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkoutStep, checkoutOrder]);
+
+  // handleBrickSubmit envia o formData do Brick pro backend processar o
+  // pagamento de verdade. approved libera a licença na hora; pending (PIX)
+  // mostra o QR code e faz poll aguardando o webhook confirmar; rejected
+  // deixa o Brick montado pro usuário tentar de novo (comportamento nativo
+  // do próprio Brick ao receber onSubmit rejeitado).
+  const handleBrickSubmit = async (formData: Record<string, unknown>): Promise<void> => {
+    if (!plugin || !checkoutOrder) return;
+    try {
+      const { data: result } = await pluginApi.post<CheckoutPayResponse>(`/plugins/${plugin.slug}/checkout/pay`, {
+        orderId: checkoutOrder.orderId,
+        formData,
+      });
+
+      if (result.status === "approved" && result.licenseActive) {
+        setCheckoutOpen(false);
+        toast.success(`Pagamento aprovado — plugin ${plugin.name} ativado!`);
+        window.location.reload();
+        return;
+      }
+      if (result.status === "pending") {
+        setPixData({ qrCode: result.qrCode, qrCodeBase64: result.qrCodeBase64 });
+        setCheckoutStep("pix-pending");
+        toast.info("Pagamento PIX pendente — escaneie o QR code para confirmar.");
+        pollForActivation(plugin.slug, 0);
+        return;
+      }
+      toast.error(result.message || "Pagamento recusado. Tente outro meio de pagamento.");
+    } catch {
+      toast.error("Falha ao processar o pagamento. Tente novamente.");
+    }
+  };
+
+  // Fecha o modal e reseta toda a máquina de estados do checkout — evita
+  // reabrir numa etapa/pedido velho na próxima vez.
+  const handleCloseCheckout = () => {
+    brickControllerRef.current?.unmount();
+    brickControllerRef.current = null;
+    setCheckoutOpen(false);
+    setCheckoutStep("review");
+    setCheckoutOrder(null);
+    setPixData(null);
+  };
+
   const handleActivate = async () => {
     if (!plugin) return;
     setActivating(true);
@@ -205,7 +353,7 @@ const PluginDetail: React.FC = () => {
                     {plugin.active && <Badge variant="secondary" className="bg-green-100"><CheckCircle className="mr-1 h-3 w-3" /> Ativo</Badge>}
                   </div>
                   <div className="flex gap-2 flex-wrap">
-                    <Badge variant="outline">{plugin.type === "free" ? "Gratuito" : `R$ ${plugin.price}`}</Badge>
+                    <Badge variant="outline">{plugin.type === "free" ? "Gratuito" : `R$ ${plugin.price} + impostos`}</Badge>
                     <Badge variant="outline">v{plugin.version}</Badge>
                     {plugin.category && <Badge variant="outline">{plugin.category}</Badge>}
                   </div>
@@ -217,7 +365,10 @@ const PluginDetail: React.FC = () => {
                         Desativar
                       </Button>
                     ) : (
-                      <Button onClick={handleActivate} disabled={activating}>
+                      <Button
+                        onClick={() => (plugin.type === "pro" ? setCheckoutOpen(true) : handleActivate())}
+                        disabled={activating}
+                      >
                         Ativar Plugin
                       </Button>
                     )}
@@ -292,6 +443,95 @@ const PluginDetail: React.FC = () => {
                   </>
                 )}
               </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={checkoutOpen} onOpenChange={(open) => !open && handleCloseCheckout()}>
+          <DialogContent>
+            {checkoutStep === "review" && (
+              <>
+                <DialogHeader>
+                  <DialogTitle>Confirmar ativação — {plugin.name}</DialogTitle>
+                  <DialogDescription>
+                    Revise o valor antes de prosseguir para o pagamento.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-2 py-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Preço</span>
+                    <span>R$ {plugin.price}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Imposto ({plugin.taxRatePercent ?? 8}%)</span>
+                    <span>
+                      R$ {((Number(plugin.price) || 0) * ((plugin.taxRatePercent ?? 8) / 100)).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-base font-semibold pt-2 border-t">
+                    <span>Total</span>
+                    <span>
+                      R${" "}
+                      {((Number(plugin.price) || 0) * (1 + (plugin.taxRatePercent ?? 8) / 100)).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={handleCloseCheckout} disabled={checkoutSubmitting}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={() => void handleProceedToPayment()} disabled={checkoutSubmitting}>
+                    {checkoutSubmitting ? "Abrindo pagamento…" : "Prosseguir para pagamento"}
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
+
+            {checkoutStep === "payment" && (
+              <>
+                <DialogHeader>
+                  <DialogTitle>Pagamento — {plugin.name}</DialogTitle>
+                  <DialogDescription>
+                    Cartão de crédito/débito ou PIX. O pagamento é processado pelo Mercado Pago.
+                  </DialogDescription>
+                </DialogHeader>
+                <div id="checkout-brick-container" className="min-h-[300px]" />
+              </>
+            )}
+
+            {checkoutStep === "pix-pending" && (
+              <>
+                <DialogHeader>
+                  <DialogTitle>Aguardando pagamento PIX</DialogTitle>
+                  <DialogDescription>
+                    Escaneie o QR code ou copie o código abaixo no app do seu banco. O plugin ativa
+                    automaticamente assim que o pagamento for confirmado.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="flex flex-col items-center gap-3 py-2">
+                  {pixData?.qrCodeBase64 && (
+                    <img
+                      src={`data:image/png;base64,${pixData.qrCodeBase64}`}
+                      alt="QR code PIX"
+                      className="h-48 w-48"
+                    />
+                  )}
+                  {pixData?.qrCode && (
+                    <textarea
+                      readOnly
+                      className="w-full rounded-xl border border-input bg-muted p-2 font-mono text-xs"
+                      rows={3}
+                      value={pixData.qrCode}
+                      onClick={(e) => (e.target as HTMLTextAreaElement).select()}
+                    />
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={handleCloseCheckout}>
+                    Fechar
+                  </Button>
+                </DialogFooter>
+              </>
             )}
           </DialogContent>
         </Dialog>

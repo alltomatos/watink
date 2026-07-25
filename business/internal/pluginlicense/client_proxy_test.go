@@ -128,7 +128,7 @@ func TestGetInstance_Non200_ReturnsError(t *testing.T) {
 }
 
 // TestCheckout_PostsSlugAndSucceedsOn200 verifica que Checkout envia POST
-// {slug} em JSON e trata 200 como sucesso.
+// {slug} em JSON e trata 200 como sucesso, decodificando o pedido pending.
 func TestCheckout_PostsSlugAndSucceedsOn200(t *testing.T) {
 	var gotMethod, gotPath, gotContentType string
 	var gotBody struct {
@@ -142,13 +142,17 @@ func TestCheckout_PostsSlugAndSucceedsOn200(t *testing.T) {
 		_ = json.NewDecoder(r.Body).Decode(&gotBody)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"id":"lic-1","status":"active"}`))
+		_, _ = w.Write([]byte(`{"orderId":7,"amountCents":3229}`))
 	}))
 	defer srv.Close()
 
 	c := NewClientWithBaseURL(srv.URL)
-	if err := c.Checkout("helpdesk"); err != nil {
+	order, err := c.Checkout("helpdesk")
+	if err != nil {
 		t.Fatalf("Checkout returned error: %v", err)
+	}
+	if order.OrderID != 7 || order.AmountCents != 3229 {
+		t.Errorf("order = %+v, want {OrderID:7 AmountCents:3229}", order)
 	}
 
 	if gotMethod != http.MethodPost {
@@ -165,18 +169,18 @@ func TestCheckout_PostsSlugAndSucceedsOn200(t *testing.T) {
 	}
 }
 
-// TestCheckout_201Succeeds verifica que 201 (licença recém-criada pelo Hub)
+// TestCheckout_201Succeeds verifica que 201 (pedido recém-criado pelo Hub)
 // também é tratado como sucesso, não apenas 200.
 func TestCheckout_201Succeeds(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		_, _ = w.Write([]byte(`{"id":"lic-1","status":"active"}`))
+		_, _ = w.Write([]byte(`{"orderId":1,"amountCents":100}`))
 	}))
 	defer srv.Close()
 
 	c := NewClientWithBaseURL(srv.URL)
-	if err := c.Checkout("helpdesk"); err != nil {
+	if _, err := c.Checkout("helpdesk"); err != nil {
 		t.Fatalf("Checkout returned error on 201: %v", err)
 	}
 }
@@ -192,11 +196,57 @@ func TestCheckout_Non2xx_ReturnsDescriptiveError(t *testing.T) {
 		}))
 
 		c := NewClientWithBaseURL(srv.URL)
-		err := c.Checkout("helpdesk")
+		_, err := c.Checkout("helpdesk")
 		srv.Close()
 
 		if err == nil {
 			t.Fatalf("Checkout returned nil error on status %d, want error", status)
 		}
+	}
+}
+
+// TestPay_PostsFormDataAndDecodesResult verifica que Pay envia o formData
+// ao endpoint com o orderId na URL e decodifica o resultado.
+func TestPay_PostsFormDataAndDecodesResult(t *testing.T) {
+	var gotPath string
+	var gotBody struct {
+		FormData map[string]any `json:"formData"`
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"approved","licenseActive":true}`))
+	}))
+	defer srv.Close()
+
+	c := NewClientWithBaseURL(srv.URL)
+	result, err := c.Pay(7, map[string]any{"token": "card-tok"})
+	if err != nil {
+		t.Fatalf("Pay returned error: %v", err)
+	}
+	if result.Status != "approved" || !result.LicenseActive {
+		t.Errorf("result = %+v, want approved+licenseActive", result)
+	}
+	if gotPath != "/api/v1/plugins/checkout/orders/7/pay" {
+		t.Errorf("path = %q, want .../orders/7/pay", gotPath)
+	}
+	if gotBody.FormData["token"] != "card-tok" {
+		t.Errorf("formData not forwarded, got %+v", gotBody.FormData)
+	}
+}
+
+// TestPay_Non200_ReturnsDescriptiveError verifica que status != 200 vira erro.
+func TestPay_Non200_ReturnsDescriptiveError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "boom", http.StatusBadGateway)
+	}))
+	defer srv.Close()
+
+	c := NewClientWithBaseURL(srv.URL)
+	if _, err := c.Pay(7, map[string]any{}); err == nil {
+		t.Fatalf("Pay returned nil error on 502, want error")
 	}
 }

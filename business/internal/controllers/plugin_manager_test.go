@@ -95,8 +95,18 @@ func (f *fakePMProxy) GetInstance() (pluginlicense.InstanceResponse, error) {
 	return f.instance, nil
 }
 
-func (f *fakePMProxy) Checkout(_ string) error {
-	return f.checkoutErr
+func (f *fakePMProxy) Checkout(_ string) (pluginlicense.CheckoutOrderResponse, error) {
+	if f.checkoutErr != nil {
+		return pluginlicense.CheckoutOrderResponse{}, f.checkoutErr
+	}
+	return pluginlicense.CheckoutOrderResponse{OrderID: 1, AmountCents: 100}, nil
+}
+
+func (f *fakePMProxy) Pay(_ uint, _ map[string]any) (pluginlicense.PayResponse, error) {
+	if f.checkoutErr != nil {
+		return pluginlicense.PayResponse{}, f.checkoutErr
+	}
+	return pluginlicense.PayResponse{Status: "approved", LicenseActive: true}, nil
 }
 
 func TestPluginController_Instance_NilProxy_ReturnsEmpty(t *testing.T) {
