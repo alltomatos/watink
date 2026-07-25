@@ -24,7 +24,8 @@ import (
 type PluginManagerProxy interface {
 	GetCatalog() (pluginlicense.CatalogResponse, error)
 	GetInstance() (pluginlicense.InstanceResponse, error)
-	Checkout(slug string) error
+	Checkout(slug string) (pluginlicense.CheckoutOrderResponse, error)
+	Pay(orderID uint, formData map[string]any) (pluginlicense.PayResponse, error)
 }
 
 type PluginController struct {
@@ -57,6 +58,70 @@ type checkoutRequest struct {
 // @Router       /plugins/checkout [post]
 func (pc *PluginController) Checkout(c *gin.Context) {
 	c.JSON(http.StatusServiceUnavailable, gin.H{"error": "use POST /plugins/:slug/activate"})
+}
+
+// @Summary      Iniciar checkout de plugin pro (Fase 2 — pagamento real)
+// @Description  Cria (ou reaproveita, idempotente) um pedido de compra pending para o plugin `pro` indicado — ainda sem licença, que só nasce em POST /plugins/:slug/checkout/pay quando o pagamento é confirmado.
+// @Tags         plugins
+// @Produce      json
+// @Success      201  {object}  pluginlicense.CheckoutOrderResponse
+// @Security     BearerAuth
+// @Router       /plugins/{slug}/checkout [post]
+func (pc *PluginController) CreateCheckoutOrder(c *gin.Context) {
+	slug := c.Param("slug")
+	_, _, ok := auth.GetScoped(c, "Plugins")
+	if !ok {
+		return
+	}
+
+	if pc.pmProxy == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "checkout service unavailable"})
+		return
+	}
+
+	order, err := pc.pmProxy.Checkout(slug)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "checkout_failed", "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, order)
+}
+
+type payOrderRequest struct {
+	OrderID  uint           `json:"orderId" binding:"required"`
+	FormData map[string]any `json:"formData" binding:"required"`
+}
+
+// @Summary      Pagar um pedido de checkout (Fase 2 — Payment Brick)
+// @Description  Envia o formData que o Payment Brick devolveu no onSubmit — approved libera a licença na hora; pending (PIX) devolve QR code aguardando o webhook confirmar; rejected traz mensagem de erro.
+// @Tags         plugins
+// @Produce      json
+// @Success      200  {object}  pluginlicense.PayResponse
+// @Security     BearerAuth
+// @Router       /plugins/{slug}/checkout/pay [post]
+func (pc *PluginController) Pay(c *gin.Context) {
+	_, _, ok := auth.GetScoped(c, "Plugins")
+	if !ok {
+		return
+	}
+
+	var req payOrderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request", "message": err.Error()})
+		return
+	}
+
+	if pc.pmProxy == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "checkout service unavailable"})
+		return
+	}
+
+	result, err := pc.pmProxy.Pay(req.OrderID, req.FormData)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "payment_failed", "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, result)
 }
 
 // @Summary      Catálogo de plugins
@@ -170,7 +235,7 @@ func (pc *PluginController) Activate(c *gin.Context) {
 			return
 		}
 
-		if checkoutErr := pc.pmProxy.Checkout(slug); checkoutErr != nil {
+		if _, checkoutErr := pc.pmProxy.Checkout(slug); checkoutErr != nil {
 			c.JSON(http.StatusPaymentRequired, gin.H{
 				"error":             "plugin_unlicensed",
 				"checkoutRequested": false,
