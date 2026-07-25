@@ -64,6 +64,13 @@ jobs:
   # mesmo processo manual já usado antes desta automação) -- não depende das
   # imagens publicadas em build-and-push, que existem só como rastro/
   # auditoria de cada commit no GHCR, não como fonte do deploy.
+  #
+  # Project name do Compose é `app` (NÃO "watink-homolog") -- é o nome
+  # default que o stack já usava antes desta automação (diretório
+  # /opt/watink/app, sem `-p` explícito nos deploys manuais anteriores). Usar
+  # um nome diferente aqui criaria um SEGUNDO stack do zero (volumes vazios,
+  # sem os dados existentes) e colidiria de porta com o original -- foi
+  # exatamente isso que quebrou a primeira tentativa deste workflow.
   deploy-homolog:
     name: deploy-homolog
     runs-on: ubuntu-latest
@@ -82,8 +89,8 @@ jobs:
             cd /opt/watink/app
             git fetch origin develop
             git reset --hard origin/develop
-            docker compose -p watink-homolog -f docker-compose.prod.yml --env-file .env build --pull
-            docker compose -p watink-homolog -f docker-compose.prod.yml --env-file .env up -d
+            docker compose -p app -f docker-compose.prod.yml --env-file .env build --pull
+            docker compose -p app -f docker-compose.prod.yml --env-file .env up -d
 
   smoke-tests:
     name: smoke-tests
