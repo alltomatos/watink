@@ -69,18 +69,27 @@ O merge flow de branches acima roda dentro de um pipeline de **três estágios c
       │              npm run build / typecheck / lint  (frontend)
       │              rodar o app e conferir o comportamento
       ▼
-3. HOMOLOGAÇÃO       PR → develop → deploy no ambiente de homologação
+3. HOMOLOGAÇÃO       PR → develop → deploy AUTOMÁTICO no ambiente de homologação
       │              ambiente: homolog.watink.com
       │              validar/aprovar o comportamento em ambiente real
       │              ⟵ PORTÃO 2
       ▼
-4. PRODUÇÃO          develop → main → deploy em produção
+4. PRODUÇÃO          develop → main → deploy AUTOMÁTICO em produção
 ```
 
 **Regras:**
 
 - **Homologação rastreia `develop`**; **produção rastreia `main`**. Cada promoção exige o portão anterior verde.
 - **Nunca** promover para homologação sem validação local, nem para produção sem aprovação em homologação.
-- Deploy hoje é **manual** (rebuild no ambiente após o merge) — ainda não há CD automático.
-- **Produção ainda não está provisionada** — apenas homologação (`homolog.watink.com`) existe. Ao chegar nesse estágio, provisionar o ambiente de produção separado.
+- **Deploy é automático nos dois estágios** via GitHub Actions
+  (`.github/workflows/cd-homolog.yaml` e `cd-production.yaml`): um push em
+  `develop`/`main` builda a imagem e faz o deploy via SSH direto na VPS
+  (`git reset --hard` no branch + `docker compose build && up -d`), seguido
+  de smoke test (`GET /api/health`). Nenhum passo manual depois do merge.
+- **Produção roda em `app.watink.com`**, na mesma VPS de homolog, como um
+  stack Docker isolado (containers, rede, volumes e segredos próprios —
+  nunca compartilhados com homolog). Ver `docker-compose.prod.yml` na raiz
+  do repo — o mesmo arquivo serve os dois ambientes, diferenciados só pelo
+  `.env`/`.env.prod` e pelo project name do Compose (`-p watink-homolog` vs
+  `-p watink-prod`).
 - Reportar honestamente o resultado de cada portão (build/testes/homologação) — não marcar "aprovado" sem evidência.
