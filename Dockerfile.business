@@ -9,14 +9,24 @@ RUN npm run build
 # Etapa 2: Build do Watink Business (com Frontend embutido)
 FROM golang:1.25rc1-alpine AS backend-builder
 ENV GOTOOLCHAIN=auto
-RUN apk add --no-cache gcc musl-dev
+RUN apk add --no-cache gcc musl-dev git
 WORKDIR /app
 COPY business/go.mod business/go.sum ./
 RUN go mod download
 COPY business/ ./
+COPY CHANGELOG.md ./internal/web/changelog.md
 # Copia o build do frontend para a pasta de embed do Go
 COPY --from=frontend-builder /app/frontend/build ./internal/web/build
-RUN CGO_ENABLED=1 GOOS=linux go build -o watink-business cmd/server/main.go
+# Aponta o //go:embed do web.go para o build real. O web.go commitado usa
+# `all:placeholder.txt` para que `go build ./...` compile em checkout limpo (sem o
+# frontend gerado); aqui internal/web/build já existe, então trocamos a diretiva
+# para embutir a SPA de verdade antes de compilar.
+RUN sed -i 's#//go:embed all:placeholder.txt#//go:embed all:build#' internal/web/web.go
+COPY .git ./.git-src
+RUN GIT_COMMIT=$(git --git-dir=.git-src rev-parse --short HEAD 2>/dev/null || echo unknown) && \
+    GIT_BRANCH=$(git --git-dir=.git-src rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown) && \
+    rm -rf .git-src && \
+    CGO_ENABLED=1 GOOS=linux go build -ldflags "-X main.GitCommit=${GIT_COMMIT} -X main.GitBranch=${GIT_BRANCH}" -o watink-business cmd/server/main.go
 
 # Etapa 3: Imagem Final Ultra-Leve
 FROM alpine:latest

@@ -158,16 +158,16 @@ func (r *GORMQueueRepository) Delete(ctx context.Context, id int, tenantID uuid.
 
 func queueModelToDomain(m *models.Queue) *domain.Queue {
 	return &domain.Queue{
-		ID:                  m.ID,
-		Name:                m.Name,
-		Color:               m.Color,
-		GreetingMessage:     m.GreetingMessage,
+		ID:                   m.ID,
+		Name:                 m.Name,
+		Color:                m.Color,
+		GreetingMessage:      m.GreetingMessage,
 		DistributionStrategy: m.DistributionStrategy,
-		PrioritizeWallet:    m.PrioritizeWallet,
-		ParentID:            m.ParentID,
-		TenantID:            m.TenantID,
-		CreatedAt:           m.CreatedAt,
-		UpdatedAt:           m.UpdatedAt,
+		PrioritizeWallet:     m.PrioritizeWallet,
+		ParentID:             m.ParentID,
+		TenantID:             m.TenantID,
+		CreatedAt:            m.CreatedAt,
+		UpdatedAt:            m.UpdatedAt,
 	}
 }
 
@@ -187,15 +187,15 @@ func queueModelWithAssocToDomain(m *models.Queue) *domain.Queue {
 
 func queueDomainToModel(d *domain.Queue) *models.Queue {
 	return &models.Queue{
-		ID:                  d.ID,
-		Name:                d.Name,
-		Color:               d.Color,
-		GreetingMessage:     d.GreetingMessage,
+		ID:                   d.ID,
+		Name:                 d.Name,
+		Color:                d.Color,
+		GreetingMessage:      d.GreetingMessage,
 		DistributionStrategy: d.DistributionStrategy,
-		PrioritizeWallet:    d.PrioritizeWallet,
-		ParentID:            d.ParentID,
-		TenantID:            d.TenantID,
-		CreatedAt:           d.CreatedAt,
-		UpdatedAt:           d.UpdatedAt,
+		PrioritizeWallet:     d.PrioritizeWallet,
+		ParentID:             d.ParentID,
+		TenantID:             d.TenantID,
+		CreatedAt:            d.CreatedAt,
+		UpdatedAt:            d.UpdatedAt,
 	}
 }

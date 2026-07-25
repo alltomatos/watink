@@ -1,13 +1,23 @@
 package plugins
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
+	"fmt"
 	"log"
 	"net/http"
+	"strconv"
+	"strings"
 	"sync"
+	"time"
 
+	"github.com/alltomatos/watinkdev/business/internal/domain"
+	"github.com/alltomatos/watinkdev/business/internal/models"
 	"github.com/alltomatos/watinkdev/business/pkg/auth"
 	"github.com/alltomatos/watinkdev/business/pkg/sdk"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -18,10 +28,16 @@ type PluginManager struct {
 }
 
 type coreImpl struct {
-	db       *gorm.DB
-	router   *gin.RouterGroup
-	slug     string
-	registry *PluginRegistry
+	db     *gorm.DB
+	router *gin.RouterGroup
+	// publicRouter is the raw, unauthenticated group — RegisterPublicRoute
+	// mounts here, never through the license-gating wrapper in RegisterRoute
+	// (there is no tenant to check before the handler runs).
+	publicRouter *gin.RouterGroup
+	slug         string
+	registry     *PluginRegistry
+	broadcaster  domain.Broadcaster
+	rabbit       domain.CommandPublisher
 }
 
 func (c *coreImpl) GetDB() *gorm.DB {
@@ -66,32 +82,154 @@ func (c *coreImpl) RegisterRoute(method string, path string, handler gin.Handler
 	})
 }
 
-func (c *coreImpl) EmitSocketEvent(room string, event string, payload interface{}) {}
+// RegisterPublicRoute mounts an unauthenticated route on publicRouter — no
+// license gating, no tenant resolved yet (see sdk.WatinkCore doc).
+func (c *coreImpl) RegisterPublicRoute(method string, path string, handler gin.HandlerFunc) {
+	c.publicRouter.Handle(method, path, handler)
+}
+
+// EmitSocketEvent delivers a real-time event via the injected Broadcaster
+// (domain.Broadcaster — SSE/Redis fan-out). Nil-safe: a manager built without
+// a broadcaster (tests, NewPluginManager) keeps this a no-op, matching the
+// prior stub behavior.
+func (c *coreImpl) EmitSocketEvent(room string, event string, payload interface{}) {
+	if c.broadcaster == nil {
+		return
+	}
+	c.broadcaster.EmitToRoom("/", room, event, payload)
+}
+
+// pluginWAMessageID and pluginContactJID mirror controllers.newWAMessageID /
+// controllers.contactJID exactly (message_send.go) — duplicated here instead
+// of imported because controllers already imports plugins (plugin_manager.go),
+// so the reverse import would cycle.
+func pluginWAMessageID() string {
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
+		return fmt.Sprintf("3EB0%016X", time.Now().UnixNano())
+	}
+	return "3EB0" + strings.ToUpper(hex.EncodeToString(b))
+}
+
+func pluginContactJID(contact models.Contact) string {
+	if contact.IsGroup {
+		return contact.Number + "@g.us"
+	}
+	if contact.Lid != nil && *contact.Lid != "" {
+		return *contact.Lid
+	}
+	return contact.Number
+}
+
+// SendTicketMessage implements sdk.WatinkCore — see its doc comment. Mirrors
+// the outbound pipeline of controllers.MessageController.SendMessage (text-only,
+// no media) so plugin-originated messages behave identically to agent-sent ones.
+func (c *coreImpl) SendTicketMessage(tenantID uuid.UUID, ticketID int, body string) error {
+	if c.rabbit == nil {
+		return errors.New("command publisher not configured")
+	}
+
+	var ticket models.Ticket
+	if err := c.db.Preload("Contact").Where(`id = ? AND "tenantId" = ?`, ticketID, tenantID).First(&ticket).Error; err != nil {
+		return err
+	}
+	if ticket.Contact.ID == 0 {
+		return errors.New("contact not found for ticket")
+	}
+
+	messageID := pluginWAMessageID()
+	to := pluginContactJID(ticket.Contact)
+	command := map[string]interface{}{
+		"type": "message.send.text",
+		"payload": map[string]interface{}{
+			"sessionId": ticket.WhatsappID,
+			"messageId": messageID,
+			"to":        to,
+			"ticketId":  ticketID,
+			"body":      body,
+		},
+	}
+	routingKey := fmt.Sprintf("wbot.%s.%d.%s", tenantID.String(), ticket.WhatsappID, "message.send.text")
+	if err := c.rabbit.PublishCommand(routingKey, command); err != nil {
+		return err
+	}
+
+	writeDB := c.db.Session(&gorm.Session{NewDB: true})
+	now := time.Now()
+	contactID := ticket.ContactID
+	outgoing := models.Message{
+		ID:        messageID,
+		Body:      body,
+		Ack:       0,
+		TicketID:  ticketID,
+		FromMe:    true,
+		ContactID: &contactID,
+		TenantID:  tenantID,
+		Reactions: "[]",
+		DataJson:  "{}",
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	if err := writeDB.Create(&outgoing).Error; err != nil {
+		log.Printf("[SendTicketMessage] persist outgoing message failed (ticket %d): %v", ticketID, err)
+	}
+	writeDB.Model(&models.Ticket{}).
+		Where(`id = ? AND "tenantId" = ?`, ticketID, tenantID).
+		Updates(map[string]interface{}{"lastMessage": body, "updatedAt": now})
+
+	if c.broadcaster != nil {
+		ticketRoom := "chat:" + strconv.Itoa(ticketID)
+		msgPayload := map[string]interface{}{"action": "create", "message": outgoing}
+		c.broadcaster.EmitToRoom("/", ticketRoom, "appMessage", msgPayload)
+		c.broadcaster.EmitToTenantRoom(tenantID.String(), "appMessage", msgPayload)
+		c.broadcaster.EmitToTenantRoom(tenantID.String(), "ticket", map[string]interface{}{
+			"action": "update",
+			"ticket": map[string]interface{}{
+				"id":          ticketID,
+				"lastMessage": body,
+				"updatedAt":   now,
+			},
+		})
+	}
+
+	return nil
+}
 
 // NewPluginManager builds the manager via constructor injection. registry
 // may be nil (e.g. in tests using NewPluginManager(db, group) directly) —
 // RegisterRoute then falls back to StatusActive, preserving prior
-// zero-registry test behavior.
+// zero-registry test behavior. router doubles as publicRouter here (no
+// authenticated/public split needed for this simpler constructor).
 func NewPluginManager(db *gorm.DB, router *gin.RouterGroup) *PluginManager {
 	return &PluginManager{
 		plugins: make(map[string]sdk.WatinkPlugin),
 		core: &coreImpl{
-			db:     db,
-			router: router,
+			db:           db,
+			router:       router,
+			publicRouter: router,
 		},
 	}
 }
 
-// NewPluginManagerWithRegistry is the DI-pura constructor used by main.go —
+// NewPluginManagerWithRegistry is the DI-pura constructor used by routes.go —
 // it plugs the real PluginRegistry (license x allocation) into every
-// plugin's coreImpl so RegisterRoute's gating is real, not hardcoded.
-func NewPluginManagerWithRegistry(db *gorm.DB, router *gin.RouterGroup, registry *PluginRegistry) *PluginManager {
+// plugin's coreImpl so RegisterRoute's gating is real, not hardcoded. router
+// MUST be the authenticated group (IsAuth + TenantMiddleware already
+// applied) — otherwise auth.TenantUUIDFromContext never resolves inside a
+// plugin's handlers. publicRouter is the raw, unauthenticated group, for
+// RegisterPublicRoute. broadcaster wires EmitSocketEvent to real delivery;
+// nil keeps it a no-op. rabbit wires SendTicketMessage to the real engine
+// dispatch; nil makes it fail-closed (returns an error, never silently drops).
+func NewPluginManagerWithRegistry(db *gorm.DB, router *gin.RouterGroup, publicRouter *gin.RouterGroup, registry *PluginRegistry, broadcaster domain.Broadcaster, rabbit domain.CommandPublisher) *PluginManager {
 	return &PluginManager{
 		plugins: make(map[string]sdk.WatinkPlugin),
 		core: &coreImpl{
-			db:       db,
-			router:   router,
-			registry: registry,
+			db:           db,
+			router:       router,
+			publicRouter: publicRouter,
+			registry:     registry,
+			broadcaster:  broadcaster,
+			rabbit:       rabbit,
 		},
 	}
 }
@@ -106,10 +244,13 @@ func (pm *PluginManager) Register(p sdk.WatinkPlugin) {
 	}
 	log.Printf("Registering plugin: %s (%s)", manifest.Name, manifest.Slug)
 	pluginCore := &coreImpl{
-		db:       pm.core.db,
-		router:   pm.core.router,
-		slug:     manifest.Slug,
-		registry: pm.core.registry,
+		db:           pm.core.db,
+		router:       pm.core.router,
+		publicRouter: pm.core.publicRouter,
+		slug:         manifest.Slug,
+		registry:     pm.core.registry,
+		broadcaster:  pm.core.broadcaster,
+		rabbit:       pm.core.rabbit,
 	}
 	if err := p.OnActivate(pluginCore); err != nil {
 		log.Printf("Error activating plugin %s: %v", manifest.Slug, err)

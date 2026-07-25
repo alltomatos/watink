@@ -50,11 +50,17 @@ export interface CatalogPlugin {
   slug: string;
   name: string;
   description: string;
+  /** Rich text for the detail page (line breaks preserved, no markdown). */
+  longDescription?: string;
   version: string;
-  type: "free" | "business";
+  type: "free" | "pro";
   price: number;
+  /** Global tax rate (e.g. 8) shown alongside price for `pro` plugins — same for every plugin, not per-item. */
+  taxRatePercent?: number;
   category: string;
   iconUrl?: string;
+  /** Gallery images sourced from the plugin's Hub catalog registration. */
+  screenshots?: string[];
 }
 
 /** Response shape of GET /plugins/catalog */
@@ -74,4 +80,28 @@ export interface PluginEntitlements {
 export interface PluginInstalledResponse {
   active: string[];
   entitlements?: PluginEntitlements;
+}
+
+/**
+ * Error body of POST /plugins/:slug/activate when the plugin has no valid
+ * license (HTTP 402). checkoutRequested tells whether the business
+ * successfully asked the plugin-manager (which asks the Hub) to
+ * create/reactivate the license — the Hub creates the license record
+ * synchronously, but the signed token only reaches the plugin-manager on
+ * the next heartbeat, so a 402 with checkoutRequested=true still means the
+ * plugin isn't active yet; the client must retry /activate later (poll).
+ */
+export interface PluginActivateUnlicensedResponse {
+  error: "plugin_unlicensed" | "plugin_tenant_cap_reached" | string;
+  checkoutRequested?: boolean;
+  message?: string;
+}
+
+/** Response shape of POST /plugins/:slug/checkout (Checkout Pro — Mercado Pago) */
+export interface CheckoutOrderResponse {
+  orderId: number;
+  /** Preço já com o imposto embutido (congelado pelo Hub), em centavos. */
+  amountCents: number;
+  /** URL de redirect para a página de pagamento hospedada pelo Mercado Pago. */
+  checkoutUrl: string;
 }

@@ -546,5 +546,3 @@ func TestEventEnvelope_PayloadUnmarshal(t *testing.T) {
 		t.Errorf("inner payload: got %+v, want %+v", gotQr, qr)
 	}
 }
-
-

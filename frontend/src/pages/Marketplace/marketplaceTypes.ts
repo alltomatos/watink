@@ -7,6 +7,8 @@ export interface MarketplacePlugin {
   type?: string;
   category?: string;
   price?: number;
+  /** Global tax rate (e.g. 8) shown alongside price for `pro` plugins — same for every plugin. */
+  taxRatePercent?: number;
   iconUrl: string;
   installed: boolean;
   active: boolean;

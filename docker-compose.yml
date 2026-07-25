@@ -1,0 +1,142 @@
+# Watink — Distribuição em produção (Docker Hub)
+#
+# Stack mínimo distribuível: sem qualquer uma das 3 imagens abaixo o Watink não
+# funciona de verdade — watink-business sem watink-engine não conecta WhatsApp
+# (o engine é o cliente whatsmeow); postgres vanilla não tem PostGIS+pgvector,
+# então watink-postgres carrega essas extensões pré-instaladas.
+#
+# Uso:
+#   cp .env.production.example .env   # preencha os segredos (DB_PASS, JWT_SECRET, etc.)
+#   docker compose pull
+#   docker compose up -d
+#
+# As imagens são publicadas por .github/workflows/publish-dockerhub.yml em
+# push a develop/main (tags: latest em main, develop em develop, sha-<hash>
+# sempre). Defina IMAGE_TAG no .env para fixar uma versão específica.
+
+services:
+  # ── Infraestrutura ────────────────────────────────────────────
+  postgres:
+    image: ronaldodavi/watink-postgres:${IMAGE_TAG:-latest}
+    container_name: watink-postgres
+    environment:
+      POSTGRES_DB: watink
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASS:?defina DB_PASS no .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+    networks: [watink_net]
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: watink-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [watink_net]
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: watink-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-watink}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:?defina RABBITMQ_PASS no .env}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+    networks: [watink_net]
+    restart: unless-stopped
+
+  # ── Aplicação ────────────────────────────────────────────────
+  watink-business:
+    image: ronaldodavi/watink-business:${IMAGE_TAG:-latest}
+    container_name: watink-business
+    ports:
+      - "${PORT:-80}:8082"   # HTTP — API + UI embutida (same-origin)
+    environment:
+      - PORT_GO=8082
+      - GIN_MODE=release
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASS=${DB_PASS:?defina DB_PASS no .env}
+      - DB_NAME=watink
+      - AMQP_URL=amqp://${RABBITMQ_USER:-watink}:${RABBITMQ_PASS:?defina RABBITMQ_PASS no .env}@rabbitmq:5672
+      - REDIS_URL=redis://redis:6379
+      - ENGINE_HEALTH_URL=http://watink-engine:8083/health
+      - JWT_SECRET=${JWT_SECRET:?defina JWT_SECRET no .env}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:?defina JWT_REFRESH_SECRET no .env}
+      # Chave de criptografia-at-rest das senhas de proxy (AES-GCM via SHA-256).
+      # openssl rand -hex 32. Trocar a chave invalida segredos já gravados.
+      - PROXY_ENC_KEY=${PROXY_ENC_KEY:?defina PROXY_ENC_KEY no .env}
+      - INTERNAL_TOKEN=${INTERNAL_TOKEN:?defina INTERNAL_TOKEN no .env}
+      - DOCS_PUBLIC=false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - uploads_data:/root/public
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8082/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+    networks: [watink_net]
+    restart: unless-stopped
+
+  watink-engine:
+    image: ronaldodavi/watink-engine:${IMAGE_TAG:-latest}
+    container_name: watink-engine
+    # Resolvers públicos — o resolver embutido do Docker (127.0.0.11) às vezes
+    # falha em resolver web.whatsapp.com, quebrando reconexões.
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    environment:
+      - AMQP_URL=amqp://${RABBITMQ_USER:-watink}:${RABBITMQ_PASS:?defina RABBITMQ_PASS no .env}@rabbitmq:5672
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASS=${DB_PASS:?defina DB_PASS no .env}
+      - DB_NAME=watink
+      - HEALTH_PORT=8083
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    # Sem healthcheck: a imagem de produção é distroless (sem shell/wget/curl),
+    # não há como executar um probe dentro do container.
+    networks: [watink_net]
+    restart: unless-stopped
+
+networks:
+  watink_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  uploads_data:

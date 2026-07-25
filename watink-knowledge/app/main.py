@@ -4,9 +4,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from . import ingest
+from .agent import router as agent_router
 from .db import close_pool, get_pool, open_pool
 from .migrations import run_migrations
-from .agent import router as agent_router
 from .retrieve import router as retrieve_router
 
 logging.basicConfig(level=logging.INFO)
@@ -36,8 +36,7 @@ app.include_router(agent_router)
 @app.get("/health")
 async def health():
     pool = get_pool()
-    async with pool.connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute("SELECT 1")
-            await cur.fetchone()
+    async with pool.connection() as conn, conn.cursor() as cur:
+        await cur.execute("SELECT 1")
+        await cur.fetchone()
     return {"status": "ok", "service": "watink-knowledge"}

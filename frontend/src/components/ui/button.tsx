@@ -5,22 +5,22 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "wt-btn inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-45 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 active:scale-[0.97] select-none",
+  "wt-btn inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-45 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 active:scale-[0.97] select-none",
   {
     variants: {
       variant: {
         default:
-          "wt-btn--primary bg-[var(--primary)] text-[var(--primary-foreground)] hover:translate-y-[-1px] hover:shadow-md hover:bg-[var(--primary)]/90 active:translate-y-0",
+          "wt-btn--primary bg-primary text-primary-foreground hover:translate-y-[-1px] hover:shadow-md hover:bg-primary/90 active:translate-y-0",
         destructive:
-          "wt-btn--danger bg-[var(--destructive)] text-[var(--destructive-foreground)] hover:translate-y-[-1px] hover:shadow-md hover:bg-[var(--destructive)]/90 active:translate-y-0",
+          "wt-btn--danger bg-destructive text-destructive-foreground hover:translate-y-[-1px] hover:shadow-md hover:bg-destructive/90 active:translate-y-0",
         outline:
-          "wt-btn--outlined border border-[var(--primary)] bg-transparent text-[var(--primary)] hover:bg-[var(--secondary)]",
+          "wt-btn--outlined border border-primary bg-transparent text-primary hover:bg-secondary",
         secondary:
-          "bg-[var(--secondary)] text-[var(--secondary-foreground)] hover:bg-[var(--secondary)]/80",
+          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost:
-          "wt-btn--ghost text-[var(--primary)] hover:bg-[var(--secondary)]",
+          "wt-btn--ghost text-primary hover:bg-secondary",
         link:
-          "text-[var(--primary)] underline-offset-4 hover:underline"
+          "text-primary underline-offset-4 hover:underline"
       },
       size: {
         default: "h-10 px-4 py-2",

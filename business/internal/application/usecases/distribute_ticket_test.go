@@ -89,9 +89,9 @@ func (m *mockContactRepo) FindOrCreate(_ context.Context, _ uuid.UUID, _, _, _ s
 }
 
 type mockUserQueueRepo struct {
-	users     []domain.User
-	inQueue   bool
-	usersErr  error
+	users      []domain.User
+	inQueue    bool
+	usersErr   error
 	inQueueErr error
 }
 

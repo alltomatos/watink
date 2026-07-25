@@ -8,6 +8,7 @@ import api from "../../../services/api";
 import { TicketInfo } from "../ticketsTypes";
 import PipelinesSection from "./PipelinesSection";
 import FlowsSection from "./FlowsSection";
+import HelpdeskSection from "./HelpdeskSection";
 import TicketTagsSection from "./TicketTagsSection";
 import ClientModal from "../../Clients/ClientModal";
 import TagChip from "../../../components/TagChip";
@@ -190,6 +191,11 @@ const DadosTab: React.FC<DadosTabProps> = ({ ticket, loading }) => {
         {/* Fluxos — somente para tickets individuais */}
         {!isGroup && contact?.id && (
           <FlowsSection contactId={contact.id} />
+        )}
+
+        {/* Helpdesk — somente para tickets individuais, plugin "helpdesk" ativo */}
+        {!isGroup && contact?.id && (
+          <HelpdeskSection contactId={contact.id} contactName={contact.name} ticketId={ticket?.id} />
         )}
       </div>
 

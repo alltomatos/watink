@@ -67,6 +67,7 @@ func Migrate() {
 		&models.KnowledgeBaseSource{},
 		&models.Pipeline{},
 		&models.PipelineStage{},
+		&models.Deal{},
 		&models.TagGroup{},
 		&models.Tag{},
 		&models.EntityTag{},
@@ -77,6 +78,9 @@ func Migrate() {
 		&models.ProxyGroup{},
 		&models.ConnectionGroup{},
 		&models.PluginInstallation{},
+		&models.Protocol{},
+		&models.ProtocolLog{},
+		&models.ProtocolAttachment{},
 	)
 
 	if err != nil {
@@ -235,6 +239,21 @@ func dropLegacyRBAC() error {
 }
 
 func addCustomIndexes() error {
+	// Migração multi-tenant: Queue.name/color eram unique GLOBAL
+	// (uni_Queues_name/uni_Queues_color) — o unique global quebrava o
+	// provisionamento do 2º tenant (dois tenants não podiam ter uma fila
+	// "Atendimento Inicial" nem a mesma cor). Agora name é único por-tenant
+	// (idx_queues_tenant_name, criado pelo AutoMigrate) e color não é único.
+	// Dropa as constraints antigas (best-effort; ausência é esperada em banco novo).
+	for _, ddl := range []string{
+		`ALTER TABLE "Queues" DROP CONSTRAINT IF EXISTS uni_Queues_name`,
+		`ALTER TABLE "Queues" DROP CONSTRAINT IF EXISTS uni_Queues_color`,
+	} {
+		if err := DB.Exec(ddl).Error; err != nil {
+			log.Printf("addCustomIndexes (drop legacy Queue uniques): %q: %v", ddl, err)
+		}
+	}
+
 	indexes := []string{
 		`CREATE INDEX IF NOT EXISTS idx_tickets_tenant_status ON "Tickets" ("tenantId", "status")`,
 		`CREATE INDEX IF NOT EXISTS idx_tickets_tenant_queue_status ON "Tickets" ("tenantId", "queueId", "status")`,
@@ -269,11 +288,24 @@ func addCustomIndexes() error {
 		// "list installed plugins for tenant" read-path independently.
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_plugin_installations_tenant_plugin ON "PluginInstallations" ("tenantId", "pluginId")`,
 		`CREATE INDEX IF NOT EXISTS idx_plugin_installations_tenant ON "PluginInstallations" ("tenantId")`,
+		// Idempotência do provisionamento pelo control plane SaaS (rota interna
+		// POST /internal/saas/tenants): único parcial sobre a chave, ignorando os
+		// tenants criados por fora (initial-setup público) cujo provisionKey é NULL.
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_tenants_provision_key ON "Tenants" ("provisionKey") WHERE "provisionKey" IS NOT NULL`,
+		// Protocol (plugin Helpdesk): Kanban/lista filtram por (tenantId, status);
+		// o link público resolve por token isoladamente (já UNIQUE no model).
+		`CREATE INDEX IF NOT EXISTS idx_protocols_tenant_status ON "Protocols" ("tenantId", "status")`,
+		`CREATE INDEX IF NOT EXISTS idx_protocol_logs_protocol ON "ProtocolLogs" ("protocolId")`,
+		`CREATE INDEX IF NOT EXISTS idx_protocol_attachments_protocol ON "ProtocolAttachments" ("protocolId")`,
 	}
 
+	// Best-effort: um índice que falha (ex.: tabela de plugin ainda não migrada
+	// naquele banco) NÃO deve abortar a criação dos demais — antes um único erro
+	// (ex.: "Deals" não existe) pulava todos os índices seguintes, inclusive o de
+	// idempotência do provisionamento.
 	for _, ddl := range indexes {
 		if err := DB.Exec(ddl).Error; err != nil {
-			return fmt.Errorf("create index: %w", err)
+			log.Printf("addCustomIndexes: %q falhou (best-effort, seguindo): %v", ddl, err)
 		}
 	}
 

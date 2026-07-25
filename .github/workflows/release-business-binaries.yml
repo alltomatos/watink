@@ -36,6 +36,8 @@ jobs:
     steps:
       - name: Checkout (watinkdev)
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -43,7 +45,7 @@ jobs:
           node-version: "20"
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: "1.24"
 
@@ -74,10 +76,75 @@ jobs:
       - name: Install packaging tools
         run: sudo apt-get update && sudo apt-get install -y zip
 
+      - name: Resolve changelog
+        id: changelog
+        env:
+          CHANGELOG_INPUT: ${{ github.event.inputs.changelog }}
+        run: |
+          set -e
+          if [ -n "${CHANGELOG_INPUT}" ]; then
+            CONTENT="${CHANGELOG_INPUT}"
+          else
+            LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || true)
+            if [ -n "${LAST_TAG}" ]; then
+              COMMIT_RANGE="${LAST_TAG}..HEAD"
+            else
+              COMMIT_RANGE="HEAD"
+            fi
+
+            declare -A COMMIT_GROUPS
+            declare -A HEADERS=(
+              [feat]="### Funcionalidades"
+              [fix]="### Correções"
+              [docs]="### Documentação"
+              [chore]="### Manutenção"
+              [refactor]="### Refatoração"
+              [test]="### Testes"
+              [hardening]="### Hardening"
+              [ci]="### CI"
+              [build]="### Build"
+              [other]="### Outras mudanças"
+            )
+            ORDER=(feat fix docs chore refactor test hardening ci build other)
+
+            while IFS= read -r line; do
+              [ -z "${line}" ] && continue
+              prefix=$(printf '%s' "${line}" | sed -nE 's/^([a-zA-Z]+)(\([^)]*\))?!?:.*/\1/p' | tr '[:upper:]' '[:lower:]')
+              case "${prefix}" in
+                feat|fix|docs|chore|refactor|test|hardening|ci|build)
+                  key="${prefix}"
+                  text=$(printf '%s' "${line}" | sed -E 's/^[a-zA-Z]+(\([^)]*\))?!?:[[:space:]]*//')
+                  ;;
+                *)
+                  key="other"
+                  text="${line}"
+                  ;;
+              esac
+              COMMIT_GROUPS[${key}]="${COMMIT_GROUPS[${key}]:-}- ${text}"$'\n'
+            done < <(git log --pretty=format:"%s" ${COMMIT_RANGE})
+
+            CONTENT=""
+            for key in "${ORDER[@]}"; do
+              if [ -n "${COMMIT_GROUPS[${key}]:-}" ]; then
+                CONTENT="${CONTENT}${HEADERS[${key}]}"$'\n'"${COMMIT_GROUPS[${key}]}"$'\n'
+              fi
+            done
+
+            if [ -z "${CONTENT}" ]; then
+              CONTENT="Sem commits desde a última tag."
+            fi
+          fi
+
+          {
+            echo "content<<CHANGELOG_EOF"
+            echo "${CONTENT}"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Build binaries (linux/windows)
         env:
           VERSION: ${{ github.event.inputs.version }}
-          CHANGELOG: ${{ github.event.inputs.changelog }}
+          CHANGELOG: ${{ steps.changelog.outputs.content }}
           BREAKING_RELEASE: ${{ github.event.inputs.breaking_release }}
           MIN_COMPATIBLE_FROM: ${{ github.event.inputs.min_compatible_from }}
           MIGRATION_NOTES: ${{ github.event.inputs.migration_notes }}
@@ -143,7 +210,7 @@ jobs:
           GH_TOKEN: ${{ secrets.WATINK_BUSINESS_PAT }}
           VERSION: ${{ github.event.inputs.version }}
           PRERELEASE: ${{ github.event.inputs.prerelease }}
-          CHANGELOG: ${{ github.event.inputs.changelog }}
+          CHANGELOG: ${{ steps.changelog.outputs.content }}
           BREAKING_RELEASE: ${{ github.event.inputs.breaking_release }}
           MIN_COMPATIBLE_FROM: ${{ github.event.inputs.min_compatible_from }}
           MIGRATION_NOTES: ${{ github.event.inputs.migration_notes }}
@@ -196,6 +263,28 @@ jobs:
             release/manifest.json \
             --repo alltomatos/watink-business \
             --clobber
+
+      - name: Update CHANGELOG.md
+        env:
+          GH_TOKEN: ${{ secrets.WATINK_BUSINESS_PAT }}
+          VERSION: ${{ github.event.inputs.version }}
+          CHANGELOG: ${{ steps.changelog.outputs.content }}
+        run: |
+          set -e
+          {
+            echo "## v${VERSION} - $(date +%Y-%m-%d)"
+            echo
+            echo "${CHANGELOG}"
+            echo
+            cat CHANGELOG.md
+          } > CHANGELOG.md.tmp
+          mv CHANGELOG.md.tmp CHANGELOG.md
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "docs(changelog): registra release v${VERSION} [skip ci]"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" HEAD:${{ github.ref_name }}
 
       - name: Summary
         env:

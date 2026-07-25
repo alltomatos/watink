@@ -78,6 +78,23 @@ const Connections = () => {
       </PageHeader>
 
       <PageContent>
+        {whatsApps.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
+            <div className="h-14 w-14 rounded-2xl bg-muted flex items-center justify-center">
+              <MessageSquare className="h-7 w-7 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">Nenhuma conexão configurada</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Adicione um WhatsApp para começar a atender seus clientes
+              </p>
+            </div>
+            <Button onClick={handleOpenNewWhatsApp}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nova Conexão
+            </Button>
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {whatsApps.map((whatsApp) => (
             <ConnectionCard

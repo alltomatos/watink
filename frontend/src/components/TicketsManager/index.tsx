@@ -79,14 +79,9 @@ const TicketsManager: React.FC = () => {
             {/* Filtro de filas */}
             <Popover open={queuePopoverOpen} onOpenChange={setQueuePopoverOpen}>
               <PopoverTrigger asChild>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground" aria-label="Filtrar filas">
-                      <Filter size={14} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">Filtrar Filas</TooltipContent>
-                </Tooltip>
+                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground" aria-label="Filtrar filas" title="Filtrar Filas">
+                  <Filter size={14} />
+                </Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-64 p-3">
                 <TicketsQueueSelect selectedQueueIds={selectedQueueIds} userQueues={(user.queues as Queue[] | undefined) ?? []} onChange={(values: number[]) => setSelectedQueueIds(values)} />
@@ -96,14 +91,9 @@ const TicketsManager: React.FC = () => {
             {/* Filtro de tags */}
             <Popover open={tagPopoverOpen} onOpenChange={setTagPopoverOpen}>
               <PopoverTrigger asChild>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground" aria-label="Filtrar tags">
-                      <Tag size={14} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">Filtrar Tags</TooltipContent>
-                </Tooltip>
+                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground" aria-label="Filtrar tags" title="Filtrar Tags">
+                  <Tag size={14} />
+                </Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-64 p-3">
                 <TicketsTagFilter selectedTags={selectedTags} onChange={(values: number[]) => setSelectedTags(values)} />

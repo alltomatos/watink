@@ -14,13 +14,13 @@ import (
 )
 
 type rabbitMgmtQueue struct {
-	Name string `json:"name"`
-	Vhost string `json:"vhost"`
-	Messages int `json:"messages"`
-	MessagesReady int `json:"messages_ready"`
-	MessagesUnacknowledged int `json:"messages_unacknowledged"`
-	Consumers int `json:"consumers"`
-	State string `json:"state"`
+	Name                   string `json:"name"`
+	Vhost                  string `json:"vhost"`
+	Messages               int    `json:"messages"`
+	MessagesReady          int    `json:"messages_ready"`
+	MessagesUnacknowledged int    `json:"messages_unacknowledged"`
+	Consumers              int    `json:"consumers"`
+	State                  string `json:"state"`
 }
 
 func (s *RabbitMQService) IsConnected() bool {
@@ -135,13 +135,13 @@ func (s *RabbitMQService) listQueuesViaManagementAPI() ([]domain.QueueMetrics, e
 	queues := make([]domain.QueueMetrics, 0, len(raw))
 	for _, q := range raw {
 		queues = append(queues, domain.QueueMetrics{
-			Name:          q.Name,
-			Vhost:         q.Vhost,
-			Messages:      q.Messages,
-			Ready:         q.MessagesReady,
+			Name:           q.Name,
+			Vhost:          q.Vhost,
+			Messages:       q.Messages,
+			Ready:          q.MessagesReady,
 			Unacknowledged: q.MessagesUnacknowledged,
-			Consumers:     q.Consumers,
-			State:         q.State,
+			Consumers:      q.Consumers,
+			State:          q.State,
 		})
 	}
 

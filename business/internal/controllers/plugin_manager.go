@@ -24,6 +24,7 @@ import (
 type PluginManagerProxy interface {
 	GetCatalog() (pluginlicense.CatalogResponse, error)
 	GetInstance() (pluginlicense.InstanceResponse, error)
+	Checkout(slug, returnURL string) (pluginlicense.CheckoutOrderResponse, error)
 }
 
 type PluginController struct {
@@ -56,6 +57,43 @@ type checkoutRequest struct {
 // @Router       /plugins/checkout [post]
 func (pc *PluginController) Checkout(c *gin.Context) {
 	c.JSON(http.StatusServiceUnavailable, gin.H{"error": "use POST /plugins/:slug/activate"})
+}
+
+type createCheckoutOrderRequest struct {
+	ReturnURL string `json:"returnUrl" binding:"required"`
+}
+
+// @Summary      Iniciar checkout de plugin pro (Checkout Pro — pagamento real)
+// @Description  Cria (ou reaproveita, idempotente) um pedido de compra pending para o plugin `pro` indicado e devolve a URL de redirect pro Checkout Pro do Mercado Pago — a licença só nasce quando o webhook confirma o pagamento.
+// @Tags         plugins
+// @Produce      json
+// @Success      201  {object}  pluginlicense.CheckoutOrderResponse
+// @Security     BearerAuth
+// @Router       /plugins/{slug}/checkout [post]
+func (pc *PluginController) CreateCheckoutOrder(c *gin.Context) {
+	slug := c.Param("slug")
+	_, _, ok := auth.GetScoped(c, "Plugins")
+	if !ok {
+		return
+	}
+
+	var req createCheckoutOrderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request", "message": err.Error()})
+		return
+	}
+
+	if pc.pmProxy == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "checkout service unavailable"})
+		return
+	}
+
+	order, err := pc.pmProxy.Checkout(slug, req.ReturnURL)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "checkout_failed", "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, order)
 }
 
 // @Summary      Catálogo de plugins
@@ -121,11 +159,11 @@ func (pc *PluginController) Installed(c *gin.Context) {
 }
 
 // @Summary      Ativar plugin
-// @Description  Ativa/aloca um plugin para o tenant atual. 402 se sem licença válida ou teto de tenants atingido.
+// @Description  Ativa/aloca um plugin para o tenant atual. 402 se sem licença válida (dispara checkout best-effort junto ao Hub via plugin-manager) ou se o teto de tenants foi atingido.
 // @Tags         plugins
 // @Produce      json
 // @Success      200  {object}  map[string]interface{}
-// @Failure      402  {object}  map[string]string
+// @Failure      402  {object}  map[string]interface{}  "plugin_unlicensed (com checkoutRequested indicando se o pedido de licença foi disparado) ou plugin_tenant_cap_reached"
 // @Security     BearerAuth
 // @Router       /plugins/{slug}/activate [post]
 func (pc *PluginController) Activate(c *gin.Context) {
@@ -143,10 +181,52 @@ func (pc *PluginController) Activate(c *gin.Context) {
 	info, err := pc.license.GetLicense(slug)
 	// Sem licença válida (indeterminado, unlicensed, blocked, readonly) nunca
 	// autoriza uma NOVA ativação -- só "active" libera crescimento (ADR 0024,
-	// fail-closed). checkoutUrl fica vazio: não há Hub real ainda para gerar
-	// o link de compra (ver docs/agents/plugins.md).
+	// fail-closed).
 	if err != nil || info.Status != "active" {
-		c.JSON(http.StatusPaymentRequired, gin.H{"error": "plugin_unlicensed", "checkoutUrl": ""})
+		// A resposta continua sendo 402 SEMPRE neste branch -- a licença nunca é
+		// concedida de forma síncrona aqui, então "unlicensed" permanece
+		// verdade mesmo quando o checkout é disparado com sucesso.
+		//
+		// O Hub cria/reativa a domain.PluginLicense de forma síncrona no
+		// checkout, mas o TOKEN Ed25519 só chega ao plugin-manager no
+		// próximo heartbeat (até heartbeatIntervalMin minutos, default
+		// 15min). Ou seja: mesmo um checkout bem-sucedido não ativa o
+		// plugin nesta mesma requisição -- só na chamada seguinte de
+		// /activate, depois que o plugin-manager absorver o novo token. Por
+		// isso a resposta é sempre 402 aqui; checkoutRequested apenas
+		// informa ao cliente se o pedido de licença foi disparado (e ele
+		// deve tentar de novo depois, via poll) ou se falhou de fato.
+		if pc.pmProxy == nil {
+			// Sem proxy não há como pedir checkout -- preserva o
+			// comportamento antigo (nenhuma tentativa).
+			c.JSON(http.StatusPaymentRequired, gin.H{
+				"error":             "plugin_unlicensed",
+				"checkoutRequested": false,
+				"message":           "Plugin sem licença e o serviço de checkout está indisponível.",
+			})
+			return
+		}
+
+		// Fluxo legado (fire-and-forget, nunca segue o checkoutUrl devolvido
+		// aqui — o cliente só faz poll de /activate depois) ainda precisa de
+		// um returnUrl não-vazio porque o Hub exige o campo pra montar as
+		// back_urls da preferência; usa a própria origem da requisição como
+		// melhor esforço, já que ninguém vai de fato seguir esse link aqui.
+		legacyReturnURL := "https://" + c.Request.Host + "/admin/settings/marketplace/" + slug
+		if _, checkoutErr := pc.pmProxy.Checkout(slug, legacyReturnURL); checkoutErr != nil {
+			c.JSON(http.StatusPaymentRequired, gin.H{
+				"error":             "plugin_unlicensed",
+				"checkoutRequested": false,
+				"message":           "Não foi possível solicitar a licença: " + checkoutErr.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusPaymentRequired, gin.H{
+			"error":             "plugin_unlicensed",
+			"checkoutRequested": true,
+			"message":           "Licença solicitada. Pode levar alguns minutos para ser confirmada — tente ativar novamente em breve.",
+		})
 		return
 	}
 

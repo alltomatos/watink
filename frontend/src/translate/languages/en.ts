@@ -183,6 +183,8 @@ const messages = {
           whatsapp: "WhatsApp",
           email: "Email",
           actions: "Actions",
+          number: "Phone",
+          empty: "No contacts found.",
         },
       },
       contactModal: {

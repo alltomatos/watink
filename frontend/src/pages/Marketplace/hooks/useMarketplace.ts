@@ -58,7 +58,9 @@ export function useMarketplace(): UseMarketplaceReturn {
         ? catalogRes.plugins
         : [];
       const normalized: MarketplacePlugin[] = all.map((p) => ({
-        id: p.id,
+        // slug é a chave estável do catálogo -- p.id nunca é preenchido pelo
+        // plugin-manager (o Hub não expõe id no /catalog público).
+        id: p.slug,
         slug: p.slug,
         name: p.name,
         description: p.description,
@@ -66,7 +68,8 @@ export function useMarketplace(): UseMarketplaceReturn {
         type: p.type,
         category: p.category,
         price: p.price,
-        iconUrl: `/public/plugins/${p.slug}.png`,
+        taxRatePercent: p.taxRatePercent,
+        iconUrl: p.iconUrl || `/public/plugins/${p.slug}.png`,
         installed: activeSlugs.has(p.slug),
         active: activeSlugs.has(p.slug),
       }));

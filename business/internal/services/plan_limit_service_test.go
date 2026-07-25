@@ -39,10 +39,10 @@ func seedPlanLimitData(db *gorm.DB, tenantID uuid.UUID, pluginQuota int, pluginC
 	// Create plugin installations
 	for i := 0; i < pluginCount; i++ {
 		pi := map[string]interface{}{
-			"id":        uuid.New().String(),
-			"tenantId":  tenantID.String(),
-			"pluginId":  uuid.New().String(),
-			"active":    true,
+			"id":       uuid.New().String(),
+			"tenantId": tenantID.String(),
+			"pluginId": uuid.New().String(),
+			"active":   true,
 		}
 		db.Table("PluginInstallations").Create(&pi)
 	}

@@ -42,7 +42,7 @@ func TestTenantMiddleware(t *testing.T) {
 	t.Run("accepts_with_tenant_in_context", func(t *testing.T) {
 		r := gin.New()
 		r.Use(func(c *gin.Context) {
-			c.Set("tenantId", "valid-uuid") 
+			c.Set("tenantId", "valid-uuid")
 		})
 		r.Use(TenantMiddleware())
 		r.GET("/protected", func(c *gin.Context) { c.Status(http.StatusOK) })

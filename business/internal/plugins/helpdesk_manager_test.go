@@ -3,6 +3,7 @@ package plugins
 import (
 	"testing"
 
+	"github.com/alltomatos/watinkdev/business/internal/models"
 	"github.com/alltomatos/watinkdev/business/pkg/sdk"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -19,32 +20,57 @@ func TestHelpdeskPlugin_GetManifest(t *testing.T) {
 	assert.NotEmpty(t, manifest.Version)
 }
 
-func TestHelpdeskPlugin_OnActivate_RegistersProtocolRoute(t *testing.T) {
+func TestHelpdeskPlugin_OnActivate_RegistersAllProtocolRoutes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := setupPluginTestDB(t)
-	db.Exec(`CREATE TABLE IF NOT EXISTS "Protocols" (
-		"id" INTEGER PRIMARY KEY AUTOINCREMENT,
-		"subject" TEXT,
-		"status" TEXT,
-		"tenantId" TEXT,
-		"createdAt" DATETIME
-	)`)
 
 	hp := &HelpdeskPlugin{}
 	mc := new(MockWatinkCore)
 	mc.On("GetDB").Return(db)
-	mc.On("RegisterRoute", "GET", "/helpdesk/protocols", mock.Anything).Return()
+	mc.On("RegisterRoute", mock.Anything, mock.Anything, mock.Anything).Return()
+	mc.On("RegisterPublicRoute", mock.Anything, mock.Anything, mock.Anything).Return()
 
 	err := hp.OnActivate(mc)
 	assert.NoError(t, err)
 
-	found := false
-	for _, r := range mc.registeredRoutes {
-		if r.Method == "GET" && r.Path == "/helpdesk/protocols" {
-			found = true
-		}
+	expected := []registeredRoute{
+		{Method: "GET", Path: "/protocols"},
+		{Method: "GET", Path: "/protocols/kanban"},
+		{Method: "GET", Path: "/protocols/dashboard"},
+		{Method: "POST", Path: "/protocols"},
+		{Method: "GET", Path: "/protocols/:id"},
+		{Method: "PUT", Path: "/protocols/:id"},
+		{Method: "GET", Path: "/protocols/:id/attachments"},
+		{Method: "POST", Path: "/protocols/:id/attachments"},
+		{Method: "DELETE", Path: "/protocols/:id/attachments/:attachmentId"},
+		{Method: "GET", Path: "/public/protocols/:token"},
 	}
-	assert.True(t, found, "expected GET /helpdesk/protocols to be registered")
+	assert.Len(t, mc.registeredRoutes, len(expected), "unexpected number of routes registered (authenticated + public)")
+	for _, want := range expected {
+		found := false
+		for _, r := range mc.registeredRoutes {
+			if r.Method == want.Method && r.Path == want.Path {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "expected %s %s to be registered", want.Method, want.Path)
+	}
+}
+
+func TestHelpdeskPlugin_OnActivate_PublicRouteIsUnauthenticated(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := setupPluginTestDB(t)
+
+	hp := &HelpdeskPlugin{}
+	mc := new(MockWatinkCore)
+	mc.On("GetDB").Return(db)
+	mc.On("RegisterRoute", mock.Anything, mock.Anything, mock.Anything).Return()
+	mc.On("RegisterPublicRoute", "GET", "/public/protocols/:token", mock.Anything).Return()
+
+	err := hp.OnActivate(mc)
+	assert.NoError(t, err)
+	mc.AssertCalled(t, "RegisterPublicRoute", "GET", "/public/protocols/:token", mock.Anything)
 }
 
 func TestHelpdeskPlugin_OnInstall_AutoMigrate(t *testing.T) {
@@ -54,6 +80,9 @@ func TestHelpdeskPlugin_OnInstall_AutoMigrate(t *testing.T) {
 	mc.On("GetDB").Return(db)
 	err := hp.OnInstall(mc)
 	assert.NoError(t, err)
+	assert.True(t, db.Migrator().HasTable(&models.Protocol{}))
+	assert.True(t, db.Migrator().HasTable(&models.ProtocolLog{}))
+	assert.True(t, db.Migrator().HasTable(&models.ProtocolAttachment{}))
 }
 
 func TestHelpdeskPlugin_OnDeactivate(t *testing.T) {

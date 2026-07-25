@@ -112,6 +112,8 @@ func allModels() []interface{} {
 		&models.ClientAddress{},
 		&models.Deal{},
 		&models.Protocol{},
+		&models.ProtocolLog{},
+		&models.ProtocolAttachment{},
 		&models.Whatsapp{},
 		&models.Queue{},
 		&models.Ticket{},

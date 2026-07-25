@@ -186,6 +186,8 @@ const messages = {
           whatsapp: "WhatsApp",
           email: "Correo Electrónico",
           actions: "Acciones",
+          number: "Teléfono",
+          empty: "Ningún contacto encontrado.",
         },
       },
       contactModal: {

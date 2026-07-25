@@ -216,6 +216,27 @@ type SetupServiceInterface interface {
 	InitializeTenant(data TenantSeedData) error
 }
 
+// ProvisionPlanSpec is the plan snapshot pushed by the Watink SaaS control plane
+// when provisioning a tenant (rota interna POST /internal/saas/tenants). The core
+// faz upsert do Plan por `Name` (padrão ADR 0009) e associa a assinatura a ele.
+type ProvisionPlanSpec struct {
+	Name             string
+	UsersLimit       int
+	ConnectionsLimit int
+	QueuesLimit      int
+	PluginQuota      int
+	Price            float64
+	Active           bool
+}
+
+// ProvisionResult é o retorno do provisionamento interno: o id do tenant e o id
+// do usuário dono recém-criados, consumidos pelo Watink SaaS para reconciliar o
+// snapshot local (coreTenantId, ownerUserId).
+type ProvisionResult struct {
+	TenantID    string
+	OwnerUserID int
+}
+
 // PlanLimitServiceInterface defines the contract for plan/resource limit checks.
 type PlanLimitServiceInterface interface {
 	CheckLimit(tenantID uuid.UUID, resource string) error

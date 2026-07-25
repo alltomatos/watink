@@ -71,10 +71,14 @@ func newTestPluginContext(method, path string, body *strings.Reader, db *gorm.DB
 // convention (CLAUDE.md "Mocks em structs locais dentro de cada Test..."),
 // not a package-level mock. err takes precedence over the canned responses so
 // a single struct can exercise both the happy path and the fail-safe.
+// checkoutErr is kept separate from err so tests can exercise
+// Activate()'s Checkout() branch without disturbing Catalog/Instance
+// fail-safe behaviour.
 type fakePMProxy struct {
-	catalog  pluginlicense.CatalogResponse
-	instance pluginlicense.InstanceResponse
-	err      error
+	catalog     pluginlicense.CatalogResponse
+	instance    pluginlicense.InstanceResponse
+	err         error
+	checkoutErr error
 }
 
 func (f *fakePMProxy) GetCatalog() (pluginlicense.CatalogResponse, error) {
@@ -89,6 +93,13 @@ func (f *fakePMProxy) GetInstance() (pluginlicense.InstanceResponse, error) {
 		return pluginlicense.InstanceResponse{}, f.err
 	}
 	return f.instance, nil
+}
+
+func (f *fakePMProxy) Checkout(_, _ string) (pluginlicense.CheckoutOrderResponse, error) {
+	if f.checkoutErr != nil {
+		return pluginlicense.CheckoutOrderResponse{}, f.checkoutErr
+	}
+	return pluginlicense.CheckoutOrderResponse{OrderID: 1, AmountCents: 100, CheckoutURL: "https://mp/x"}, nil
 }
 
 func TestPluginController_Instance_NilProxy_ReturnsEmpty(t *testing.T) {
@@ -282,13 +293,14 @@ func TestPluginController_Activate_LicensedGrantsAllocation(t *testing.T) {
 	require.NotNil(t, inst.ActivatedAt)
 }
 
-func TestPluginController_Activate_Unlicensed_Returns402(t *testing.T) {
+func TestPluginController_Activate_Unlicensed_NilProxy_Returns402(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	tenantID := uuid.New()
 	fetcher := &fakeLicenseFetcher{info: map[string]plugins.LicenseInfo{
 		"helpdesk": {Status: "unlicensed"},
 	}}
 	registry := plugins.NewPluginRegistry(db, fetcher)
+	// pmProxy nil -- preserves the old behaviour: no checkout attempt at all.
 	ctrl := NewPluginController(&mockPlanLimitSvc{}, db, registry, fetcher, nil)
 
 	c, w := newTestPluginContext("POST", "/plugins/helpdesk/activate", nil, db, tenantID)
@@ -300,7 +312,66 @@ func TestPluginController_Activate_Unlicensed_Returns402(t *testing.T) {
 	var resp map[string]interface{}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.Equal(t, "plugin_unlicensed", resp["error"])
-	assert.Equal(t, "", resp["checkoutUrl"])
+	assert.Equal(t, false, resp["checkoutRequested"])
+	_, hasCheckoutURL := resp["checkoutUrl"]
+	assert.False(t, hasCheckoutURL, "legacy checkoutUrl field must be removed")
+
+	var count int64
+	db.Model(&models.PluginInstallation{}).Where(`"tenantId" = ? AND "pluginId" = ?`, tenantID, "helpdesk").Count(&count)
+	assert.Equal(t, int64(0), count, "no allocation should be created without a valid license")
+}
+
+func TestPluginController_Activate_Unlicensed_ChecksOutSuccessfully_Returns402WithRequestedTrue(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	tenantID := uuid.New()
+	fetcher := &fakeLicenseFetcher{info: map[string]plugins.LicenseInfo{
+		"helpdesk": {Status: "unlicensed"},
+	}}
+	registry := plugins.NewPluginRegistry(db, fetcher)
+	proxy := &fakePMProxy{} // checkoutErr nil -> Checkout succeeds
+	ctrl := NewPluginController(&mockPlanLimitSvc{}, db, registry, fetcher, proxy)
+
+	c, w := newTestPluginContext("POST", "/plugins/helpdesk/activate", nil, db, tenantID)
+	c.Params = gin.Params{{Key: "slug", Value: "helpdesk"}}
+
+	ctrl.Activate(c)
+
+	// Still 402 -- the Hub only creates the license record; the token only
+	// lands on the plugin-manager on the next heartbeat, so this request
+	// never grants activation synchronously.
+	assert.Equal(t, http.StatusPaymentRequired, w.Code)
+	var resp map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Equal(t, "plugin_unlicensed", resp["error"])
+	assert.Equal(t, true, resp["checkoutRequested"])
+	assert.NotEmpty(t, resp["message"])
+
+	var count int64
+	db.Model(&models.PluginInstallation{}).Where(`"tenantId" = ? AND "pluginId" = ?`, tenantID, "helpdesk").Count(&count)
+	assert.Equal(t, int64(0), count, "no allocation should be created without a valid license, even after a successful checkout request")
+}
+
+func TestPluginController_Activate_Unlicensed_CheckoutFails_Returns402WithRequestedFalse(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	tenantID := uuid.New()
+	fetcher := &fakeLicenseFetcher{info: map[string]plugins.LicenseInfo{
+		"helpdesk": {Status: "unlicensed"},
+	}}
+	registry := plugins.NewPluginRegistry(db, fetcher)
+	proxy := &fakePMProxy{checkoutErr: errors.New("plugin-manager indisponível")}
+	ctrl := NewPluginController(&mockPlanLimitSvc{}, db, registry, fetcher, proxy)
+
+	c, w := newTestPluginContext("POST", "/plugins/helpdesk/activate", nil, db, tenantID)
+	c.Params = gin.Params{{Key: "slug", Value: "helpdesk"}}
+
+	ctrl.Activate(c)
+
+	assert.Equal(t, http.StatusPaymentRequired, w.Code)
+	var resp map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Equal(t, "plugin_unlicensed", resp["error"])
+	assert.Equal(t, false, resp["checkoutRequested"])
+	assert.NotEmpty(t, resp["message"])
 
 	var count int64
 	db.Model(&models.PluginInstallation{}).Where(`"tenantId" = ? AND "pluginId" = ?`, tenantID, "helpdesk").Count(&count)

@@ -202,10 +202,17 @@ func TestGetLicense_UnknownSlugInResponse(t *testing.T) {
 	}
 }
 
-func TestNewClient_DefaultsFromEnv(t *testing.T) {
+// TestNewClient_BaseURLIsHardcoded trava a propriedade de segurança central
+// desta mudança: a URL do plugin-manager é FIXA em código, imune a
+// PLUGIN_MANAGER_URL no ambiente. Um operador self-hosted não pode
+// redirecionar essa URL via .env para um servidor falso e contornar o
+// licenciamento (ADR 0024).
+func TestNewClient_BaseURLIsHardcoded(t *testing.T) {
+	t.Setenv("PLUGIN_MANAGER_URL", "http://attacker-controlled:9999")
+
 	c := NewClient()
-	if c.baseURL != defaultBaseURL {
-		t.Errorf("expected default base URL %s, got %s", defaultBaseURL, c.baseURL)
+	if c.baseURL != pluginManagerBaseURL {
+		t.Errorf("expected hardcoded base URL %s (immune to env), got %s", pluginManagerBaseURL, c.baseURL)
 	}
 	if c.ttl != defaultTTLSecs*time.Second {
 		t.Errorf("expected default TTL %v, got %v", defaultTTLSecs*time.Second, c.ttl)

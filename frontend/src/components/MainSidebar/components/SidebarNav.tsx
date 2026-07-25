@@ -15,16 +15,12 @@ import {
   Briefcase,
   Headphones,
   Shield,
-  UsersRound,
-  Building2,
-  Radio,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AuthContext } from "../../../context/Auth/AuthContext";
 import { Can } from "../../../components/Can";
 import { i18n } from "../../../translate/i18n";
 import SidebarItem from "../../SidebarItem";
-import ComingSoonItem from "./ComingSoonItem";
 import type { SidebarNavProps } from "../mainSidebarTypes";
 
 const getDividerClass = (isLight: boolean): string =>
@@ -172,18 +168,6 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed, isLightSidebar, acti
           )}
         />
       )}
-
-      <div className={getDividerClass(isLightSidebar)} />
-
-      {!collapsed && (
-        <p className={cn("px-3 pb-1 text-[0.625rem] font-semibold uppercase tracking-widest", isLightSidebar ? "text-[var(--text-muted)]" : "text-[var(--slate-500)]")}>
-          Em breve
-        </p>
-      )}
-
-      <ComingSoonItem icon={<UsersRound size={20} />} label="Grupos" collapsed={collapsed} isLightSidebar={isLightSidebar} />
-      <ComingSoonItem icon={<Building2 size={20} />} label="Comunidades" collapsed={collapsed} isLightSidebar={isLightSidebar} />
-      <ComingSoonItem icon={<Radio size={20} />} label="Canais" collapsed={collapsed} isLightSidebar={isLightSidebar} />
 
       <div className={getDividerClass(isLightSidebar)} />
 

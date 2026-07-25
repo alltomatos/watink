@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Login GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4.4.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -29,7 +29,7 @@ jobs:
 
       - name: Docker metadata backend
         id: meta-backend
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6.2.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-business
           tags: |
@@ -37,14 +37,14 @@ jobs:
 
       - name: Docker metadata frontend
         id: meta-frontend
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6.2.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend
           tags: |
             type=sha,prefix=homolog-
 
       - name: Build and push backend
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7.3.0
         with:
           context: .
           file: Dockerfile.business
@@ -53,109 +53,56 @@ jobs:
           labels: ${{ steps.meta-backend.outputs.labels }}
 
       - name: Build and push frontend
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7.3.0
         with:
           context: ./frontend/
           push: true
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
 
+  # deploy-homolog builda a partir do source já atualizado direto na VPS (o
+  # mesmo processo manual já usado antes desta automação) -- não depende das
+  # imagens publicadas em build-and-push, que existem só como rastro/
+  # auditoria de cada commit no GHCR, não como fonte do deploy.
+  #
+  # Project name do Compose é `app` (NÃO "watink-homolog") -- é o nome
+  # default que o stack já usava antes desta automação (diretório
+  # /opt/watink/app, sem `-p` explícito nos deploys manuais anteriores). Usar
+  # um nome diferente aqui criaria um SEGUNDO stack do zero (volumes vazios,
+  # sem os dados existentes) e colidiria de porta com o original -- foi
+  # exatamente isso que quebrou a primeira tentativa deste workflow.
   deploy-homolog:
     name: deploy-homolog
     runs-on: ubuntu-latest
     needs: build-and-push
-    environment: KUBE_CONFIG_HOMOLOG
-    outputs:
-      deployed: ${{ steps.kube.outputs.configured }}
+    environment: homolog-ssh
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v3
-
-      - name: Configure kubeconfig
-        id: kube
-        env:
-          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
-        run: |
-          if [ -z "$KUBE_CONFIG" ]; then
-            echo "::warning::KUBE_CONFIG ausente — cluster homolog não provisionado; pulando deploy (no-op verde)."
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          mkdir -p ~/.kube
-          echo "$KUBE_CONFIG" | base64 -d > ~/.kube/config
-          chmod 600 ~/.kube/config
-          echo "configured=true" >> "$GITHUB_OUTPUT"
-
-      - name: Ensure namespace and registry secret
-        if: steps.kube.outputs.configured == 'true'
-        env:
-          REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          kubectl create namespace watink-homolog --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create secret docker-registry ghcr-secret \
-            --docker-server=${{ env.REGISTRY }} \
-            --docker-username=${{ github.actor }} \
-            --docker-password=${{ env.REGISTRY_PASSWORD }} \
-            --namespace watink-homolog \
-            --dry-run=client -o yaml | kubectl apply -f -
-
-      - name: Apply homolog manifests
-        if: steps.kube.outputs.configured == 'true'
-        run: |
-          if [ -d "infra/k8s/homolog" ]; then
-            kubectl apply -f infra/k8s/homolog/ --namespace watink-homolog
-          else
-            echo "No manifests directory found at infra/k8s/homolog — skipping apply"
-          fi
-
-      - name: Update images (sha pinned)
-        if: steps.kube.outputs.configured == 'true'
-        env:
-          SHA_TAG: homolog-${{ github.sha }}
-        run: |
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          kubectl set image deployment/watink-business \
-            business=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-business:homolog-sha-${SHORT_SHA} \
-            --namespace watink-homolog --ignore-not-found
-          kubectl set image deployment/watink-frontend \
-            frontend=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:homolog-sha-${SHORT_SHA} \
-            --namespace watink-homolog --ignore-not-found
-
-      - name: Wait rollout
-        if: steps.kube.outputs.configured == 'true'
-        run: |
-          kubectl rollout status deployment/watink-business --namespace watink-homolog --timeout=120s || true
-          kubectl rollout status deployment/watink-frontend --namespace watink-homolog --timeout=120s || true
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOMOLOG_SSH_HOST }}
+          username: ${{ secrets.HOMOLOG_SSH_USER }}
+          key: ${{ secrets.HOMOLOG_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd /opt/watink/app
+            git fetch origin develop
+            git reset --hard origin/develop
+            docker compose -p app -f docker-compose.prod.yml --env-file .env build --pull
+            docker compose -p app -f docker-compose.prod.yml --env-file .env up -d
 
   smoke-tests:
     name: smoke-tests
     runs-on: ubuntu-latest
     needs: deploy-homolog
-    if: needs.deploy-homolog.outputs.deployed == 'true'
-    environment: KUBE_CONFIG_HOMOLOG
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
       - name: API Health
         env:
           HOMOLOG_URL: ${{ secrets.HOMOLOG_URL }}
         run: |
-          URL="${HOMOLOG_URL:-http://localhost:8082}"
-          echo "Checking API health at $URL/api/v1/health"
+          URL="${HOMOLOG_URL:-https://homolog.watink.com}"
+          echo "Checking API health at $URL/api/health"
           curl --fail --retry 5 --retry-delay 10 --retry-connrefused \
-            "$URL/api/v1/health" || exit 1
-
-      - name: Frontend Health
-        env:
-          HOMOLOG_FRONTEND_URL: ${{ secrets.HOMOLOG_FRONTEND_URL }}
-        run: |
-          URL="${HOMOLOG_FRONTEND_URL:-http://localhost:3000}"
-          echo "Checking frontend at $URL"
-          curl --fail --retry 5 --retry-delay 10 --retry-connrefused \
-            "$URL" || exit 1
+            "$URL/api/health" || exit 1

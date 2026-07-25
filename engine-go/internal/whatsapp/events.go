@@ -109,6 +109,11 @@ func receiptAck(receiptType types.ReceiptType) int {
 		return 3
 	case types.ReceiptTypePlayed:
 		return 4
+	case types.ReceiptTypeServerError:
+		// WhatsApp rejected delivery of this outgoing message (server-side send
+		// error). Surface as an error ack (5) so the UI shows a failed state +
+		// retry instead of masking it as "sent" via the default branch.
+		return 5
 	default:
 		return 1
 	}

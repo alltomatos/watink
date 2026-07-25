@@ -1,6 +1,7 @@
 package pluginlicense
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,15 +11,21 @@ import (
 // exposto pelo plugin-manager (que por sua vez proxeia o Watink Hub). As tags
 // json seguem exatamente o contrato — price é número (float).
 type CatalogPlugin struct {
-	ID          string  `json:"id"`
-	Slug        string  `json:"slug"`
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	Version     string  `json:"version"`
-	Type        string  `json:"type"`
-	Category    string  `json:"category"`
-	Price       float64 `json:"price"`
-	IconURL     string  `json:"iconUrl"`
+	ID              string   `json:"id"`
+	Slug            string   `json:"slug"`
+	Name            string   `json:"name"`
+	Description     string   `json:"description"`
+	LongDescription string   `json:"longDescription"`
+	Version         string   `json:"version"`
+	Type            string   `json:"type"`
+	Category        string   `json:"category"`
+	Price           float64  `json:"price"`
+	IconURL         string   `json:"iconUrl"`
+	Screenshots     []string `json:"screenshots"`
+	// TaxRatePercent é a taxa global de imposto (ex.: 8) exibida sobre o
+	// preço no Marketplace — mesma taxa para todo plugin, vem do Hub via
+	// plugin-manager (HubPlugin.TaxRatePercent).
+	TaxRatePercent int `json:"taxRatePercent"`
 }
 
 // CatalogResponse é o corpo de resposta de GET /api/v1/plugins/catalog:
@@ -74,6 +81,60 @@ func (c *Client) GetInstance() (InstanceResponse, error) {
 	var body InstanceResponse
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return InstanceResponse{}, fmt.Errorf("pluginlicense: erro ao decodificar instância do plugin-manager: %w", err)
+	}
+	return body, nil
+}
+
+// checkoutRequestBody é o corpo enviado a POST /api/v1/plugins/checkout no
+// plugin-manager -- {"slug": "...", "returnUrl": "..."}. O plugin-manager é
+// quem traduz `slug` para `pluginSlug` antes de chamar o Hub (essa tradução
+// não é responsabilidade do business). returnUrl é a página do plugin no
+// domínio da própria instância — usada pelo Hub pra montar as back_urls do
+// Checkout Pro.
+type checkoutRequestBody struct {
+	Slug      string `json:"slug"`
+	ReturnURL string `json:"returnUrl"`
+}
+
+// CheckoutOrderResponse é o corpo devolvido por Checkout — um PluginOrder
+// pending, ainda sem licença, junto com a URL de redirect pro Checkout Pro.
+// O valor já vem com o imposto embutido (congelado pelo Hub na criação do
+// pedido).
+type CheckoutOrderResponse struct {
+	OrderID     uint   `json:"orderId"`
+	AmountCents int64  `json:"amountCents"`
+	CheckoutURL string `json:"checkoutUrl"`
+}
+
+// Checkout solicita ao plugin-manager a criação (ou reaproveitamento
+// idempotente de um pending já existente) de um pedido de compra do plugin
+// `slug` junto ao Hub (POST /api/v1/plugins/checkout). Sem cache -- é uma
+// ação, não uma leitura.
+//
+// IMPORTANTE: isto NÃO cria licença — só um PluginOrder pending. A licença
+// só nasce quando o webhook do Mercado Pago confirma o pagamento (não há
+// chamada síncrona de pagamento no nosso backend — o Checkout Pro processa
+// o cartão/PIX inteiramente na página hospedada pelo MP). O chamador usa o
+// checkoutUrl devolvido aqui pra redirecionar o usuário.
+func (c *Client) Checkout(slug, returnURL string) (CheckoutOrderResponse, error) {
+	payload, err := json.Marshal(checkoutRequestBody{Slug: slug, ReturnURL: returnURL})
+	if err != nil {
+		return CheckoutOrderResponse{}, fmt.Errorf("pluginlicense: erro ao montar payload de checkout: %w", err)
+	}
+
+	resp, err := c.httpClient.Post(c.baseURL+"/api/v1/plugins/checkout", "application/json", bytes.NewReader(payload))
+	if err != nil {
+		return CheckoutOrderResponse{}, fmt.Errorf("pluginlicense: erro ao solicitar checkout no plugin-manager: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		return CheckoutOrderResponse{}, fmt.Errorf("pluginlicense: checkout retornou status %d", resp.StatusCode)
+	}
+
+	var body CheckoutOrderResponse
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return CheckoutOrderResponse{}, fmt.Errorf("pluginlicense: erro ao decodificar resposta de checkout: %w", err)
 	}
 	return body, nil
 }

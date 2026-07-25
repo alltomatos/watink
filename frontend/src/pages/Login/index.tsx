@@ -1,6 +1,6 @@
 /* @jsxImportSource react */
 import React, { useState, useEffect, useContext } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import { Lock, Eye, EyeOff, Loader2 } from "lucide-react";
 
 import { i18n } from "../../translate/i18n";
@@ -15,10 +15,12 @@ import { Checkbox } from "../../components/ui/checkbox";
 import { Card, CardContent } from "../../components/ui/card";
 
 const Login = () => {
-  const [user, setUser] = useState({ email: "", password: "" });
+  const [searchParams] = useSearchParams();
+  const [user, setUser] = useState({ email: searchParams.get("email") || "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [registrationOpen, setRegistrationOpen] = useState(false);
   const [settings, setSettings] = useState({
     loginLayout: "split_left", // split_left, split_right, centered
     loginBackground: "", // url
@@ -47,6 +49,19 @@ const Login = () => {
       }
     };
     fetchSettings();
+
+    // Registro self-service (Onda 6, ADR 0007): a rota só existe quando o
+    // control plane Watink SaaS está configurado nesta instalação — em
+    // instalações sem ele, a chamada falha (404) e o botão fica escondido.
+    const checkRegistration = async () => {
+      try {
+        const { data } = await api.get("/register/plans");
+        setRegistrationOpen(Boolean(data?.registrationOpen));
+      } catch {
+        setRegistrationOpen(false);
+      }
+    };
+    checkRegistration();
   }, []);
 
   const handleChangeInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -161,12 +176,14 @@ const Login = () => {
         </Button>
       </form>
 
-      <div className="text-center text-sm text-muted-foreground">
-        Não tem uma conta?{" "}
-        <RouterLink to="/signup" className="font-medium text-primary hover:underline">
-          {i18n.t("login.buttons.register")}
-        </RouterLink>
-      </div>
+      {registrationOpen && (
+        <div className="text-center text-sm text-muted-foreground">
+          Não tem uma conta?{" "}
+          <RouterLink to="/planos" className="font-medium text-primary hover:underline">
+            {i18n.t("login.buttons.register")}
+          </RouterLink>
+        </div>
+      )}
     </div>
   );
 

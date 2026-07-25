@@ -18,8 +18,6 @@ services:
       POSTGRES_DB: watink
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${DB_PASS:-watink_secret_pass}
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -90,15 +88,28 @@ services:
       # invalida segredos já gravados — re-importe os proxies.
       - PROXY_ENC_KEY=${PROXY_ENC_KEY:-dev_proxy_enc_key_change_in_prod}
       - DOCS_PUBLIC=${DOCS_PUBLIC:-false}
-      # Base URL do plugin-manager local (licenças + catálogo + instância). Sem
-      # esta env o business cai no default localhost:8081 e não alcança o PM
-      # dentro da rede do Swarm/Compose.
-      - PLUGIN_MANAGER_URL=http://plugin-manager:8081
+      # PLUGIN_MANAGER_URL não é configurável: fixa em código
+      # (business/internal/pluginlicense/client.go) como http://plugin-manager:8081,
+      # de propósito — ver comentário na constante pluginManagerBaseURL.
       # Dev: o gateway de IA (omniroute) roda no host em localhost:20128; de dentro
       # do container isso vira host.docker.internal (aiclient.rewriteDevHost).
       - AI_BASEURL_HOST_REWRITE=host.docker.internal
       - KNOWLEDGE_SERVICE_URL=http://watink-knowledge:8085
       - INTERNAL_TOKEN=${INTERNAL_TOKEN:-dev_internal_token_change_in_prod}
+      # Token do control plane Watink SaaS (Trilha A, docs/integration-core.md §1).
+      # Fail-closed: vazio → /api/v1/internal/saas/* responde 503 e nada muda para
+      # quem não usa o SaaS. Segredo distinto do INTERNAL_TOKEN (blast radius
+      # separado); cada instância define o SEU. NÃO commitar o valor real.
+      - SAAS_INTERNAL_TOKEN=${SAAS_INTERNAL_TOKEN:-}
+      # Canal REVERSO core→SaaS do registro self-service (Onda 6, ADR 0007). As
+      # três precisam estar setadas para o botão "Registrar-se" aparecer — sem
+      # elas o grupo /api/v1/register/* nem é montado (fail-closed). Reusa o
+      # MESMO token acima (par simétrico do X-Internal-Token inbound/outbound).
+      - SAAS_BASE_URL=${SAAS_BASE_URL:-}
+      - SAAS_INSTANCE_ID=${SAAS_INSTANCE_ID:-}
+      # CAPTCHA (Cloudflare Turnstile) do formulário de registro público — vazio
+      # em dev pula a verificação (nunca em produção com o segredo presente).
+      - TURNSTILE_SECRET=${TURNSTILE_SECRET:-}
       - S3_ENDPOINT=minio:9000
       - S3_BUCKET=watink-knowledge
       - S3_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
@@ -176,6 +187,10 @@ services:
     environment:
       - PORT=8081
       - HUB_URL=
+      # PM_ENV=dev libera o modo stub de dev (fail-open, active/tenantCap=0
+      # p/ knownPluginSlugs) sem HUB_URL — sem isto, PM_ENV default é
+      # "production" e o boot falha (fatal) sem HUB_URL configurado.
+      - PM_ENV=dev
     volumes:
       - plugin_manager_data:/data
     networks:

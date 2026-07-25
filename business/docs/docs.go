@@ -2805,7 +2805,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Ativa/aloca um plugin para o tenant atual. 402 se sem licença válida ou teto de tenants atingido.",
+                "description": "Ativa/aloca um plugin para o tenant atual. 402 se sem licença válida (dispara checkout best-effort junto ao Hub via plugin-manager) ou se o teto de tenants foi atingido.",
                 "produces": [
                     "application/json"
                 ],
@@ -2822,12 +2822,10 @@ const docTemplate = `{
                         }
                     },
                     "402": {
-                        "description": "Payment Required",
+                        "description": "plugin_unlicensed (com checkoutRequested indicando se o pedido de licença foi disparado) ou plugin_tenant_cap_reached",
                         "schema": {
                             "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "additionalProperties": true
                         }
                     }
                 }

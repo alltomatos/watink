@@ -30,10 +30,10 @@ def _ddl() -> list[str]:
         ''',
         'CREATE INDEX IF NOT EXISTS kbchunk_tenant_kb_idx ON "KBChunk" ("tenantId", "knowledgeBaseId")',
         'CREATE INDEX IF NOT EXISTS kbchunk_source_idx ON "KBChunk" ("sourceId")',
-        'CREATE UNIQUE INDEX IF NOT EXISTS kbchunk_dedup_idx '
-        'ON "KBChunk" ("tenantId", "knowledgeBaseId", "sourceId", "contentHash")',
-        'CREATE INDEX IF NOT EXISTS kbchunk_embedding_hnsw '
-        'ON "KBChunk" USING hnsw (embedding halfvec_cosine_ops)',
+        ('CREATE UNIQUE INDEX IF NOT EXISTS kbchunk_dedup_idx '
+         'ON "KBChunk" ("tenantId", "knowledgeBaseId", "sourceId", "contentHash")'),
+        ('CREATE INDEX IF NOT EXISTS kbchunk_embedding_hnsw '
+         'ON "KBChunk" USING hnsw (embedding halfvec_cosine_ops)'),
     ]
 
 

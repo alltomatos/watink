@@ -27,7 +27,14 @@ const initialFormData: ProtocolFormData = {
   contactId: null,
 };
 
-export function useProtocolModal(open: boolean, onClose: () => void) {
+export function useProtocolModal(
+  open: boolean,
+  onClose: () => void,
+  initialContactId?: number,
+  initialContactName?: string,
+  initialTicketId?: number,
+  onSuccess?: () => void
+) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<ProtocolFormData>(initialFormData);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -76,8 +83,14 @@ export function useProtocolModal(open: boolean, onClose: () => void) {
       setSelectedContact(null);
       setContactSearch("");
       setContactOptions([]);
+      return;
     }
-  }, [open]);
+    if (initialContactId && initialContactName) {
+      setFormData((prev) => ({ ...prev, contactId: initialContactId }));
+      setSelectedContact({ id: initialContactId, name: initialContactName });
+      setContactSearch(initialContactName);
+    }
+  }, [open, initialContactId, initialContactName]);
 
   useEffect(() => {
     if (!contactSearch || contactSearch.length < 3) {
@@ -140,8 +153,9 @@ export function useProtocolModal(open: boolean, onClose: () => void) {
 
     try {
       setLoading(true);
-      await api.post("/protocols", formData);
+      await api.post("/protocols", { ...formData, ticketId: initialTicketId });
       toast.success("Protocolo criado com sucesso");
+      onSuccess?.();
       onClose();
     } catch {
       toast.error("Erro ao criar protocolo");

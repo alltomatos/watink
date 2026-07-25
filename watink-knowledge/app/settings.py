@@ -20,13 +20,12 @@ _AI_KEYS = [
 
 async def get_ai_settings(tenant_id: str) -> dict:
     pool = get_pool()
-    async with pool.connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                'SELECT key, value FROM "Settings" WHERE "tenantId" = %s AND key = ANY(%s)',
-                (tenant_id, _AI_KEYS),
-            )
-            rows = await cur.fetchall()
+    async with pool.connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            'SELECT key, value FROM "Settings" WHERE "tenantId" = %s AND key = ANY(%s)',
+            (tenant_id, _AI_KEYS),
+        )
+        rows = await cur.fetchall()
     s = {k: v for k, v in rows}
 
     # Em dev o omniroute roda no host (localhost:20128); de dentro do container

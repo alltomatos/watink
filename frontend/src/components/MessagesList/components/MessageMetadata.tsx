@@ -11,7 +11,9 @@ interface AckProps {
 
 export const MessageAck: React.FC<AckProps & { onRetry?: () => void }> = ({ message, isGroup, onRetry }) => {
   if (!message.fromMe) return null;
-  if (isGroup) return null;
+  // In groups, per-recipient delivered/read is ambiguous, so the sent/delivered/
+  // read ticks are hidden — but a hard send failure (ack 5) must still surface.
+  if (isGroup && message.ack !== 5) return null;
   if (message.ack === 0)
     return <Clock className="inline h-[18px] w-[18px] align-middle ml-1" />;
   if (message.ack === 1)

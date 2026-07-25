@@ -55,3 +55,41 @@ git push origin feat/<tema>
 feat/* / fix/* / refactor/* → develop → main (release)
 hotfix/*                    → main → back-merge para develop
 ```
+
+## Pipeline de Ambientes (local → homologação → produção)
+
+O merge flow de branches acima roda dentro de um pipeline de **três estágios com dois portões de validação** — nada não-validado avança:
+
+```
+1. DEV LOCAL         implementa na branch por convenção (feat/ fix/ ...)
+      │
+      ▼
+2. VALIDAÇÃO LOCAL   ⟵ PORTÃO 1
+      │              go build ./... && go test ./...   (business, engine-go)
+      │              npm run build / typecheck / lint  (frontend)
+      │              rodar o app e conferir o comportamento
+      ▼
+3. HOMOLOGAÇÃO       PR → develop → deploy AUTOMÁTICO no ambiente de homologação
+      │              ambiente: homolog.watink.com
+      │              validar/aprovar o comportamento em ambiente real
+      │              ⟵ PORTÃO 2
+      ▼
+4. PRODUÇÃO          develop → main → deploy AUTOMÁTICO em produção
+```
+
+**Regras:**
+
+- **Homologação rastreia `develop`**; **produção rastreia `main`**. Cada promoção exige o portão anterior verde.
+- **Nunca** promover para homologação sem validação local, nem para produção sem aprovação em homologação.
+- **Deploy é automático nos dois estágios** via GitHub Actions
+  (`.github/workflows/cd-homolog.yaml` e `cd-production.yaml`): um push em
+  `develop`/`main` builda a imagem e faz o deploy via SSH direto na VPS
+  (`git reset --hard` no branch + `docker compose build && up -d`), seguido
+  de smoke test (`GET /api/health`). Nenhum passo manual depois do merge.
+- **Produção roda em `app.watink.com`**, na mesma VPS de homolog, como um
+  stack Docker isolado (containers, rede, volumes e segredos próprios —
+  nunca compartilhados com homolog). Ver `docker-compose.prod.yml` na raiz
+  do repo — o mesmo arquivo serve os dois ambientes, diferenciados só pelo
+  `.env`/`.env.prod` e pelo project name do Compose (`-p watink-homolog` vs
+  `-p watink-prod`).
+- Reportar honestamente o resultado de cada portão (build/testes/homologação) — não marcar "aprovado" sem evidência.

@@ -58,7 +58,9 @@ Frontend (React/Vite) ←REST/SSE→ Backend Go (Gin/GORM) ←SQL→ PostgreSQL
 | Conexões — Subsistema de proxy anti-ban (cripto-at-rest, import Webshare, grupos+rotação, geo cidade/país, teste/test-all, auto-isolação no ban, filtros) | ✅ Concluída (PRs #292-#296) |
 | Acessos (ADR 0022) — modelo Cargo/Setor/Alcance + `RequirePermission` fail-closed + anti-lockout | ✅ Concluída (PR #302) |
 | Onboarding — Wizard `POST /initial-setup` (Nome Fantasia) + Checklist derivado no Dashboard | ✅ Concluída (PR #303) |
-| Plugins — Redesenho Marketplace + Licenciamento via Hub (ADR 0024; Hub em `watink-ecosistema/hub`) | 📋 Documentado — pré-implementação |
+| Plugins — Redesenho Marketplace + Licenciamento via Hub (ADR 0024; Hub em `watink-ecosistema/hub`) | ✅ Concluída (auditado 2026-07-04) |
+| Plugins — Marketplace de terceiros (ADR 0025 + Hub ADR 0004; plano em `docs/agents/marketplace-terceiros.md`) | 🔧 Fase 0 implementada (2026-07-04) — pendente review/commit; Fase 1 não iniciada |
+| Plugins — Marketplace respeita instância gerida por Watink SaaS (ADR 0026; ADRs irmãos: Hub ADR 0005, watink-saas ADR 0008) | 🟡 Desenho aceito e verificado; implementação a fazer (mudança cirúrgica em `PluginController.Activate`) |
 
 ## Services & Ports
 
@@ -448,12 +450,12 @@ MUI v4 **completamente removido** — `@material-ui/*` não é dependência do p
 - Não reintroduzir `saas-plugin` nem o `marketplace-hub` Node; não distribuir código de plugin dinamicamente (embarcado — anti-supply-chain).
 - Não trazer o **source do `plugin-manager`** de volta ao core (`watinkdev` é público) — é compiled-only, vive só no repo privado `alltomatos/watink-plugin-manager` e é consumido como imagem GHCR (não usar `build:` no compose).
 
-**Referência:** [`docs/agents/plugins.md`](docs/agents/plugins.md) · ADR 0024 (supera 0003) · Hub: `watink-ecosistema/hub`
+**Referência:** [`docs/agents/plugins.md`](docs/agents/plugins.md) · ADR 0024 (supera 0003) · ADR 0025 + plano [`docs/agents/marketplace-terceiros.md`](docs/agents/marketplace-terceiros.md) (expansão para terceiros) · Hub: `watink-ecosistema/hub`
 
 ## Domain Docs
 
 - **Glossário**: [`CONTEXT.md`](CONTEXT.md)
-- **ADRs**: [`docs/adr/`](docs/adr/) — ver **ADR 0009** para stage upsert, **ADR 0008** para política anti-MUI, **ADR 0007** para decomposição de componentes. **FlowBuilder/Automação**: **0011** FlowRun unificado · **0012** trigger polimórfico · **0013** contrato versionado FlowGraph · **0014** channel adapters · **0015** pgvector RAG · **0016** campanhas anti-ban (risco estrutural + opt-in + roadmap BSP) · **0017** scheduler multi-node. **Base de Conhecimento/RAG**: **0015** (atualizado) pgvector RAG · **0018** microsserviço watink-knowledge + trust boundary · **0019** S3 Storage Driver · **0020** Agent Runtime. **Acessos/RBAC**: **0022** modelo Cargo/Setor/Alcance + enforcement real (supera **0005**, ABAC via RolePermission.Scope/Conditions nunca implementado). **Clientes/CRM**: **0023** Client como entidade core (sai do plugin "pro"), transitividade Contact→Client, documento cifrado at-rest. **Plugins/Licenciamento**: **0024** redesenho do sistema de plugins (Watink Hub como autoridade, token assinado Ed25519, trilho duplo, licença por instância+teto, fronteira core/plugin = ativação; supera **0003** no ponto da flag)
+- **ADRs**: [`docs/adr/`](docs/adr/) — ver **ADR 0009** para stage upsert, **ADR 0008** para política anti-MUI, **ADR 0007** para decomposição de componentes. **FlowBuilder/Automação**: **0011** FlowRun unificado · **0012** trigger polimórfico · **0013** contrato versionado FlowGraph · **0014** channel adapters · **0015** pgvector RAG · **0016** campanhas anti-ban (risco estrutural + opt-in + roadmap BSP) · **0017** scheduler multi-node. **Base de Conhecimento/RAG**: **0015** (atualizado) pgvector RAG · **0018** microsserviço watink-knowledge + trust boundary · **0019** S3 Storage Driver · **0020** Agent Runtime. **Acessos/RBAC**: **0022** modelo Cargo/Setor/Alcance + enforcement real (supera **0005**, ABAC via RolePermission.Scope/Conditions nunca implementado). **Clientes/CRM**: **0023** Client como entidade core (sai do plugin "pro"), transitividade Contact→Client, documento cifrado at-rest. **Plugins/Licenciamento**: **0024** redesenho do sistema de plugins (Watink Hub como autoridade, token assinado Ed25519, trilho duplo, licença por instância+teto, fronteira core/plugin = ativação; supera **0003** no ponto da flag) · **0025** marketplace de terceiros (publishers, artefatos assinados, runtime out-of-process em fases; plano executável em `docs/agents/marketplace-terceiros.md`; ADR irmão: Hub 0004)
 - **Arquitetura**: [`docs/dev/architecture.md`](docs/dev/architecture.md)
 - **Frontend DS**: [`docs/frontend/design-system.md`](docs/frontend/design-system.md)
 - **Git Workflow**: [`docs/dev/git_workflow_policy.md`](docs/dev/git_workflow_policy.md)

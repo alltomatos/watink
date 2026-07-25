@@ -82,7 +82,9 @@ usa o plugin Y. A autoridade de licença é o Hub (token assinado), consultado p
 - **Plugin `free`**: `POST /plugins/:slug/activate` → cria `PluginInstallations(active=true)`. Não toca o Hub.
 - **Plugin `pro`**: `POST /plugins/:slug/activate` → o `business` pergunta ao `plugin-manager` se
   a instância tem **licença válida** e **teto livre** (`alocados < tenantCap`) → aloca, ou devolve
-  `checkoutUrl` (adquirir no Hub), ou `402` (teto cheio).
+  `checkoutUrl` (adquirir no Hub), ou `402` (teto cheio). **Pendência conhecida:** hoje
+  `checkoutUrl` sempre retorna vazio no `business` — o Hub já expõe `POST /checkout` funcional,
+  mas o fio até uma URL utilizável pelo usuário final ainda não foi fechado.
 
 O gating em runtime cruza **licença** (plugin-manager) × **alocação** (`PluginInstallations`) via
 `PluginRegistry.GetStatus(slug, tenantId)`: `active` → segue; `readonly` → só GET; `blocked`/`unlicensed`

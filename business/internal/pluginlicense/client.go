@@ -35,8 +35,15 @@ const (
 	defaultBaseURL  = "http://localhost:8081"
 	defaultTTLSecs  = 60
 	defaultTimeout  = 3 * time.Second
-	envBaseURL      = "PLUGIN_MANAGER_URL"
 	envCacheTTLSecs = "PLUGIN_LICENSE_CACHE_TTL_SECONDS"
+
+	// pluginManagerBaseURL é a URL FIXA do plugin-manager local, dentro da
+	// rede Docker/Swarm do ecossistema. NÃO é lida do ambiente de propósito:
+	// o plugin-manager é a trava de licença (ADR 0024) — se fosse
+	// configurável via .env, um operador self-hosted poderia redirecioná-la
+	// para um servidor falso que sempre responde "active", contornando o
+	// licenciamento inteiro. Fixa em código, sem override possível.
+	pluginManagerBaseURL = "http://plugin-manager:8081"
 )
 
 // Client consulta o plugin-manager para obter o status de licença de
@@ -53,16 +60,11 @@ type Client struct {
 	hasCache  bool
 }
 
-// NewClient constrói o Client lendo PLUGIN_MANAGER_URL (default
-// "http://localhost:8081") e PLUGIN_LICENSE_CACHE_TTL_SECONDS (default 60)
-// do ambiente. Injetado via construtor em main.go (DI pura) — nunca
-// Singleton/Service Locator.
+// NewClient constrói o Client apontado para o plugin-manager na URL FIXA
+// pluginManagerBaseURL (não configurável — ver comentário na constante) e
+// lendo PLUGIN_LICENSE_CACHE_TTL_SECONDS (default 60) do ambiente. Injetado
+// via construtor em main.go (DI pura) — nunca Singleton/Service Locator.
 func NewClient() *Client {
-	baseURL := os.Getenv(envBaseURL)
-	if baseURL == "" {
-		baseURL = defaultBaseURL
-	}
-
 	ttl := defaultTTLSecs * time.Second
 	if raw := os.Getenv(envCacheTTLSecs); raw != "" {
 		if secs, err := strconv.Atoi(raw); err == nil && secs > 0 {
@@ -70,7 +72,7 @@ func NewClient() *Client {
 		}
 	}
 
-	return newClient(baseURL, ttl)
+	return newClient(pluginManagerBaseURL, ttl)
 }
 
 // NewClientWithBaseURL constrói o Client apontado para uma baseURL explícita

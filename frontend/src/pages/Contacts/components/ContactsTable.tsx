@@ -57,7 +57,7 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
           ) : contacts.length === 0 ? (
             <TableRow>
               <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                Nenhum contato pode ser carregado.
+                {i18n.t("contacts.table.empty")}
               </TableCell>
             </TableRow>
           ) : (

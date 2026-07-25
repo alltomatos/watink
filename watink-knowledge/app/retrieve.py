@@ -2,7 +2,8 @@
 `retrieve_chunks` reutilizada pelo Agent Runtime."""
 
 from fastapi import APIRouter, Depends, HTTPException
-from pgvector.psycopg import HalfVector, register_vector_async
+from pgvector import HalfVector
+from pgvector.psycopg import register_vector_async
 from pydantic import BaseModel
 
 from .auth import require_internal_token

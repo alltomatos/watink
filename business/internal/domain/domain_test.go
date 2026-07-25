@@ -12,8 +12,8 @@ func TestTicketAssignedEvent(t *testing.T) {
 	tenantID := uuid.New()
 	event := TicketAssignedEvent{
 		TicketID: 123,
-		UserID:    456,
-		tenantID:  tenantID,
+		UserID:   456,
+		tenantID: tenantID,
 	}
 
 	if event.EventName() != "TicketAssigned" {
@@ -116,7 +116,6 @@ func TestUser_CheckPassword_Wrong(t *testing.T) {
 }
 
 // Removendo testes de interface vazia que falham por design (nil check sem implementação)
-
 
 func TestDomainEntityCreation(t *testing.T) {
 	now := time.Now()

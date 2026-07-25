@@ -23,3 +23,11 @@ linters:
       ignore-rules:
         - clientes
         - Clientes
+        # "protocolo(s)" é o domínio do plugin Helpdesk (ADR 0024, CRUD de
+        # atendimento) — mesma justificativa de "Clientes" acima: recorre
+        # por toda a feature (models, handlers, comentários), não é typo
+        # isolado de "protocols".
+        - protocolo
+        - Protocolo
+        - protocolos
+        - Protocolos

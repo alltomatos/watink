@@ -1,9 +1,9 @@
 package main
 
 import (
-	"log"
 	"github.com/alltomatos/watinkdev/business/internal/database"
 	"github.com/joho/godotenv"
+	"log"
 )
 
 func main() {

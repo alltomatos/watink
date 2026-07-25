@@ -13,6 +13,7 @@ import {
 } from "../../components/ui/page-layout";
 import AISettings from "./components/AISettings";
 import StorageSection from "./components/StorageSection";
+import AboutSection from "./components/AboutSection";
 import ProxySection from "./components/ProxySection";
 import AddressLookupSettings from "./components/AddressLookupSettings";
 
@@ -115,6 +116,9 @@ const Settings: React.FC = () => {
               )}
               {activeSection === "storage" && isSuperAdmin && (
                 <StorageSection />
+              )}
+              {activeSection === "about" && (
+                <AboutSection />
               )}
             </>
           )}

@@ -81,3 +81,24 @@ licença dentro dele exporia (e permitiria remover) as checagens. Portanto:
 Caveat: o fonte do plugin-manager permanece no **histórico público** do `watinkdev`
 (a remoção é só no HEAD). Limpar o histórico exigiria reescrita (`git filter-repo`) —
 decisão separada, ainda não executada.
+
+## Atualização (2026-07-04) — Implementação concluída ponta-a-ponta
+
+Auditoria de código confirmou que todos os itens da lista de "Consequences" acima e da
+tabela "Estado atual vs alvo" (`docs/agents/plugins.md`) **já foram implementados**:
+
+- `GetStatus()` faz cruzamento real licença × alocação (`business/internal/plugins/registry.go`).
+- Rotas `POST /plugins/:slug/activate|deactivate` implementadas (`business/internal/controllers/plugin_manager.go`).
+- `/plugins/installed` e `/plugins/catalog` refletem dados reais (join com `PluginInstallations` / proxy do `plugin-manager`).
+- `PluginInstallations` tem migration real com `UNIQUE(tenantId, pluginId)` (`business/internal/database/database.go`).
+- `plugin-manager` valida assinatura Ed25519 no heartbeat via `licensetoken.Verify`, fail-closed em qualquer erro.
+- `saas-plugin` removido do core (só resta o control plane `watink-saas`, entidade distinta).
+
+Pendências reais remanescentes (não é mais "arcabouço vazio", é lapidação):
+
+- **`revocationList`** do Hub sempre vazia — revogação hoje só propaga no `exp` do token (TTL/lazy), não imediatamente.
+- **`checkoutUrl`** no `business` (`plugin_manager.go`) sempre retorna vazio — fluxo de ativação `pro` sem licença não está fiado a uma URL de checkout utilizável pelo usuário final.
+- **Paridade `licensetoken` entre Hub e plugin-manager** é mantida por convenção (duas implementações independentes do parsing de claims), sem teste de integração cruzado que trave a paridade automaticamente.
+- Modo stub de dev do `plugin-manager` (sem `HUB_URL`) libera tudo sem verificar assinatura — correto para dev, mas sem guard explícito contra subir assim em produção.
+
+Ver tabela atualizada em [`docs/agents/plugins.md`](../agents/plugins.md).

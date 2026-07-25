@@ -45,6 +45,13 @@ func (m *MockWatinkCore) RegisterRoute(method string, path string, handler gin.H
 	})
 }
 
+func (m *MockWatinkCore) RegisterPublicRoute(method string, path string, handler gin.HandlerFunc) {
+	m.Called(method, path, handler)
+	m.registeredRoutes = append(m.registeredRoutes, registeredRoute{
+		Method: method, Path: path, Handler: handler,
+	})
+}
+
 func (m *MockWatinkCore) EmitSocketEvent(room string, event string, payload interface{}) {
 	m.Called(room, event, payload)
 }
@@ -52,6 +59,11 @@ func (m *MockWatinkCore) EmitSocketEvent(room string, event string, payload inte
 func (m *MockWatinkCore) GetStatus() sdk.PluginStatus {
 	args := m.Called()
 	return args.Get(0).(sdk.PluginStatus)
+}
+
+func (m *MockWatinkCore) SendTicketMessage(tenantID uuid.UUID, ticketID int, body string) error {
+	args := m.Called(tenantID, ticketID, body)
+	return args.Error(0)
 }
 
 // ---- Helpers ----
