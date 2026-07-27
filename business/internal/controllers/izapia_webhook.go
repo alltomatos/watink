@@ -156,7 +156,11 @@ func (wc *IzapiaWebhookController) HandleWebhook(c *gin.Context) {
 
 	ctx := c.Request.Context()
 	if err := wc.dispatch(ctx, env, whatsapp); err != nil {
-		log.Printf("[IzapiaWebhook] dispatch failed (session=%d type=%s): %v", whatsapp.ID, env.Type, err)
+		// env.Type vem do corpo do webhook (autenticado por HMAC, mas ainda
+		// assim entrada externa) — %q escapa quebras de linha/caracteres de
+		// controle pra impedir log forging (CodeQL: log entries created from
+		// user input).
+		log.Printf("[IzapiaWebhook] dispatch failed (session=%d type=%q): %v", whatsapp.ID, env.Type, err)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"ok": true})
