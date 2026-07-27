@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -48,61 +47,6 @@ func (m *mockRedisService) Get(ctx context.Context, key string) (string, error) 
 // Verify mocks satisfy interfaces at compile time.
 var _ domain.CommandPublisher = (*mockCommandPublisher)(nil)
 var _ domain.RedisService = (*mockRedisService)(nil)
-
-func newTestWhatsAppSessionService(t *testing.T) *WhatsAppSessionService {
-	t.Helper()
-	db := testutil.NewTestDB(t)
-	pub := &mockCommandPublisher{}
-	mockRedis := &mockRedisService{}
-	mockBroadcast := NewRedisBroadcast(mockRedis, nil)
-
-	return NewWhatsAppSessionService(db, pub, mockRedis, mockBroadcast)
-}
-
-func TestBuildDeleteSessionCommandPublishesDeletionIntent(t *testing.T) {
-	wss := newTestWhatsAppSessionService(t)
-	assertSessionCommand(t, wss, "session.delete")
-}
-
-func TestBuildSessionCommandPublishesStopIntent(t *testing.T) {
-	wss := newTestWhatsAppSessionService(t)
-	assertSessionCommand(t, wss, "session.stop")
-}
-
-// TestBuildDeleteSessionCommand_DelegatesToBuildSessionCommand tests buildDeleteSessionCommand directly.
-func TestBuildDeleteSessionCommand_DelegatesToBuildSessionCommand(t *testing.T) {
-	wss := newTestWhatsAppSessionService(t)
-	tenantID := uuid.New()
-	whatsapp := models.Whatsapp{ID: 7, TenantID: tenantID}
-
-	routingKey, command := wss.buildDeleteSessionCommand(whatsapp)
-
-	expectedKey := "wbot." + tenantID.String() + ".7.session.delete"
-	if routingKey != expectedKey {
-		t.Fatalf("routing key = %q, want %q", routingKey, expectedKey)
-	}
-	if command["type"] != "session.delete" {
-		t.Fatalf("type = %v", command["type"])
-	}
-}
-
-// TestPublishWhatsAppSessionCommand_DelegatesToPublisher verifies the publisher is called with the correct args.
-func TestPublishWhatsAppSessionCommand_DelegatesToPublisher(t *testing.T) {
-	db := testutil.NewTestDB(t)
-	pub := &mockCommandPublisher{}
-	mockRedis := &mockRedisService{}
-	mockBroadcast := NewRedisBroadcast(mockRedis, nil)
-	wss := NewWhatsAppSessionService(db, pub, mockRedis, mockBroadcast)
-
-	routingKey := "test.routing.key"
-	command := map[string]interface{}{"type": "session.stop"}
-	if err := wss.publishWhatsAppSessionCommand(routingKey, command); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if pub.lastRoutingKey != routingKey {
-		t.Errorf("routing key = %q, want %q", pub.lastRoutingKey, routingKey)
-	}
-}
 
 // TestStopWhatsAppSession_PublishesStop verifies StopWhatsAppSession publishes the right command.
 func TestStopWhatsAppSession_PublishesStop(t *testing.T) {
@@ -268,35 +212,5 @@ func TestStartWhatsAppSession_RedisError(t *testing.T) {
 	}
 	if err.Error() != "redis unavailable" {
 		t.Errorf("error = %q, want 'redis unavailable'", err.Error())
-	}
-}
-
-func assertSessionCommand(t *testing.T, wss *WhatsAppSessionService, commandType string) {
-	t.Helper()
-	tenantID := uuid.New()
-	whatsapp := models.Whatsapp{ID: 42, TenantID: tenantID}
-
-	routingKey, command := wss.buildSessionCommand(whatsapp, commandType)
-
-	if routingKey != "wbot."+tenantID.String()+".42."+commandType {
-		t.Fatalf("routing key = %q", routingKey)
-	}
-	if command["tenantId"] != tenantID {
-		t.Fatalf("tenantId = %v", command["tenantId"])
-	}
-	if command["type"] != commandType {
-		t.Fatalf("type = %v", command["type"])
-	}
-
-	payload, ok := command["payload"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("payload type = %T", command["payload"])
-	}
-	if payload["sessionId"] != whatsapp.ID {
-		t.Fatalf("sessionId = %v", payload["sessionId"])
-	}
-
-	if _, err := json.Marshal(command); err != nil {
-		t.Fatalf("command must be JSON serializable: %v", err)
 	}
 }

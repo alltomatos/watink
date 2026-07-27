@@ -1923,6 +1923,207 @@ const docTemplate = `{
                 }
             }
         },
+        "/internal/saas/ping": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "internal-saas"
+                ],
+                "summary": "Ping do control plane SaaS",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/internal/saas/tenants": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "internal-saas"
+                ],
+                "summary": "Listar tenants para importação (control plane SaaS)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": true
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "internal-saas"
+                ],
+                "summary": "Provisionar tenant (control plane SaaS)",
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/internal/saas/tenants/{tenantId}/status": {
+            "patch": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "internal-saas"
+                ],
+                "summary": "Alterar status comercial do tenant (control plane SaaS)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/internal/saas/tenants/{tenantId}/subscription": {
+            "put": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "internal-saas"
+                ],
+                "summary": "Push do snapshot de assinatura (control plane SaaS)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/internal/saas/tenants/{tenantId}/usage": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "internal-saas"
+                ],
+                "summary": "Uso corrente do tenant (control plane SaaS)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/izapia-config": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "izapia"
+                ],
+                "summary": "Consultar credencial izapia do tenant",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.izapiaConfigResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Só recebe a API key — a base URL é sempre api.izapia.com.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "izapia"
+                ],
+                "summary": "Salvar a API key izapia do tenant",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.izapiaConfigResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/knowledge-bases": {
             "get": {
                 "security": [
@@ -5089,6 +5290,39 @@ const docTemplate = `{
                 }
             }
         },
+        "/webhooks/izapia/{sessionId}": {
+            "post": {
+                "description": "Recebe eventos de mensagem/status da sessão izapia. Autenticado por assinatura HMAC (X-izapia-Signature), não por JWT.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "izapia"
+                ],
+                "summary": "Webhook izapia (inbound)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID da conexão (Whatsapps.id)",
+                        "name": "sessionId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/whatsapp": {
             "get": {
                 "security": [
@@ -5501,6 +5735,17 @@ const docTemplate = `{
                 }
             }
         },
+        "controllers.izapiaConfigResponse": {
+            "type": "object",
+            "properties": {
+                "baseUrl": {
+                    "type": "string"
+                },
+                "hasApiKey": {
+                    "type": "boolean"
+                }
+            }
+        },
         "models.Cargo": {
             "type": "object",
             "properties": {
@@ -5790,6 +6035,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "color": {
+                    "description": "Color é cosmético — NÃO é único (o unique global antigo uni_Queues_color\nimpedia dois tenants de usarem a mesma cor). Dropado na migração.",
                     "type": "string"
                 },
                 "createdAt": {
@@ -5805,6 +6051,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "name": {
+                    "description": "Nome é único POR TENANT (não global) — multi-tenant: dois tenants podem ter\numa fila \"Atendimento Inicial\". O unique global antigo (uni_Queues_name)\nquebrava o provisionamento do 2º tenant; é dropado na migração.",
                     "type": "string"
                 },
                 "parent": {
@@ -6082,6 +6329,10 @@ const docTemplate = `{
                 "isDefault": {
                     "type": "boolean"
                 },
+                "izapiaSessionId": {
+                    "description": "IzapiaSessionID is the session id assigned by the izapia API (distinct from\nthis row's own ID). Only set when EngineType == \"izapia\".",
+                    "type": "string"
+                },
                 "keepAlive": {
                     "type": "boolean"
                 },
@@ -6167,11 +6418,20 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "longDescription": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
                 "price": {
                     "type": "number"
+                },
+                "screenshots": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "slug": {
                     "type": "string"

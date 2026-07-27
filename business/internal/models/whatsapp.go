@@ -38,6 +38,14 @@ type Whatsapp struct {
 	ProxyGroupID      *int   `gorm:"column:proxyGroupId" json:"proxyGroupId"`
 	ConnectionGroupID *int   `gorm:"column:connectionGroupId;index" json:"connectionGroupId"`
 
+	// IzapiaSessionID is the session id assigned by the izapia API (distinct from
+	// this row's own ID). Only set when EngineType == "izapia".
+	IzapiaSessionID *string `gorm:"column:izapiaSessionId" json:"izapiaSessionId"`
+	// IzapiaWebhookSecretEnc is the cryptobox-encrypted secret used to sign the
+	// izapia webhook payload for this session, generated on first StartSession.
+	// Never serialized.
+	IzapiaWebhookSecretEnc *string `gorm:"column:izapiaWebhookSecretEnc;type:text" json:"-"`
+
 	// Relations
 	Tickets []Ticket `gorm:"foreignKey:WhatsappID" json:"tickets,omitempty"`
 	Queues  []Queue  `gorm:"many2many:whatsapp_queues;" json:"queues,omitempty"`

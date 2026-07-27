@@ -5,6 +5,7 @@ import (
 
 	"github.com/alltomatos/watinkdev/business/internal/application/usecases"
 	"github.com/alltomatos/watinkdev/business/internal/domain"
+	"github.com/alltomatos/watinkdev/business/internal/infrastructure/izapia"
 	"github.com/alltomatos/watinkdev/business/internal/infrastructure/repository"
 	"github.com/alltomatos/watinkdev/business/internal/services"
 	"gorm.io/gorm"
@@ -60,7 +61,10 @@ func NewContainer(db *gorm.DB, redisSvc domain.RedisService, broadcast domain.Br
 	distributeTicket := usecases.NewDistributeTicketUseCase(ticketRepo, queueRepo, eventBus, contactRepo, userQueueRepo)
 	updateTicket := usecases.NewUpdateTicketUseCase(ticketRepo, eventBus, distributeTicket, logTicketAction)
 	receiveMessage := usecases.NewReceiveMessageUseCase(eventBus, messageRepo, contactRepo, ticketRepo, queueRepo, tagRepo, entityTagRepo)
-	sessionService := services.NewWhatsAppSessionService(db, publisher, redisSvc, broadcast)
+	izapiaProvider := izapia.New(db, broadcast)
+	sessionService := services.NewWhatsAppSessionService(db, publisher, redisSvc, broadcast, map[string]domain.WhatsAppEngine{
+		"izapia": izapiaProvider,
+	})
 	var sseHub *services.SSEHub
 	if len(hub) > 0 && hub[0] != nil {
 		sseHub = hub[0]

@@ -30,6 +30,7 @@ export interface WhatsAppConnection {
   retries?: number;
   updatedAt?: string;
   queues?: Queue[];
+  engineType?: string;
   proxyMode?: string;
   proxyId?: number | null;
   proxyGroupId?: number | null;
@@ -42,6 +43,7 @@ export interface WhatsAppFormValues {
   isDefault: boolean;
   keepAlive: boolean;
   syncHistory: boolean;
+  engineType?: string;
   proxyMode?: string;
   proxyId?: number | null;
   proxyGroupId?: number | null;

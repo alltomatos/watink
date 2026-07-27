@@ -14,10 +14,11 @@ import (
 type MessageController struct {
 	rabbit    domain.CommandPublisher
 	broadcast domain.Broadcaster
+	engines   domain.WhatsAppEngineResolver
 }
 
-func NewMessageController(r domain.CommandPublisher, b domain.Broadcaster) *MessageController {
-	return &MessageController{rabbit: r, broadcast: domain.BroadcastOrNop(b)}
+func NewMessageController(r domain.CommandPublisher, b domain.Broadcaster, engines domain.WhatsAppEngineResolver) *MessageController {
+	return &MessageController{rabbit: r, broadcast: domain.BroadcastOrNop(b), engines: engines}
 }
 
 // ListMessages returns all messages for a given ticket.
