@@ -25,8 +25,9 @@ RUN sed -i 's#//go:embed all:placeholder.txt#//go:embed all:build#' internal/web
 COPY .git ./.git-src
 RUN GIT_COMMIT=$(git --git-dir=.git-src rev-parse --short HEAD 2>/dev/null || echo unknown) && \
     GIT_BRANCH=$(git --git-dir=.git-src rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown) && \
+    GIT_COMMIT_DATE=$(git --git-dir=.git-src log -1 --format=%cI HEAD 2>/dev/null || echo unknown) && \
     rm -rf .git-src && \
-    CGO_ENABLED=1 GOOS=linux go build -ldflags "-X main.GitCommit=${GIT_COMMIT} -X main.GitBranch=${GIT_BRANCH}" -o watink-business cmd/server/main.go
+    CGO_ENABLED=1 GOOS=linux go build -ldflags "-X main.GitCommit=${GIT_COMMIT} -X main.GitBranch=${GIT_BRANCH} -X main.GitCommitDate=${GIT_COMMIT_DATE}" -o watink-business cmd/server/main.go
 
 # Etapa 3: Imagem Final Ultra-Leve
 FROM alpine:latest

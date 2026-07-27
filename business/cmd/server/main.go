@@ -46,8 +46,9 @@ import (
 )
 
 var (
-	GitCommit = "unknown" // setado via -ldflags no build
-	GitBranch = "unknown" // setado via -ldflags no build
+	GitCommit     = "unknown" // setado via -ldflags no build
+	GitBranch     = "unknown" // setado via -ldflags no build
+	GitCommitDate = "unknown" // setado via -ldflags no build (RFC3339)
 )
 
 func main() {
@@ -140,9 +141,11 @@ func main() {
 			}
 
 			c.JSON(200, gin.H{
-				"version": version,
-				"commit":  GitCommit,
-				"branch":  GitBranch,
+				"version":      version,
+				"commit":       GitCommit,
+				"branch":       GitBranch,
+				"commitDate":   GitCommitDate,
+				"updateStatus": services.CheckRepoUpdateStatus(GitCommit, GitBranch),
 				"database": gin.H{
 					"engine":  "PostgreSQL",
 					"version": dbVersion,
