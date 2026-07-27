@@ -62,10 +62,27 @@ func (quickAnswerExecutor) Execute(ctx context.Context, st *ExecState, node Node
 
 	commandType, payload := BuildQuickAnswerCommand(qaType, message, contentMap, sid, env, to)
 
-	if err := sendWhatsAppEnv(ctx, st, env, message, map[string]any{
+	// qaType/qaContent/qaMessage let WhatsAppAdapter.sendViaEngine rebuild an
+	// engine-neutral domain.RichMessageRequest (via BuildRichMessageRequest)
+	// for non-AMQP engines, without reverse-engineering the AMQP-shaped
+	// commandType/payload above (which stays exactly as-is for whatsmeow).
+	meta := map[string]any{
 		"commandType": commandType,
 		"payload":     payload,
-	}); err != nil {
+		"qaType":      qaType,
+		"qaContent":   contentMap,
+		"qaMessage":   message,
+	}
+	if qaType == "media" {
+		// Media quick answers keep their fields nested in payload (built by
+		// BuildQuickAnswerCommand) — flatten into Meta too, mirroring the
+		// plain "message" node (executor_message.go), which is what
+		// WhatsAppAdapter's plain text/media engine path reads.
+		meta["mediaUrl"] = payload["mediaUrl"]
+		meta["mediaType"] = payload["mediaType"]
+		meta["mimeType"] = payload["mimeType"]
+	}
+	if err := sendWhatsAppEnv(ctx, st, env, message, meta); err != nil {
 		return Outcome{}, err
 	}
 	return Outcome{Kind: OutcomeAdvance, Detail: "quick answer sent"}, nil

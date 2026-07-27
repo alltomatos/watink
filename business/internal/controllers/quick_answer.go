@@ -169,10 +169,11 @@ type QuickAnswerController struct {
 	rabbit    domain.CommandPublisher
 	broadcast domain.Broadcaster
 	db        *gorm.DB
+	engines   domain.WhatsAppEngineResolver
 }
 
-func NewQuickAnswerController(r domain.CommandPublisher, b domain.Broadcaster, db *gorm.DB) *QuickAnswerController {
-	return &QuickAnswerController{rabbit: r, broadcast: domain.BroadcastOrNop(b), db: db}
+func NewQuickAnswerController(r domain.CommandPublisher, b domain.Broadcaster, db *gorm.DB, engines domain.WhatsAppEngineResolver) *QuickAnswerController {
+	return &QuickAnswerController{rabbit: r, broadcast: domain.BroadcastOrNop(b), db: db, engines: engines}
 }
 
 // @Summary      Listar respostas rápidas
@@ -458,15 +459,62 @@ func (qac *QuickAnswerController) Send(c *gin.Context) {
 
 	commandType, payload := flow.BuildQuickAnswerCommand(qaType, message, contentMap, sessionID, msgID, to)
 
-	command := map[string]interface{}{
-		"type":    commandType,
-		"payload": payload,
+	var whatsapp models.Whatsapp
+	if err := db.Session(&gorm.Session{NewDB: true}).
+		Where("id = ? AND \"tenantId\" = ?", ticket.WhatsappID, tenantID).First(&whatsapp).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Connection not found"})
+		return
 	}
 
-	routingKey := fmt.Sprintf("wbot.%s.%d.%s", tenantID.String(), ticket.WhatsappID, commandType)
-	if err := qac.rabbit.PublishCommand(routingKey, command); err != nil {
-		utils.RespondWithInternalError(c, err, "SendQuickAnswer")
-		return
+	if whatsapp.EngineType != "" && whatsapp.EngineType != "whatsmeow" {
+		// Non-AMQP engines (e.g. izapia) are dispatched via domain.WhatsAppEngine.
+		// text/media go through SendText/SendMedia; rich types (interactive/
+		// list/poll/carousel/pix) go through RichMessageEngine when the engine
+		// implements it. An engine with neither fails loud instead of silently
+		// publishing to a routing key it will never consume (see
+		// message_send.go/whatsapp_adapter.go for the same pattern).
+		if qac.engines == nil {
+			utils.RespondWithInternalError(c, fmt.Errorf("no engine resolver configured"), "SendQuickAnswer")
+			return
+		}
+		engine, err := qac.engines.EngineFor(whatsapp)
+		if err != nil {
+			utils.RespondWithInternalError(c, err, "SendQuickAnswer")
+			return
+		}
+		switch commandType {
+		case "message.send.text":
+			body, _ := payload["body"].(string)
+			err = engine.SendText(c.Request.Context(), whatsapp, to, msgID, body)
+		case "message.send.media":
+			mediaURL, _ := payload["mediaUrl"].(string)
+			mediaType, _ := payload["mediaType"].(string)
+			mimeType, _ := payload["mimeType"].(string)
+			err = engine.SendMedia(c.Request.Context(), whatsapp, to, msgID, mediaType, mediaURL, mimeType)
+		default:
+			richEngine, ok := engine.(domain.RichMessageEngine)
+			if !ok {
+				err = fmt.Errorf("resposta rápida do tipo %q não suportada no engine %q", qaType, whatsapp.EngineType)
+				break
+			}
+			req := flow.BuildRichMessageRequest(qaType, message, contentMap)
+			err = richEngine.SendInteractive(c.Request.Context(), whatsapp, to, msgID, req)
+		}
+		if err != nil {
+			utils.RespondWithInternalError(c, err, "SendQuickAnswer")
+			return
+		}
+	} else {
+		command := map[string]interface{}{
+			"type":    commandType,
+			"payload": payload,
+		}
+
+		routingKey := fmt.Sprintf("wbot.%s.%d.%s", tenantID.String(), ticket.WhatsappID, commandType)
+		if err := qac.rabbit.PublishCommand(routingKey, command); err != nil {
+			utils.RespondWithInternalError(c, err, "SendQuickAnswer")
+			return
+		}
 	}
 
 	// Persist outgoing message so it appears in the UI and ack events can find it.

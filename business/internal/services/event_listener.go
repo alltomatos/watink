@@ -114,6 +114,31 @@ func StartEventListener(rabbitMQ *RabbitMQService, eventListener *EventListener)
 	}
 }
 
+// HandleInboundMessage is the exported entry point for non-AMQP transports
+// (izapia webhook) to feed an inbound message through the exact same
+// pipeline (ReceiveMessageUseCase + broadcasts + FlowBuilder routing) as the
+// engine-go AMQP consumer.
+func (el *EventListener) HandleInboundMessage(ctx context.Context, p MessagePayload, rawSessionID string, tenantID uuid.UUID) error {
+	return el.processMessage(ctx, p, rawSessionID, tenantID)
+}
+
+// HandleSessionStatusEvent is the exported entry point for non-AMQP
+// transports to apply a session status transition (connected/disconnected/
+// banned/...) through the same logic as the engine-go AMQP consumer
+// (handleSessionStatus), including auto-isolation of a banned proxy.
+func (el *EventListener) HandleSessionStatusEvent(ctx context.Context, payload json.RawMessage, tenantID uuid.UUID) error {
+	return el.handleSessionStatus(ctx, payload, tenantID)
+}
+
+// HandlePollVoteEvent is the exported entry point for non-AMQP transports to
+// record a poll vote through the same logic as the engine-go AMQP consumer
+// (handlePollVote) — persists a PollResult only when the originating
+// QuickAnswer has capture_results:true; never touches FlowBuilder/ticket state
+// (mirrors whatsmeow: a poll vote is metadata, not an inbound message).
+func (el *EventListener) HandlePollVoteEvent(ctx context.Context, payload json.RawMessage, tenantID uuid.UUID) error {
+	return el.handlePollVote(ctx, payload, tenantID)
+}
+
 func (el *EventListener) processMessage(ctx context.Context, p MessagePayload, rawSessionID string, tenantID uuid.UUID) error {
 	sessionID := getSessionID(rawSessionID)
 

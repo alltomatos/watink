@@ -10,6 +10,13 @@ definitions:
     - email
     - password
     type: object
+  controllers.izapiaConfigResponse:
+    properties:
+      baseUrl:
+        type: string
+      hasApiKey:
+        type: boolean
+    type: object
   models.Cargo:
     properties:
       createdAt:
@@ -218,6 +225,9 @@ definitions:
   models.Queue:
     properties:
       color:
+        description: |-
+          Color é cosmético — NÃO é único (o unique global antigo uni_Queues_color
+          impedia dois tenants de usarem a mesma cor). Dropado na migração.
         type: string
       createdAt:
         type: string
@@ -228,6 +238,10 @@ definitions:
       id:
         type: integer
       name:
+        description: |-
+          Nome é único POR TENANT (não global) — multi-tenant: dois tenants podem ter
+          uma fila "Atendimento Inicial". O unique global antigo (uni_Queues_name)
+          quebrava o provisionamento do 2º tenant; é dropado na migração.
         type: string
       parent:
         allOf:
@@ -409,6 +423,11 @@ definitions:
         type: integer
       isDefault:
         type: boolean
+      izapiaSessionId:
+        description: |-
+          IzapiaSessionID is the session id assigned by the izapia API (distinct from
+          this row's own ID). Only set when EngineType == "izapia".
+        type: string
       keepAlive:
         type: boolean
       lastConnectedAt:
@@ -469,10 +488,16 @@ definitions:
         type: string
       id:
         type: string
+      longDescription:
+        type: string
       name:
         type: string
       price:
         type: number
+      screenshots:
+        items:
+          type: string
+        type: array
       slug:
         type: string
       type:
@@ -1702,6 +1727,136 @@ paths:
       summary: Verificar setup inicial
       tags:
       - setup
+  /internal/saas/ping:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Ping do control plane SaaS
+      tags:
+      - internal-saas
+  /internal/saas/tenants:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              additionalProperties: true
+              type: object
+            type: array
+      summary: Listar tenants para importação (control plane SaaS)
+      tags:
+      - internal-saas
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Provisionar tenant (control plane SaaS)
+      tags:
+      - internal-saas
+  /internal/saas/tenants/{tenantId}/status:
+    patch:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Alterar status comercial do tenant (control plane SaaS)
+      tags:
+      - internal-saas
+  /internal/saas/tenants/{tenantId}/subscription:
+    put:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Push do snapshot de assinatura (control plane SaaS)
+      tags:
+      - internal-saas
+  /internal/saas/tenants/{tenantId}/usage:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Uso corrente do tenant (control plane SaaS)
+      tags:
+      - internal-saas
+  /izapia-config:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.izapiaConfigResponse'
+      security:
+      - BearerAuth: []
+      summary: Consultar credencial izapia do tenant
+      tags:
+      - izapia
+    put:
+      consumes:
+      - application/json
+      description: Só recebe a API key — a base URL é sempre api.izapia.com.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.izapiaConfigResponse'
+      security:
+      - BearerAuth: []
+      summary: Salvar a API key izapia do tenant
+      tags:
+      - izapia
   /knowledge-bases:
     get:
       produces:
@@ -3683,6 +3838,29 @@ paths:
       summary: Atualizar usuário
       tags:
       - users
+  /webhooks/izapia/{sessionId}:
+    post:
+      consumes:
+      - application/json
+      description: Recebe eventos de mensagem/status da sessão izapia. Autenticado
+        por assinatura HMAC (X-izapia-Signature), não por JWT.
+      parameters:
+      - description: ID da conexão (Whatsapps.id)
+        in: path
+        name: sessionId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Webhook izapia (inbound)
+      tags:
+      - izapia
   /whatsapp:
     get:
       produces:

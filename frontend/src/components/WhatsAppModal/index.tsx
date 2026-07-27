@@ -46,6 +46,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSaved }: WhatsAppModalProp
     isDefault: false,
     keepAlive: false,
     syncHistory: false,
+    engineType: "whatsmeow",
     proxyMode: "none",
     proxyId: null,
     proxyGroupId: null,
@@ -78,6 +79,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSaved }: WhatsAppModalProp
           isDefault: data.isDefault,
           keepAlive: data.keepAlive,
           syncHistory: data.syncHistory,
+          engineType: data.engineType ?? "whatsmeow",
           proxyMode: data.proxyMode ?? "none",
           proxyId: data.proxyId ?? null,
           proxyGroupId: data.proxyGroupId ?? null,
@@ -92,7 +94,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSaved }: WhatsAppModalProp
 
   const handleClose = () => {
     onClose();
-    setWhatsApp({ name: "", isDefault: false, keepAlive: false, syncHistory: false, proxyMode: "none", proxyId: null, proxyGroupId: null, connectionGroupId: null });
+    setWhatsApp({ name: "", isDefault: false, keepAlive: false, syncHistory: false, engineType: "whatsmeow", proxyMode: "none", proxyId: null, proxyGroupId: null, connectionGroupId: null });
     setSelectedQueueIds([]);
   };
 
@@ -138,6 +140,22 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSaved }: WhatsAppModalProp
                 {errors.name && touched.name && <p className="text-xs text-destructive">{errors.name as string}</p>}
               </div>
 
+              <div className="space-y-1">
+                <Label>Motor</Label>
+                <Select
+                  value={values.engineType ?? "whatsmeow"}
+                  onValueChange={(v) => setFieldValue("engineType", v)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="whatsmeow">whatsmeow (padrão)</SelectItem>
+                    <SelectItem value="izapia">izapia</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="flex items-center gap-2">
                 <Switch
                   id="wa-default"
@@ -165,6 +183,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSaved }: WhatsAppModalProp
                 <Label htmlFor="wa-sync">Sincronizar Histórico</Label>
               </div>
 
+              {values.engineType !== "izapia" && (
               <div className="space-y-1 pt-2">
                 <Label>Proxy (anti-ban)</Label>
                 <Select
@@ -212,6 +231,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSaved }: WhatsAppModalProp
                   Alterar o proxy só vale na próxima conexão — reconecte para aplicar.
                 </p>
               </div>
+              )}
 
               <div className="space-y-1 pt-2">
                 <Label>Grupo de conexões</Label>

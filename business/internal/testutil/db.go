@@ -141,5 +141,6 @@ func allModels() []interface{} {
 		&models.ProxyGroup{},
 		&models.ConnectionGroup{},
 		&models.PluginInstallation{},
+		&models.IzapiaConfig{},
 	}
 }

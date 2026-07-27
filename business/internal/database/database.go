@@ -76,6 +76,7 @@ func Migrate() {
 		&models.PollResult{},
 		&models.Proxy{},
 		&models.ProxyGroup{},
+		&models.IzapiaConfig{},
 		&models.ConnectionGroup{},
 		&models.PluginInstallation{},
 		&models.Protocol{},

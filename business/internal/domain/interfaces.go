@@ -94,6 +94,87 @@ type ChannelSessionRepository interface {
 	DeleteWithRelations(ctx context.Context, id int, tenantID uuid.UUID) error
 }
 
+// WhatsAppEngineResolver resolves the concrete domain.WhatsAppEngine for a
+// connection by its EngineType. Implemented by WhatsAppSessionService — callers
+// outside the session lifecycle (message send, FlowBuilder outbound) that need
+// to pick the right engine depend on this narrow interface instead of the full
+// session service.
+type WhatsAppEngineResolver interface {
+	EngineFor(w models.Whatsapp) (WhatsAppEngine, error)
+}
+
+// WhatsAppEngine is the port every WhatsApp connection provider must
+// implement (whatsmeow via engine-go, izapia HTTP, ...). Selected per
+// connection by Whatsapp.EngineType — see ADR pendente "izapia provider".
+// Implementations own their own transport (AMQP vs HTTP); callers never
+// branch on transport, only on which WhatsAppEngine was resolved.
+type WhatsAppEngine interface {
+	StartSession(ctx context.Context, w models.Whatsapp, usePairingCode bool, phoneNumber string, force bool) error
+	StopSession(ctx context.Context, w models.Whatsapp) error
+	DeleteSession(ctx context.Context, w models.Whatsapp) error
+	SendText(ctx context.Context, w models.Whatsapp, to, messageID, body string) error
+	SendMedia(ctx context.Context, w models.Whatsapp, to, messageID, mediaType, mediaURL, mimeType string) error
+}
+
+// InteractiveButton is an engine-neutral display button for an interactive
+// (buttons/list) send. Kind mirrors the izapia enum (quick_reply|url|call|
+// copy|list); "list" is special — it carries its own sub-menu in List instead
+// of a single tap action, and at most one such button may appear per message.
+type InteractiveButton struct {
+	ID    string
+	Kind  string // quick_reply | url | call | copy | list
+	Label string
+	Value string        // url / phone number / copy payload — unused for "list"
+	List  []ListSection // only when Kind == "list"
+}
+
+type ListSection struct {
+	Title string
+	Rows  []ListRow
+}
+
+type ListRow struct {
+	ID          string
+	Title       string
+	Description string
+}
+
+// CarouselCard is one card of a carousel send (image + optional title + up to
+// 3 display buttons — no "list"/"copy"-payment kinds, per izapia's stricter
+// carousel button subset).
+type CarouselCard struct {
+	ImageURL string
+	Mimetype string
+	Title    string
+	Buttons  []InteractiveButton
+}
+
+// RichMessageRequest is the engine-neutral translation of a QuickAnswer
+// (interactive_buttons/list/poll/carousel/pix) built by
+// flow.BuildRichMessageRequest, consumed by RichMessageEngine
+// implementations. Kind selects which of the type-specific fields is set.
+type RichMessageRequest struct {
+	Kind    string // "interactive" | "poll" | "carousel"
+	Body    string
+	Buttons []InteractiveButton // Kind == "interactive"
+
+	PollQuestion        string // Kind == "poll"
+	PollOptions         []string
+	PollSelectableCount int
+
+	Cards []CarouselCard // Kind == "carousel"
+}
+
+// RichMessageEngine is an OPTIONAL extension of WhatsAppEngine for engines
+// that support interactive/poll/carousel sends beyond plain text/media
+// (SendText/SendMedia). Callers type-assert a resolved WhatsAppEngine against
+// this interface; an engine that doesn't implement it (e.g. the whatsmeow/
+// engine-go one, which already handles these types through its own
+// AMQP-shaped flow.BuildQuickAnswerCommand path) simply isn't asked.
+type RichMessageEngine interface {
+	SendInteractive(ctx context.Context, w models.Whatsapp, to, messageID string, req RichMessageRequest) error
+}
+
 // Channel Adapter Interface
 type ChannelAdapter interface {
 	SendMessage(ctx context.Context, ticket Ticket, message Message) error

@@ -8,24 +8,42 @@ import (
 	"time"
 
 	"github.com/alltomatos/watinkdev/business/internal/domain"
+	"github.com/alltomatos/watinkdev/business/internal/models"
+	"gorm.io/gorm"
 )
 
 // dedupTTL is the idempotency window for an outbound send (mirrors the
 // wbot:msg: Redis convention used across the message pipeline).
 const dedupTTL = 24 * time.Hour
 
-// WhatsAppAdapter is the FASE 1 OutboundChannelAdapter for the "whatsapp"
-// channel. It is a thin business-side shim: it dedups by EnvID, then translates
-// an OutboundMessage into the AMQP command `wbot.<tenant>.<session>.<cmd>` that
-// the dumb engine-go executor consumes. No whatsmeow here (ADR 0014).
+// WhatsAppAdapterDeps are optional dependencies enabling non-AMQP engines
+// (e.g. izapia). When absent, every send goes through the AMQP path below —
+// preserving the original FASE 1 behavior unchanged.
+type WhatsAppAdapterDeps struct {
+	DB      *gorm.DB
+	Engines domain.WhatsAppEngineResolver
+}
+
+// WhatsAppAdapter is the OutboundChannelAdapter for the "whatsapp" channel. It
+// dedups by EnvID, then either translates an OutboundMessage into the AMQP
+// command `wbot.<tenant>.<session>.<cmd>` for the dumb engine-go executor
+// (default, ADR 0014), or — when the connection's EngineType is non-AMQP
+// (e.g. izapia) and WhatsAppAdapterDeps is wired — dispatches via
+// domain.WhatsAppEngine instead.
 type WhatsAppAdapter struct {
 	rabbit domain.CommandPublisher
 	redis  domain.RedisService
+	deps   WhatsAppAdapterDeps
 }
 
 // NewWhatsAppAdapter wires the adapter via constructor DI (no global/singleton).
-func NewWhatsAppAdapter(rabbit domain.CommandPublisher, redis domain.RedisService) *WhatsAppAdapter {
-	return &WhatsAppAdapter{rabbit: rabbit, redis: redis}
+// deps is optional (variadic) so existing call sites keep working unchanged.
+func NewWhatsAppAdapter(rabbit domain.CommandPublisher, redis domain.RedisService, deps ...WhatsAppAdapterDeps) *WhatsAppAdapter {
+	a := &WhatsAppAdapter{rabbit: rabbit, redis: redis}
+	if len(deps) > 0 {
+		a.deps = deps[0]
+	}
+	return a
 }
 
 // Channel identifies this adapter in the registry.
@@ -53,6 +71,20 @@ func (a *WhatsAppAdapter) Send(ctx context.Context, msg OutboundMessage) error {
 		}
 		if !acquired {
 			return nil
+		}
+	}
+
+	// Non-AMQP engines (e.g. izapia) are resolved by the connection's
+	// EngineType and dispatched via domain.WhatsAppEngine instead of AMQP.
+	// Only when deps are wired (call sites that don't need it keep the
+	// original AMQP-only behavior).
+	if a.deps.DB != nil && a.deps.Engines != nil {
+		sid, _ := strconv.Atoi(msg.SessionID)
+		var whatsapp models.Whatsapp
+		if err := a.deps.DB.Session(&gorm.Session{NewDB: true}).
+			Where(`id = ? AND "tenantId" = ?`, sid, msg.TenantID).First(&whatsapp).Error; err == nil &&
+			whatsapp.EngineType != "" && whatsapp.EngineType != "whatsmeow" {
+			return a.sendViaEngine(ctx, whatsapp, msg)
 		}
 	}
 
@@ -127,6 +159,72 @@ func (a *WhatsAppAdapter) Send(ctx context.Context, msg OutboundMessage) error {
 		return fmt.Errorf("whatsapp adapter: publish command: %w", err)
 	}
 	return nil
+}
+
+// sendViaEngine dispatches a text/media/rich send through the connection's
+// domain.WhatsAppEngine (izapia and future non-AMQP engines). Rich sends
+// (quickAnswerExecutor stuffs qaType/qaContent/qaMessage into Meta alongside
+// the AMQP-shaped commandType/payload — see executor_quickanswer.go) go
+// through RichMessageEngine when the engine implements it; otherwise they
+// fail loudly rather than silently no-op.
+func (a *WhatsAppAdapter) sendViaEngine(ctx context.Context, whatsapp models.Whatsapp, msg OutboundMessage) error {
+	engine, err := a.deps.Engines.EngineFor(whatsapp)
+	if err != nil {
+		a.releaseLock(msg.EnvID)
+		return fmt.Errorf("whatsapp adapter: resolve engine: %w", err)
+	}
+
+	// qaType is only set (by executor_quickanswer.go) for sends that originate
+	// from a QuickAnswers node. text/media quick answers fall through to the
+	// plain body/mediaUrl path below unchanged; everything else needs
+	// RichMessageEngine.
+	qaType, _ := msg.Meta["qaType"].(string)
+	if qaType != "" && qaType != "text" && qaType != "media" {
+		richEngine, ok := engine.(domain.RichMessageEngine)
+		if !ok {
+			a.releaseLock(msg.EnvID)
+			return fmt.Errorf("whatsapp adapter: resposta rápida do tipo %q não suportada no engine %q", qaType, whatsapp.EngineType)
+		}
+		contentMap, _ := msg.Meta["qaContent"].(map[string]interface{})
+		req := BuildRichMessageRequest(qaType, metaString(msg.Meta, "qaMessage"), contentMap)
+		messageID := metaString(msg.Meta, "messageId")
+		if messageID == "" {
+			messageID = msg.EnvID
+		}
+		if err := richEngine.SendInteractive(ctx, whatsapp, msg.To, messageID, req); err != nil {
+			a.releaseLock(msg.EnvID)
+			return fmt.Errorf("whatsapp adapter: engine send: %w", err)
+		}
+		return nil
+	}
+
+	mediaURL := metaString(msg.Meta, "mediaUrl")
+	messageID := metaString(msg.Meta, "messageId")
+	if messageID == "" {
+		messageID = msg.EnvID
+	}
+
+	if mediaURL != "" {
+		err = engine.SendMedia(ctx, whatsapp, msg.To, messageID, metaString(msg.Meta, "mediaType"), mediaURL, metaString(msg.Meta, "mimeType"))
+	} else {
+		err = engine.SendText(ctx, whatsapp, msg.To, messageID, msg.Body)
+	}
+	if err != nil {
+		a.releaseLock(msg.EnvID)
+		return fmt.Errorf("whatsapp adapter: engine send: %w", err)
+	}
+	return nil
+}
+
+// releaseLock best-effort releases the dedup lock so a retry after a failed
+// send can actually re-send (mirrors the AMQP publish-failure handling above).
+func (a *WhatsAppAdapter) releaseLock(envID string) {
+	if a.redis == nil || envID == "" {
+		return
+	}
+	if err := a.redis.DelLock("wbot:msg:" + envID); err != nil {
+		log.Printf("[WhatsAppAdapter] dedup lock release after engine-send failure failed (env=%s): %v", envID, err)
+	}
 }
 
 // metaString reads a string value from the channel-specific Meta map.

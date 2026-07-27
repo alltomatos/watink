@@ -33,7 +33,7 @@ func TestSendMessageTextJSON(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	tenantID := uuid.New()
 	pub := &stubPublisher{}
-	mc := NewMessageController(pub, nil)
+	mc := NewMessageController(pub, nil, nil)
 
 	// Seed whatsapp + contact + ticket
 	wa := models.Whatsapp{Name: "WA", TenantID: tenantID, Status: "CONNECTED"}

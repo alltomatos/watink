@@ -136,34 +136,64 @@ func (mc *MessageController) SendMessage(c *gin.Context) {
 		mediaType = mimeTypeToMediaType(mimeType)
 	}
 
-	commandType := "message.send.text"
-	if mediaURL != "" {
-		commandType = "message.send.media"
-	}
-
 	messageID := newWAMessageID()
 	to := contactJID(contact)
 
-	command := map[string]interface{}{
-		"type": commandType,
-		"payload": map[string]interface{}{
-			"sessionId": ticket.WhatsappID,
-			"messageId": messageID,
-			"to":        to,
-			"ticketId":  ticketID,
-			"body":      body,
-			"mediaType": mediaType,
-			"mediaUrl":  mediaURL,
-			"mimeType":  mimeType,
-		},
+	var whatsapp models.Whatsapp
+	if err := db.Session(&gorm.Session{NewDB: true}).
+		Where("id = ? AND \"tenantId\" = ?", ticket.WhatsappID, tenantID).First(&whatsapp).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Connection not found"})
+		return
 	}
 
-	// The engine dispatches by routing-key segment (wbot.<tenant>.<session>.<cmd>),
-	// so the command type MUST be encoded in the key — not just the body.
-	routingKey := fmt.Sprintf("wbot.%s.%d.%s", tenantID.String(), ticket.WhatsappID, commandType)
-	if err := mc.rabbit.PublishCommand(routingKey, command); err != nil {
-		utils.RespondWithInternalError(c, err, "SendMessage")
-		return
+	if whatsapp.EngineType != "" && whatsapp.EngineType != "whatsmeow" {
+		// Non-AMQP engines (e.g. izapia) are dispatched via domain.WhatsAppEngine
+		// instead of the raw wbot.<tenant>.<session>.<cmd> command below.
+		if mc.engines == nil {
+			utils.RespondWithInternalError(c, fmt.Errorf("no engine resolver configured"), "SendMessage")
+			return
+		}
+		engine, err := mc.engines.EngineFor(whatsapp)
+		if err != nil {
+			utils.RespondWithInternalError(c, err, "SendMessage")
+			return
+		}
+		if mediaURL != "" {
+			err = engine.SendMedia(c.Request.Context(), whatsapp, to, messageID, mediaType, mediaURL, mimeType)
+		} else {
+			err = engine.SendText(c.Request.Context(), whatsapp, to, messageID, body)
+		}
+		if err != nil {
+			utils.RespondWithInternalError(c, err, "SendMessage")
+			return
+		}
+	} else {
+		commandType := "message.send.text"
+		if mediaURL != "" {
+			commandType = "message.send.media"
+		}
+
+		command := map[string]interface{}{
+			"type": commandType,
+			"payload": map[string]interface{}{
+				"sessionId": ticket.WhatsappID,
+				"messageId": messageID,
+				"to":        to,
+				"ticketId":  ticketID,
+				"body":      body,
+				"mediaType": mediaType,
+				"mediaUrl":  mediaURL,
+				"mimeType":  mimeType,
+			},
+		}
+
+		// The engine dispatches by routing-key segment (wbot.<tenant>.<session>.<cmd>),
+		// so the command type MUST be encoded in the key — not just the body.
+		routingKey := fmt.Sprintf("wbot.%s.%d.%s", tenantID.String(), ticket.WhatsappID, commandType)
+		if err := mc.rabbit.PublishCommand(routingKey, command); err != nil {
+			utils.RespondWithInternalError(c, err, "SendMessage")
+			return
+		}
 	}
 
 	// Persist the outgoing message so it appears in the UI immediately and the
