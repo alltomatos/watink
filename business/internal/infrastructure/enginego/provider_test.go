@@ -1,6 +1,7 @@
 package enginego
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -65,7 +66,7 @@ func TestStopSession_PublishesStop(t *testing.T) {
 	tenantID := uuid.New()
 	whatsapp := models.Whatsapp{ID: 99, TenantID: tenantID}
 
-	if err := p.StopSession(nil, whatsapp); err != nil {
+	if err := p.StopSession(context.TODO(), whatsapp); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	expectedKey := "wbot." + tenantID.String() + ".99.session.stop"
@@ -80,7 +81,7 @@ func TestDeleteSession_PublishesDelete(t *testing.T) {
 	tenantID := uuid.New()
 	whatsapp := models.Whatsapp{ID: 55, TenantID: tenantID}
 
-	if err := p.DeleteSession(nil, whatsapp); err != nil {
+	if err := p.DeleteSession(context.TODO(), whatsapp); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	expectedKey := "wbot." + tenantID.String() + ".55.session.delete"
