@@ -217,7 +217,15 @@ func (p *Provider) StopSession(ctx context.Context, w models.Whatsapp) error {
 	if err != nil {
 		return err
 	}
-	return client.Logout(ctx, *w.IzapiaSessionID)
+	if err := client.Logout(ctx, *w.IzapiaSessionID); err != nil {
+		if IsNotFound(err) {
+			// Sessão já não existe do lado da izapia (ex.: expirou sem
+			// parear) -- nada a limpar remotamente, trata como sucesso.
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 // DeleteSession logs the session out. The izapia data-plane API exposes no
