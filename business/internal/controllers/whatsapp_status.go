@@ -159,6 +159,9 @@ func (wc *WhatsappController) DeleteWhatsapp(c *gin.Context) {
 		UpdatedAt:       whatsapp.UpdatedAt,
 		FirstConnection: whatsapp.FirstConnection,
 		EngineType:      whatsapp.EngineType,
+
+		IzapiaSessionID:        whatsapp.IzapiaSessionID,
+		IzapiaWebhookSecretEnc: whatsapp.IzapiaWebhookSecretEnc,
 	}
 	if err := wc.sessionService.DeleteWhatsAppSession(model); err != nil {
 		utils.RespondWithInternalError(c, err, "DeleteWhatsAppSession")
