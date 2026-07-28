@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -35,6 +36,15 @@ func (e *apiError) Error() string {
 		return "izapia: erro desconhecido"
 	}
 	return fmt.Sprintf("izapia: %s: %s", e.Code, e.Message)
+}
+
+// IsQuotaExceeded reporta se err (ou algo que ele encadeia via %w) é um
+// erro QUOTA_EXCEEDED da izapia (max_sessions/max_webhooks do plano do
+// tenant) — usado pelo provider pra devolver uma mensagem amigável em vez
+// do "Internal server error" genérico.
+func IsQuotaExceeded(err error) bool {
+	var ae *apiError
+	return errors.As(err, &ae) && ae.Code == "QUOTA_EXCEEDED"
 }
 
 // Client is a thin, stateless HTTP client for the izapia data-plane API.

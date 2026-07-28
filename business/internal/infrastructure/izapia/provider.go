@@ -7,9 +7,12 @@ import (
 	"fmt"
 	"strings"
 
+	"net/http"
+
 	"github.com/alltomatos/watinkdev/business/internal/domain"
 	"github.com/alltomatos/watinkdev/business/internal/models"
 	"github.com/alltomatos/watinkdev/business/pkg/cryptobox"
+	"github.com/alltomatos/watinkdev/business/pkg/utils"
 	"gorm.io/gorm"
 )
 
@@ -41,10 +44,14 @@ var _ domain.WhatsAppEngine = (*Provider)(nil)
 func (p *Provider) clientFor(w models.Whatsapp) (*Client, error) {
 	var cfg models.IzapiaConfig
 	if err := p.db.Where(`"tenantId" = ?`, w.TenantID).First(&cfg).Error; err != nil {
-		return nil, fmt.Errorf("izapia: credencial não configurada para o tenant (Configurações > Izapia): %w", err)
+		return nil, utils.NewFriendlyError(http.StatusUnprocessableEntity,
+			"Configure a API key da izapia em Configurações > izapia antes de conectar.",
+			fmt.Errorf("izapia: credencial não configurada para o tenant (Configurações > Izapia): %w", err))
 	}
 	if !cfg.HasApiKey() {
-		return nil, fmt.Errorf("izapia: API key não configurada (Configurações > Izapia)")
+		return nil, utils.NewFriendlyError(http.StatusUnprocessableEntity,
+			"Configure a API key da izapia em Configurações > izapia antes de conectar.",
+			fmt.Errorf("izapia: API key não configurada (Configurações > Izapia)"))
 	}
 	apiKey, err := cryptobox.Decrypt(cfg.ApiKeyEnc)
 	if err != nil {
@@ -60,10 +67,14 @@ func (p *Provider) clientFor(w models.Whatsapp) (*Client, error) {
 func (p *Provider) webhookBaseURL(w models.Whatsapp) (string, error) {
 	var s models.Setting
 	if err := p.db.Where(`"tenantId" = ? AND "key" = ?`, w.TenantID, "backendUrl").First(&s).Error; err != nil {
-		return "", fmt.Errorf("izapia: backendUrl não configurada para o tenant (Configurações): %w", err)
+		return "", utils.NewFriendlyError(http.StatusUnprocessableEntity,
+			"URL pública do sistema não configurada para este tenant. Contate o suporte.",
+			fmt.Errorf("izapia: backendUrl não configurada para o tenant (Configurações): %w", err))
 	}
 	if s.Value == "" {
-		return "", fmt.Errorf("izapia: backendUrl vazia para o tenant (Configurações)")
+		return "", utils.NewFriendlyError(http.StatusUnprocessableEntity,
+			"URL pública do sistema não configurada para este tenant. Contate o suporte.",
+			fmt.Errorf("izapia: backendUrl vazia para o tenant (Configurações)"))
 	}
 	return s.Value, nil
 }
@@ -95,7 +106,13 @@ func (p *Provider) ensureSession(ctx context.Context, client *Client, w *models.
 
 	sid, err := client.CreateSession(ctx, w.Name, "")
 	if err != nil {
-		return "", fmt.Errorf("izapia: criar sessão: %w", err)
+		wrapped := fmt.Errorf("izapia: criar sessão: %w", err)
+		if IsQuotaExceeded(err) {
+			return "", utils.NewFriendlyError(http.StatusTooManyRequests,
+				"Limite de conexões WhatsApp do seu plano izapia foi atingido. Libere uma conexão (deslogue uma sessão não usada) ou fale com o suporte pra aumentar o plano.",
+				wrapped)
+		}
+		return "", wrapped
 	}
 
 	secret, err := randomHex(32)
@@ -113,7 +130,13 @@ func (p *Provider) ensureSession(ctx context.Context, client *Client, w *models.
 	}
 	webhookURL := fmt.Sprintf("%s/webhooks/izapia/%d", baseURL, w.ID)
 	if err := client.SetWebhook(ctx, sid, webhookURL, secret, nil); err != nil {
-		return "", fmt.Errorf("izapia: configurar webhook: %w", err)
+		wrapped := fmt.Errorf("izapia: configurar webhook: %w", err)
+		if IsQuotaExceeded(err) {
+			return "", utils.NewFriendlyError(http.StatusTooManyRequests,
+				"Limite de webhooks do seu plano izapia foi atingido. Fale com o suporte pra aumentar o plano.",
+				wrapped)
+		}
+		return "", wrapped
 	}
 
 	if err := p.db.Model(&models.Whatsapp{}).
