@@ -228,11 +228,26 @@ func (p *Provider) StopSession(ctx context.Context, w models.Whatsapp) error {
 	return nil
 }
 
-// DeleteSession logs the session out. The izapia data-plane API exposes no
-// hard-delete operation (session rows are management-plane only); a logout
-// is the strongest disconnect available here.
+// DeleteSession desprovisiona a sessão na izapia (libera client/lease e
+// libera de volta a vaga da quota max_sessions do tenant) — diferente de
+// StopSession/Logout, que só muda o status e mantém a vaga ocupada.
 func (p *Provider) DeleteSession(ctx context.Context, w models.Whatsapp) error {
-	return p.StopSession(ctx, w)
+	if w.IzapiaSessionID == nil || *w.IzapiaSessionID == "" {
+		return nil
+	}
+	client, err := p.clientFor(w)
+	if err != nil {
+		return err
+	}
+	if err := client.DeleteSession(ctx, *w.IzapiaSessionID); err != nil {
+		if IsNotFound(err) {
+			// Sessão já não existe do lado da izapia -- nada a limpar,
+			// trata como sucesso idempotente.
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 func (p *Provider) SendText(ctx context.Context, w models.Whatsapp, to, messageID, body string) error {
