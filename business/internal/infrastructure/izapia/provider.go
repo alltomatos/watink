@@ -228,8 +228,8 @@ func (p *Provider) StopSession(ctx context.Context, w models.Whatsapp) error {
 	return nil
 }
 
-// DeleteSession desprovisiona a sessão na izapia (libera client/lease,
-// devolvendo a vaga pra quota max_sessions do tenant) — diferente de
+// DeleteSession desprovisiona a sessão na izapia (libera client/lease e
+// libera de volta a vaga da quota max_sessions do tenant) — diferente de
 // StopSession/Logout, que só muda o status e mantém a vaga ocupada.
 func (p *Provider) DeleteSession(ctx context.Context, w models.Whatsapp) error {
 	if w.IzapiaSessionID == nil || *w.IzapiaSessionID == "" {
