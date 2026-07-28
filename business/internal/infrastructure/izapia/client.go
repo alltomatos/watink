@@ -47,6 +47,16 @@ func IsQuotaExceeded(err error) bool {
 	return errors.As(err, &ae) && ae.Code == "QUOTA_EXCEEDED"
 }
 
+// IsNotFound reporta se err (ou algo que ele encadeia via %w) é um erro
+// NOT_FOUND da izapia — ex.: a sessão expirou/foi purgada do lado deles
+// (nunca chegou a parear) antes de conseguirmos deslogar. Nesse caso não há
+// nada a limpar remotamente; o chamador deve tratar como sucesso idempotente
+// em vez de bloquear a operação local (ex.: excluir a conexão no Watink).
+func IsNotFound(err error) bool {
+	var ae *apiError
+	return errors.As(err, &ae) && ae.Code == "NOT_FOUND"
+}
+
 // Client is a thin, stateless HTTP client for the izapia data-plane API.
 type Client struct {
 	baseURL    string
