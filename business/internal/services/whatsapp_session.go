@@ -85,6 +85,11 @@ func (wss *WhatsAppSessionService) StartWhatsAppSession(whatsapp models.Whatsapp
 		return err
 	}
 
+	// previousStatus é o que a UI deve ver de volta se engine.StartSession falhar —
+	// sem isso, a conexão fica travada em "OPENING" pra sempre (isBusy nunca
+	// libera o botão "Gerar QR Code" no frontend).
+	previousStatus := whatsapp.Status
+
 	// Update Status — CRITICAL: tenant-scoped
 	if err := wss.db.Model(&whatsapp).Where("id = ? AND \"tenantId\" = ?", whatsapp.ID, whatsapp.TenantID).Update("status", "OPENING").Error; err != nil {
 		return err
@@ -98,6 +103,19 @@ func (wss *WhatsAppSessionService) StartWhatsAppSession(whatsapp models.Whatsapp
 
 	if err := engine.StartSession(context.Background(), whatsapp, usePairingCode, phoneNumber, force); err != nil {
 		_ = wss.redisSvc.DelLock(lockKey)
+		revertStatus := previousStatus
+		if revertStatus == "" || revertStatus == "OPENING" || revertStatus == "PAIRING" {
+			revertStatus = "DISCONNECTED"
+		}
+		if updErr := wss.db.Model(&models.Whatsapp{}).
+			Where("id = ? AND \"tenantId\" = ?", whatsapp.ID, whatsapp.TenantID).
+			Update("status", revertStatus).Error; updErr == nil {
+			whatsapp.Status = revertStatus
+			wss.broadcast.EmitToTenantRoom(whatsapp.TenantID.String(), "whatsappSession", map[string]interface{}{
+				"action":  "update",
+				"session": whatsapp,
+			})
+		}
 		return err
 	}
 	return nil
