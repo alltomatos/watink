@@ -143,4 +143,10 @@ type ChannelSession struct {
 	// QUAL device store reusar no engine ao reconectar. Sem ele, resolveDeviceStore
 	// não acha o device existente e cria um NOVO — deslogando a conta real.
 	Wid string `json:"wid"`
+	// IzapiaSessionID/IzapiaWebhookSecretEnc precisam viajar por essa struct —
+	// sem eles, engine izapia.Provider.ensureSession() sempre acha que não há
+	// sessão criada ainda e cria uma NOVA a cada start/stop, estourando a quota
+	// max_sessions do tenant na izapia.
+	IzapiaSessionID        *string `json:"izapiaSessionId"`
+	IzapiaWebhookSecretEnc *string `json:"-"`
 }
