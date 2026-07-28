@@ -56,7 +56,7 @@ func (sc *SessionController) StartSession(c *gin.Context) {
 	_ = c.ShouldBindJSON(&req)
 
 	if err := sc.sessionService.StartWhatsAppSession(channelSessionToModel(session), req.UsePairingCode, req.PhoneNumber, true); err != nil {
-		utils.RespondWithInternalError(c, err, "StartWhatsAppSession")
+		utils.RespondWithFriendlyOrInternalError(c, err, "StartWhatsAppSession")
 		return
 	}
 
@@ -92,7 +92,7 @@ func (sc *SessionController) StopSession(c *gin.Context) {
 	}
 
 	if err := sc.sessionService.StopWhatsAppSession(channelSessionToModel(session)); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to stop session"})
+		utils.RespondWithFriendlyOrInternalError(c, err, "StopWhatsAppSession")
 		return
 	}
 

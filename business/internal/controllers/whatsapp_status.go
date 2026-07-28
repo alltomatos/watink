@@ -164,7 +164,7 @@ func (wc *WhatsappController) DeleteWhatsapp(c *gin.Context) {
 		IzapiaWebhookSecretEnc: whatsapp.IzapiaWebhookSecretEnc,
 	}
 	if err := wc.sessionService.DeleteWhatsAppSession(model); err != nil {
-		utils.RespondWithInternalError(c, err, "DeleteWhatsAppSession")
+		utils.RespondWithFriendlyOrInternalError(c, err, "DeleteWhatsAppSession")
 		return
 	}
 
