@@ -174,9 +174,17 @@ func (c *Client) PairPhone(ctx context.Context, sid, phone string) (string, erro
 
 // Logout invalidates the session on the WhatsApp side (soft — the izapia
 // session row itself is not deleted; a subsequent Pair re-activates it).
-// There is no hard-delete operation exposed by the data-plane API.
 func (c *Client) Logout(ctx context.Context, sid string) error {
 	return c.do(ctx, http.MethodPost, "/api/v1/sessions/"+sid+"/logout", nil, nil)
+}
+
+// DeleteSession desprovisiona a sessão (libera client/lease do lado da
+// izapia, contando de volta pra quota max_sessions do tenant) — diferente
+// de Logout, que só muda o status pra "logged_out" e mantém o registro
+// ocupando a quota. O registro em si persiste do lado deles (mesma
+// semântica de soft-delete), só o client/lease é liberado.
+func (c *Client) DeleteSession(ctx context.Context, sid string) error {
+	return c.do(ctx, http.MethodDelete, "/api/v1/sessions/"+sid, nil, nil)
 }
 
 // SendText sends a plain text message and returns the provider message id.
