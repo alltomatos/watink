@@ -29,10 +29,14 @@ export function useContacts(): UseContactsReturn {
   const [importConfirmOpen, setImportConfirmOpen] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [view, setView] = useLocalStorage<ContactsView>("contactsView", "table");
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
+  const [deleteAllConfirmOpen, setDeleteAllConfirmOpen] = useState(false);
 
   useEffect(() => {
     dispatch({ type: "RESET" });
     setPageNumber(1);
+    setSelectedIds(new Set());
   }, [searchParam]);
 
   useEffect(() => {
@@ -148,6 +152,57 @@ export function useContacts(): UseContactsReturn {
     }
   };
 
+  const toggleSelected = (contactId: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(contactId)) {
+        next.delete(contactId);
+      } else {
+        next.add(contactId);
+      }
+      return next;
+    });
+  };
+
+  const isAllSelected = contacts.length > 0 && selectedIds.size === contacts.length;
+
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) => {
+      if (prev.size === contacts.length) return new Set();
+      return new Set(contacts.map((c) => c.id));
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const handleBulkDeleteContacts = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    try {
+      await api.post("/contacts/bulk-delete", { ids });
+      ids.forEach((id) => dispatch({ type: "DELETE_CONTACT", payload: id }));
+      toast.success(i18n.t("contacts.toasts.bulkDeleted", { count: ids.length }));
+    } catch (err) {
+      toastError(err);
+    } finally {
+      clearSelection();
+    }
+  };
+
+  const handleDeleteAllContacts = async () => {
+    try {
+      await api.delete("/contacts/all");
+      dispatch({ type: "RESET" });
+      toast.success(i18n.t("contacts.toasts.allDeleted"));
+    } catch (err) {
+      toastError(err);
+    } finally {
+      clearSelection();
+      setSearchParam("");
+      setPageNumber(1);
+    }
+  };
+
   return {
     contacts,
     loading,
@@ -174,5 +229,16 @@ export function useContacts(): UseContactsReturn {
     handleDeleteContact,
     handleImportContacts,
     handleRequestDelete,
+    selectedIds,
+    isAllSelected,
+    bulkDeleteConfirmOpen,
+    deleteAllConfirmOpen,
+    toggleSelected,
+    toggleSelectAll,
+    clearSelection,
+    setBulkDeleteConfirmOpen,
+    setDeleteAllConfirmOpen,
+    handleBulkDeleteContacts,
+    handleDeleteAllContacts,
   };
 }

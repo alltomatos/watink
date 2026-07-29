@@ -251,6 +251,8 @@ const messages = {
         title: "Contatos",
         toasts: {
           deleted: "Contato excluído com sucesso!",
+          bulkDeleted: "{{count}} contatos excluídos com sucesso!",
+          allDeleted: "Todos os contatos foram excluídos com sucesso!",
         },
         searchPlaceholder: "Pesquisar...",
         confirmationModal: {
@@ -259,10 +261,22 @@ const messages = {
           deleteMessage:
             "Tem certeza que deseja deletar este contato? Todos os tickets relacionados serão perdidos.",
           importMessage: "Deseja importas todos os contatos do telefone?",
+          bulkDeleteTitle: "Excluir contatos selecionados",
+          bulkDeleteMessage:
+            "Tem certeza que deseja excluir {{count}} contato(s) selecionado(s)? Esta ação não pode ser desfeita.",
+          deleteAllTitle: "Excluir todos os contatos",
+          deleteAllMessage:
+            "Atenção: isso vai excluir TODOS os contatos deste tenant permanentemente, incluindo o histórico de tickets vinculado. Esta ação não pode ser desfeita.",
         },
         buttons: {
           import: "Importar Contatos",
           add: "Adicionar Contato",
+          deleteSelected: "Excluir Selecionados",
+          deselectAll: "Desmarcar",
+          deleteAll: "Excluir Todos os Contatos",
+        },
+        selection: {
+          selectedCount: "{{count}} selecionado(s)",
         },
         table: {
           name: "Nome",

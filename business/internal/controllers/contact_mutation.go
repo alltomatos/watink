@@ -187,3 +187,63 @@ func (cc *ContactController) DeleteContact(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Contact deleted successfully"})
 }
+
+// @Summary      Excluir contatos selecionados
+// @Tags         contacts
+// @Accept       json
+// @Produce      json
+// @Param        body  body      map[string]interface{}  true  "Lista de IDs a excluir"
+// @Success      200   {object}  map[string]interface{}
+// @Security     BearerAuth
+// @Router       /contacts/bulk-delete [post]
+func (cc *ContactController) BulkDeleteContacts(c *gin.Context) {
+	_, tenantID, ok := auth.GetScoped(c, "Contacts")
+	if !ok {
+		return
+	}
+
+	var input struct {
+		IDs []int `json:"ids"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		utils.RespondWithBindError(c, err)
+		return
+	}
+	if len(input.IDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ids is required and must not be empty"})
+		return
+	}
+
+	deleted, err := cc.contactRepo.BulkDelete(c.Request.Context(), input.IDs, tenantID)
+	if err != nil {
+		utils.RespondWithInternalError(c, err, "BulkDeleteContacts")
+		return
+	}
+
+	cc.broadcast.EmitToTenantRoom(tenantID.String(), "contact", gin.H{"action": "bulk-delete", "contactIds": input.IDs})
+
+	c.JSON(http.StatusOK, gin.H{"deleted": deleted})
+}
+
+// @Summary      Excluir todos os contatos do tenant
+// @Tags         contacts
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Security     BearerAuth
+// @Router       /contacts/all [delete]
+func (cc *ContactController) DeleteAllContacts(c *gin.Context) {
+	_, tenantID, ok := auth.GetScoped(c, "Contacts")
+	if !ok {
+		return
+	}
+
+	deleted, err := cc.contactRepo.DeleteAll(c.Request.Context(), tenantID)
+	if err != nil {
+		utils.RespondWithInternalError(c, err, "DeleteAllContacts")
+		return
+	}
+
+	cc.broadcast.EmitToTenantRoom(tenantID.String(), "contact", gin.H{"action": "delete-all"})
+
+	c.JSON(http.StatusOK, gin.H{"deleted": deleted})
+}

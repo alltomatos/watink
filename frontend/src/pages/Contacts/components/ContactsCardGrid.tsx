@@ -2,6 +2,7 @@ import React, { useContext } from "react";
 import { MessageSquare, Edit, Plus, Trash2, Loader2 } from "lucide-react";
 
 import { Button } from "../../../components/ui/button";
+import { Checkbox } from "../../../components/ui/checkbox";
 import { Can } from "../../../components/Can";
 import { AuthContext } from "../../../context/Auth/AuthContext";
 import ListItemCard from "../../../components/ListItemCard";
@@ -16,6 +17,8 @@ interface ContactsCardGridProps {
   onEdit: (contactId: number) => void;
   onMakeClient: (contact: Contact) => void;
   onDelete: (contactId: number) => void;
+  selectedIds: Set<number>;
+  onToggleSelected: (contactId: number) => void;
 }
 
 const ContactsCardGrid: React.FC<ContactsCardGridProps> = ({
@@ -25,6 +28,8 @@ const ContactsCardGrid: React.FC<ContactsCardGridProps> = ({
   onEdit,
   onMakeClient,
   onDelete,
+  selectedIds,
+  onToggleSelected,
 }) => {
   const { user } = useContext(AuthContext);
 
@@ -37,6 +42,13 @@ const ContactsCardGrid: React.FC<ContactsCardGridProps> = ({
           title={contact.name}
           subtitle={contact.number}
           status={<ContactStatusBadge contact={contact} />}
+          leading={
+            <Checkbox
+              checked={selectedIds.has(contact.id)}
+              onCheckedChange={() => onToggleSelected(contact.id)}
+              aria-label={contact.name}
+            />
+          }
           actions={
             <div className="flex items-center gap-1">
               <Button

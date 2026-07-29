@@ -153,6 +153,28 @@ func (r *GORMContactRepository) Delete(ctx context.Context, id int, tenantID uui
 		Delete(&models.Contact{}).Error
 }
 
+// BulkDelete removes the contacts in ids that belong to tenantID, silently
+// ignoring any ID that doesn't exist or belongs to another tenant, and
+// returns the number of rows actually deleted.
+func (r *GORMContactRepository) BulkDelete(ctx context.Context, ids []int, tenantID uuid.UUID) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	tx := r.db.WithContext(ctx).
+		Where("id IN ? AND \"tenantId\" = ?", ids, tenantID).
+		Delete(&models.Contact{})
+	return tx.RowsAffected, tx.Error
+}
+
+// DeleteAll removes every contact belonging to tenantID and returns the
+// number of rows deleted.
+func (r *GORMContactRepository) DeleteAll(ctx context.Context, tenantID uuid.UUID) (int64, error) {
+	tx := r.db.WithContext(ctx).
+		Where("\"tenantId\" = ?", tenantID).
+		Delete(&models.Contact{})
+	return tx.RowsAffected, tx.Error
+}
+
 // Create inserts a new contact record from the domain struct.
 func (r *GORMContactRepository) Create(ctx context.Context, contact *domain.Contact) error {
 	m := contactDomainToModel(contact)

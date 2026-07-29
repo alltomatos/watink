@@ -500,6 +500,12 @@ definitions:
         type: array
       slug:
         type: string
+      taxRatePercent:
+        description: |-
+          TaxRatePercent é a taxa global de imposto (ex.: 8) exibida sobre o
+          preço no Marketplace — mesma taxa para todo plugin, vem do Hub via
+          plugin-manager (HubPlugin.TaxRatePercent).
+        type: integer
       type:
         type: string
       version:
@@ -513,6 +519,15 @@ definitions:
         items:
           $ref: '#/definitions/pluginlicense.CatalogPlugin'
         type: array
+    type: object
+  pluginlicense.CheckoutOrderResponse:
+    properties:
+      amountCents:
+        type: integer
+      checkoutUrl:
+        type: string
+      orderId:
+        type: integer
     type: object
   pluginlicense.InstanceResponse:
     properties:
@@ -1251,6 +1266,46 @@ paths:
       security:
       - BearerAuth: []
       summary: Sincronizar foto do contato via WhatsApp
+      tags:
+      - contacts
+  /contacts/all:
+    delete:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Excluir todos os contatos do tenant
+      tags:
+      - contacts
+  /contacts/bulk-delete:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Lista de IDs a excluir
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Excluir contatos selecionados
       tags:
       - contacts
   /contacts/import:
@@ -2364,6 +2419,23 @@ paths:
       security:
       - BearerAuth: []
       summary: Ativar plugin
+      tags:
+      - plugins
+  /plugins/{slug}/checkout:
+    post:
+      description: Cria (ou reaproveita, idempotente) um pedido de compra pending
+        para o plugin `pro` indicado e devolve a URL de redirect pro Checkout Pro
+        do Mercado Pago — a licença só nasce quando o webhook confirma o pagamento.
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/pluginlicense.CheckoutOrderResponse'
+      security:
+      - BearerAuth: []
+      summary: Iniciar checkout de plugin pro (Checkout Pro — pagamento real)
       tags:
       - plugins
   /plugins/{slug}/deactivate:
