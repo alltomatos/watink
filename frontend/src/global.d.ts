@@ -39,18 +39,4 @@ declare module 'mic-recorder-to-mp3' {
 }
 declare module '*.png';
 declare module '*.mp3';
-declare module 'react-beautiful-dnd' {
-  export interface DropResult {
-    draggableId: string;
-    type: string;
-    source: { droppableId: string; index: number };
-    destination?: { droppableId: string; index: number } | null;
-    reason: 'DROP' | 'CANCEL';
-    combine?: any;
-    mode: 'FLUID' | 'SNAP';
-  }
-  export const DragDropContext: any;
-  export const Droppable: any;
-  export const Draggable: any;
-}
 declare module '@virtuoso.dev/message-list';
