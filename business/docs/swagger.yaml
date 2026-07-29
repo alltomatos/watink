@@ -2322,6 +2322,33 @@ paths:
       tags:
       - pipelines
   /pipelines/{pipelineId}:
+    delete:
+      parameters:
+      - description: ID do pipeline
+        in: path
+        name: pipelineId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Excluir pipeline
+      tags:
+      - pipelines
     put:
       consumes:
       - application/json

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { Layers, Pencil, Plus, Upload } from "lucide-react";
+import { Layers, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { PageLayout, PageHeader, PageContent } from "@/components/ui/page-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import ConfirmationModal from "@/components/ConfirmationModal";
 import api from "../../services/api";
 
 const STAGE_COLORS = [
@@ -33,6 +34,7 @@ const Pipelines: React.FC = () => {
     const navigate = useNavigate();
     const [pipelines, setPipelines] = useState<Pipeline[]>([]);
     const [loading, setLoading] = useState(true);
+    const [pipelineToDelete, setPipelineToDelete] = useState<Pipeline | null>(null);
 
     useEffect(() => {
         fetchPipelines();
@@ -52,6 +54,24 @@ const Pipelines: React.FC = () => {
     const handleEditPipeline = (e: React.MouseEvent, id: number) => {
         e.stopPropagation();
         navigate(`/pipelines/${id}/edit`);
+    };
+
+    const handleRequestDeletePipeline = (e: React.MouseEvent, pipeline: Pipeline) => {
+        e.stopPropagation();
+        setPipelineToDelete(pipeline);
+    };
+
+    const handleConfirmDeletePipeline = async () => {
+        if (!pipelineToDelete) return;
+        try {
+            await api.delete(`/pipelines/${pipelineToDelete.id}`);
+            toast.success("Pipeline excluído com sucesso!");
+            fetchPipelines();
+        } catch {
+            toast.error("Erro ao excluir pipeline");
+        } finally {
+            setPipelineToDelete(null);
+        }
     };
 
     const handleImportPipeline = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -76,6 +96,17 @@ const Pipelines: React.FC = () => {
 
     return (
         <PageLayout>
+            <ConfirmationModal
+                title="Excluir pipeline"
+                open={!!pipelineToDelete}
+                onClose={() => setPipelineToDelete(null)}
+                onConfirm={handleConfirmDeletePipeline}
+            >
+                Tem certeza que deseja excluir o pipeline "{pipelineToDelete?.name}"? Todas as
+                etapas e negócios vinculados a ele serão excluídos permanentemente. Esta ação não
+                pode ser desfeita.
+            </ConfirmationModal>
+
             <PageHeader
                 title="Pipelines"
                 description="Gerencie seus fluxos de atendimento e funis de vendas"
@@ -149,14 +180,24 @@ const Pipelines: React.FC = () => {
                                                 </p>
                                             )}
                                         </div>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7 shrink-0 -mt-0.5 -mr-1 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity hover:text-primary hover:bg-primary/10"
-                                            onClick={(e) => handleEditPipeline(e, pipeline.id)}
-                                        >
-                                            <Pencil className="h-3.5 w-3.5" />
-                                        </Button>
+                                        <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-7 w-7 -mt-0.5 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                                onClick={(e) => handleEditPipeline(e, pipeline.id)}
+                                            >
+                                                <Pencil className="h-3.5 w-3.5" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-7 w-7 -mt-0.5 -mr-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                                onClick={(e) => handleRequestDeletePipeline(e, pipeline)}
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                            </Button>
+                                        </div>
                                     </div>
 
                                     {/* Stage color dots */}

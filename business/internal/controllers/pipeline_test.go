@@ -134,6 +134,88 @@ func TestPipelineController_Update_NotFound(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
+func TestPipelineController_Delete_RemovesPipelineStagesAndDeals(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := setupPipelineTestDB(t)
+	tenantID := uuid.New()
+
+	createPayload, _ := json.Marshal(map[string]interface{}{
+		"name":   "Para Excluir",
+		"stages": []map[string]string{{"name": "A"}, {"name": "B"}},
+	})
+	c, w := setupPipelineContext(t, db, tenantID, "POST", "/pipelines", createPayload)
+	NewPipelineController().Create(c)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var created map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &created))
+	pipelineID := int(created["id"].(float64))
+	var stageAID int
+	for _, s := range created["stages"].([]interface{}) {
+		sm := s.(map[string]interface{})
+		if sm["name"].(string) == "A" {
+			stageAID = int(sm["id"].(float64))
+		}
+	}
+	require.NotZero(t, stageAID)
+
+	require.NoError(t, db.Exec(
+		`INSERT INTO "Deals" (name, "stageId", "contactId", "tenantId", status) VALUES (?,?,?,?,?)`,
+		"Negócio A", stageAID, 1, tenantID, "open",
+	).Error)
+
+	c2, w2 := setupPipelineContextWithParam(t, db, tenantID, "DELETE", fmt.Sprintf("/pipelines/%d", pipelineID), nil, "pipelineId", strconv.Itoa(pipelineID))
+	NewPipelineController().Delete(c2)
+	assert.Equal(t, http.StatusOK, w2.Code, "delete body: %s", w2.Body.String())
+
+	var pipelineCount int64
+	require.NoError(t, db.Raw(`SELECT COUNT(*) FROM "Pipelines" WHERE id = ?`, pipelineID).Scan(&pipelineCount).Error)
+	assert.Equal(t, int64(0), pipelineCount, "pipeline must be deleted")
+
+	var stageCount int64
+	require.NoError(t, db.Raw(`SELECT COUNT(*) FROM "PipelineStages" WHERE "pipelineId" = ?`, pipelineID).Scan(&stageCount).Error)
+	assert.Equal(t, int64(0), stageCount, "stages must be deleted with the pipeline")
+
+	var dealCount int64
+	require.NoError(t, db.Raw(`SELECT COUNT(*) FROM "Deals" WHERE "stageId" = ?`, stageAID).Scan(&dealCount).Error)
+	assert.Equal(t, int64(0), dealCount, "deals on the deleted pipeline's stages must not be left orphaned")
+}
+
+func TestPipelineController_Delete_NotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := setupPipelineTestDB(t)
+	tenantID := uuid.New()
+
+	ctrl := NewPipelineController()
+	c, w := setupPipelineContextWithParam(t, db, tenantID, "DELETE", "/pipelines/9999", nil, "pipelineId", "9999")
+
+	ctrl.Delete(c)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestPipelineController_Delete_CrossTenant_NotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := setupPipelineTestDB(t)
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	db.Exec(`INSERT INTO "Pipelines" (name, "tenantId") VALUES (?,?)`, "De Outro Tenant", tenantB)
+	var id int
+	db.Raw(`SELECT id FROM "Pipelines" WHERE name = ?`, "De Outro Tenant").Scan(&id)
+
+	ctrl := NewPipelineController()
+	c, w := setupPipelineContextWithParam(t, db, tenantA, "DELETE", fmt.Sprintf("/pipelines/%d", id), nil, "pipelineId", strconv.Itoa(id))
+
+	ctrl.Delete(c)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+
+	var count int64
+	require.NoError(t, db.Raw(`SELECT COUNT(*) FROM "Pipelines" WHERE id = ?`, id).Scan(&count).Error)
+	assert.Equal(t, int64(1), count, "pipeline from another tenant must survive")
+}
+
 func TestPipelineController_Export_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := setupPipelineTestDB(t)

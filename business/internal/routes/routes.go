@@ -363,6 +363,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		protected.GET("/pipelines/", pipelineController.List)
 		protected.POST("/pipelines", pipelineController.Create)
 		protected.PUT("/pipelines/:pipelineId", pipelineController.Update)
+		protected.DELETE("/pipelines/:pipelineId", pipelineController.Delete)
 		protected.POST("/pipelines/import", pipelineController.Import)
 		protected.GET("/pipelines/export/:pipelineId", pipelineController.Export)
 		protected.POST("/pipelines/ai-suggest", pipelineController.AISuggest)
