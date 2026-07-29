@@ -6,8 +6,16 @@ import { PageLayout, PageHeader, PageContent } from "@/components/ui/page-layout
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import api from "../../services/api";
+import { useLocalStorage } from "../../hooks/useLocalStorage";
 
 const STAGE_COLORS = [
     "hsl(var(--status-info))",
@@ -28,13 +36,17 @@ interface Pipeline {
     description: string;
     type: "kanban" | "funnel" | "funil";
     stages: PipelineStage[];
+    createdAt?: string;
 }
+
+type PipelineSortOption = "name" | "date";
 
 const Pipelines: React.FC = () => {
     const navigate = useNavigate();
     const [pipelines, setPipelines] = useState<Pipeline[]>([]);
     const [loading, setLoading] = useState(true);
     const [pipelineToDelete, setPipelineToDelete] = useState<Pipeline | null>(null);
+    const [sortBy, setSortBy] = useLocalStorage<PipelineSortOption>("pipelinesSortBy", "name");
 
     useEffect(() => {
         fetchPipelines();
@@ -74,6 +86,15 @@ const Pipelines: React.FC = () => {
         }
     };
 
+    const sortedPipelines = [...pipelines].sort((a, b) => {
+        if (sortBy === "date") {
+            return (
+                new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+            );
+        }
+        return a.name.localeCompare(b.name);
+    });
+
     const handleImportPipeline = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -111,6 +132,18 @@ const Pipelines: React.FC = () => {
                 title="Pipelines"
                 description="Gerencie seus fluxos de atendimento e funis de vendas"
             >
+                {pipelines.length > 1 && (
+                    <Select value={sortBy} onValueChange={(v) => setSortBy(v as PipelineSortOption)}>
+                        <SelectTrigger className="w-[160px] h-10">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="name">Nome (A-Z)</SelectItem>
+                            <SelectItem value="date">Mais recentes</SelectItem>
+                        </SelectContent>
+                    </Select>
+                )}
+
                 <input
                     style={{ display: "none" }}
                     id="import-pipeline"
@@ -161,7 +194,7 @@ const Pipelines: React.FC = () => {
 
                 {!loading && pipelines.length > 0 && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                        {pipelines.map((pipeline) => (
+                        {sortedPipelines.map((pipeline) => (
                             <Card
                                 key={pipeline.id}
                                 className="cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-lg rounded-2xl shadow-[0px_4px_20px_rgba(0,0,0,0.06)] border group relative"

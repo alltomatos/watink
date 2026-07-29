@@ -4,6 +4,14 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import Pipelines from "../index";
 
+// jsdom não implementa essas APIs do Radix Select (usadas no popover de opções).
+beforeEach(() => {
+  Element.prototype.scrollIntoView = vi.fn();
+  Element.prototype.hasPointerCapture = vi.fn().mockReturnValue(false);
+  Element.prototype.setPointerCapture = vi.fn();
+  Element.prototype.releasePointerCapture = vi.fn();
+});
+
 const mockApiGet = vi.fn();
 const mockApiDelete = vi.fn();
 
@@ -28,6 +36,7 @@ const pipeline = {
 
 describe("Pipelines page — delete", () => {
   beforeEach(() => {
+    window.localStorage.clear();
     mockApiGet.mockReset();
     mockApiDelete.mockReset();
     mockApiGet.mockResolvedValue({ data: [pipeline] });
@@ -55,5 +64,47 @@ describe("Pipelines page — delete", () => {
     fireEvent.click(screen.getByText("Ok"));
 
     await waitFor(() => expect(mockApiDelete).toHaveBeenCalledWith("/pipelines/1"));
+  });
+});
+
+describe("Pipelines page — ordenação", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    mockApiGet.mockReset();
+    mockApiGet.mockResolvedValue({
+      data: [
+        { id: 1, name: "Zebra", description: "", type: "kanban", stages: [], createdAt: "2026-06-01T00:00:00Z" },
+        { id: 2, name: "Alfa", description: "", type: "kanban", stages: [], createdAt: "2026-01-01T00:00:00Z" },
+      ],
+    });
+  });
+
+  const cardTitles = () =>
+    Array.from(document.querySelectorAll("p.font-semibold")).map((el) => el.textContent);
+
+  it("sorts by name (A-Z) by default", async () => {
+    render(
+      <MemoryRouter>
+        <Pipelines />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(screen.getByText("Alfa")).toBeInTheDocument());
+    expect(cardTitles()).toEqual(["Alfa", "Zebra"]);
+  });
+
+  it("sorts by most recent when the sort option changes", async () => {
+    render(
+      <MemoryRouter>
+        <Pipelines />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(screen.getByText("Alfa")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("combobox"));
+    fireEvent.click(await screen.findByText("Mais recentes"));
+
+    await waitFor(() => expect(cardTitles()).toEqual(["Zebra", "Alfa"]));
   });
 });
