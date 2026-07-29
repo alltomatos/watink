@@ -59,6 +59,8 @@ type ContactRepository interface {
 	Create(ctx context.Context, contact *Contact) error
 	Update(ctx context.Context, contact *Contact, fields map[string]interface{}) error
 	Delete(ctx context.Context, id int, tenantID uuid.UUID) error
+	BulkDelete(ctx context.Context, ids []int, tenantID uuid.UUID) (int64, error)
+	DeleteAll(ctx context.Context, tenantID uuid.UUID) (int64, error)
 	FindOrCreate(ctx context.Context, tenantID uuid.UUID, number string, pushName string, profilePicUrl string, isGroup bool, isLID bool, from string) (*Contact, error)
 }
 

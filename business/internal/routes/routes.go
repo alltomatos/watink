@@ -230,6 +230,8 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		protected.POST("/contacts", contactController.CreateContact)
 		protected.POST("/contacts/", contactController.CreateContact)
 		protected.POST("/contacts/import", contactController.ImportContacts)
+		protected.POST("/contacts/bulk-delete", contactController.BulkDeleteContacts)
+		protected.DELETE("/contacts/all", contactController.DeleteAllContacts)
 		protected.POST("/contacts/:contactId/sync", contactController.SyncContact)
 		protected.PUT("/contacts/:contactId", contactController.UpdateContact)
 		protected.DELETE("/contacts/:contactId", contactController.DeleteContact)

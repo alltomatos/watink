@@ -1000,6 +1000,71 @@ const docTemplate = `{
                 }
             }
         },
+        "/contacts/all": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "contacts"
+                ],
+                "summary": "Excluir todos os contatos do tenant",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/contacts/bulk-delete": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "contacts"
+                ],
+                "summary": "Excluir contatos selecionados",
+                "parameters": [
+                    {
+                        "description": "Lista de IDs a excluir",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/contacts/import": {
             "post": {
                 "security": [
@@ -3027,6 +3092,31 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/plugins/{slug}/checkout": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cria (ou reaproveita, idempotente) um pedido de compra pending para o plugin ` + "`" + `pro` + "`" + ` indicado e devolve a URL de redirect pro Checkout Pro do Mercado Pago — a licença só nasce quando o webhook confirma o pagamento.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "plugins"
+                ],
+                "summary": "Iniciar checkout de plugin pro (Checkout Pro — pagamento real)",
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/pluginlicense.CheckoutOrderResponse"
                         }
                     }
                 }
@@ -6436,6 +6526,10 @@ const docTemplate = `{
                 "slug": {
                     "type": "string"
                 },
+                "taxRatePercent": {
+                    "description": "TaxRatePercent é a taxa global de imposto (ex.: 8) exibida sobre o\npreço no Marketplace — mesma taxa para todo plugin, vem do Hub via\nplugin-manager (HubPlugin.TaxRatePercent).",
+                    "type": "integer"
+                },
                 "type": {
                     "type": "string"
                 },
@@ -6455,6 +6549,20 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/pluginlicense.CatalogPlugin"
                     }
+                }
+            }
+        },
+        "pluginlicense.CheckoutOrderResponse": {
+            "type": "object",
+            "properties": {
+                "amountCents": {
+                    "type": "integer"
+                },
+                "checkoutUrl": {
+                    "type": "string"
+                },
+                "orderId": {
+                    "type": "integer"
                 }
             }
         },
