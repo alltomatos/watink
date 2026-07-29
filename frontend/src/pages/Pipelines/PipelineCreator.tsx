@@ -64,6 +64,7 @@ const PipelineCreator: React.FC = () => {
         handleStageColorChange,
         handleAddStage,
         handleRemoveStage,
+        handleMoveStage,
         handleSendMessage,
         handleKeyDown,
         navigate,
@@ -146,6 +147,7 @@ const PipelineCreator: React.FC = () => {
                                 onStageColorChange={handleStageColorChange}
                                 onAddStage={handleAddStage}
                                 onRemoveStage={handleRemoveStage}
+                                onMoveStage={handleMoveStage}
                             />
                         </section>
 

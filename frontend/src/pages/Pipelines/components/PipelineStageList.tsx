@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from "react";
-import { GripVertical, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, GripVertical, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { STAGE_COLOR_PALETTE, getColorByKey } from "../pipelineCreatorTypes";
@@ -11,6 +11,7 @@ interface PipelineStageListProps {
     onStageColorChange: (index: number, colorKey: string) => void;
     onAddStage: () => void;
     onRemoveStage: (index: number) => void;
+    onMoveStage: (index: number, direction: "up" | "down") => void;
 }
 
 function ColorPicker({
@@ -79,6 +80,7 @@ const PipelineStageList: React.FC<PipelineStageListProps> = ({
     onStageColorChange,
     onAddStage,
     onRemoveStage,
+    onMoveStage,
 }) => (
     <div>
         <div className="flex items-start justify-between mb-1">
@@ -114,6 +116,28 @@ const PipelineStageList: React.FC<PipelineStageListProps> = ({
                     >
                         {/* Drag handle (visual only) */}
                         <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/40 cursor-grab" />
+
+                        {/* Move up/down */}
+                        <div className="flex flex-col shrink-0 -mx-1">
+                            <button
+                                type="button"
+                                onClick={() => onMoveStage(index, "up")}
+                                disabled={index === 0}
+                                aria-label={`Mover "${stage.name}" para cima`}
+                                className="h-3.5 w-5 flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:pointer-events-none"
+                            >
+                                <ChevronUp className="h-3 w-3" />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => onMoveStage(index, "down")}
+                                disabled={index === stages.length - 1}
+                                aria-label={`Mover "${stage.name}" para baixo`}
+                                className="h-3.5 w-5 flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:pointer-events-none"
+                            >
+                                <ChevronDown className="h-3 w-3" />
+                            </button>
+                        </div>
 
                         {/* Number badge */}
                         <span className="text-xs font-semibold text-muted-foreground w-5 shrink-0 text-center">
