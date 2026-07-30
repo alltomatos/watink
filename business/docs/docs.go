@@ -1231,7 +1231,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Busca a foto de perfil atualizada do contato. Para conexões izapia, roda de forma síncrona e responde 200; para engine-go, publica o comando assíncrono e responde 202.",
+                "description": "Busca a foto de perfil atualizada do contato. Para conexões izapia, roda de forma síncrona e responde 200; para engine-go, publica a mensagem assíncrona via AMQP e responde 202.",
                 "produces": [
                     "application/json"
                 ],

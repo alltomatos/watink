@@ -69,7 +69,7 @@ func (cc *ContactController) ImportContacts(c *gin.Context) {
 }
 
 // @Summary      Sincronizar foto do contato via WhatsApp
-// @Description  Busca a foto de perfil atualizada do contato. Para conexões izapia, roda de forma síncrona e responde 200; para engine-go, publica o comando assíncrono e responde 202.
+// @Description  Busca a foto de perfil atualizada do contato. Para conexões izapia, roda de forma síncrona e responde 200; para engine-go, publica a mensagem assíncrona via AMQP e responde 202.
 // @Tags         contacts
 // @Produce      json
 // @Param        contactId  path      int  true  "ID do contato"
