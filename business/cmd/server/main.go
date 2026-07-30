@@ -145,6 +145,12 @@ func main() {
 			version := "dev"
 			if m := regexp.MustCompile(`## (v[0-9][^\s]*)`).FindStringSubmatch(web.ChangelogMD); m != nil {
 				version = m[1]
+			} else if GitBranch == "main" {
+				// "dev" é enganoso em produção: nenhuma release foi publicada
+				// ainda (release-business-binaries.yml não rodou), mas o
+				// binário É a main -- cai no commit curto como pseudo-versão
+				// até a primeira tag real existir.
+				version = "main-" + GitCommit
 			}
 
 			dbVersion := "unknown"
