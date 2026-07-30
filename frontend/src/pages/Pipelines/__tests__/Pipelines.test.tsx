@@ -14,11 +14,13 @@ beforeEach(() => {
 
 const mockApiGet = vi.fn();
 const mockApiDelete = vi.fn();
+const mockApiPost = vi.fn();
 
 vi.mock("../../../services/api", () => ({
   default: {
     get: (...args: unknown[]) => mockApiGet(...args),
     delete: (...args: unknown[]) => mockApiDelete(...args),
+    post: (...args: unknown[]) => mockApiPost(...args),
   },
 }));
 
@@ -34,13 +36,30 @@ const pipeline = {
   stages: [{ id: 10, name: "Novo" }],
 };
 
-describe("Pipelines page — delete", () => {
+const openPipelineMenu = async () => {
+  const menuButton = document.querySelector(
+    "button:has(svg.lucide-ellipsis-vertical)"
+  ) as HTMLButtonElement;
+  expect(menuButton).toBeTruthy();
+  // Radix DropdownMenuTrigger listens for a real pointerdown+click sequence
+  // (not just synthetic click) -- and userEvent's native .focus() emulation
+  // causes an infinite focus/blur loop between Radix FocusScope instances in
+  // jsdom when this menu closes into a Dialog opening (ConfirmationModal),
+  // so we dispatch the minimal event sequence directly instead of userEvent.
+  fireEvent.pointerDown(menuButton, { pointerId: 1, button: 0 });
+  fireEvent.click(menuButton);
+  await waitFor(() => expect(screen.getByText("Excluir")).toBeInTheDocument());
+};
+
+describe("Pipelines page — ações do card (excluir/duplicar/exportar)", () => {
   beforeEach(() => {
     window.localStorage.clear();
     mockApiGet.mockReset();
     mockApiDelete.mockReset();
+    mockApiPost.mockReset();
     mockApiGet.mockResolvedValue({ data: [pipeline] });
     mockApiDelete.mockResolvedValue({ data: { message: "ok" } });
+    mockApiPost.mockResolvedValue({ data: { ...pipeline, id: 2 } });
   });
 
   it("asks for confirmation before deleting, and calls DELETE /pipelines/:id on confirm", async () => {
@@ -52,18 +71,57 @@ describe("Pipelines page — delete", () => {
 
     await waitFor(() => expect(screen.getByText("Funil de Vendas")).toBeInTheDocument());
 
-    const deleteButton = document.querySelector(
-      "button:has(svg.lucide-trash2)"
-    ) as HTMLButtonElement;
-    expect(deleteButton).toBeTruthy();
-    fireEvent.click(deleteButton);
+    await openPipelineMenu();
+    fireEvent.click(screen.getByText("Excluir"));
 
-    expect(screen.getByText("Excluir pipeline")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Excluir pipeline")).toBeInTheDocument());
     expect(mockApiDelete).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByText("Ok"));
 
     await waitFor(() => expect(mockApiDelete).toHaveBeenCalledWith("/pipelines/1"));
+  });
+
+  it("duplicates the pipeline via POST /pipelines with a '(cópia)' suffix", async () => {
+    render(
+      <MemoryRouter>
+        <Pipelines />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(screen.getByText("Funil de Vendas")).toBeInTheDocument());
+
+    await openPipelineMenu();
+    fireEvent.click(screen.getByText("Duplicar"));
+
+    await waitFor(() =>
+      expect(mockApiPost).toHaveBeenCalledWith(
+        "/pipelines",
+        expect.objectContaining({ name: "Funil de Vendas (cópia)" })
+      )
+    );
+  });
+
+  it("exports the pipeline via GET /pipelines/export/:id", async () => {
+    mockApiGet.mockImplementation((url: string) => {
+      if (url.startsWith("/pipelines/export/")) {
+        return Promise.resolve({ data: pipeline });
+      }
+      return Promise.resolve({ data: [pipeline] });
+    });
+
+    render(
+      <MemoryRouter>
+        <Pipelines />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(screen.getByText("Funil de Vendas")).toBeInTheDocument());
+
+    await openPipelineMenu();
+    fireEvent.click(screen.getByText("Exportar JSON"));
+
+    await waitFor(() => expect(mockApiGet).toHaveBeenCalledWith("/pipelines/export/1"));
   });
 });
 
@@ -106,5 +164,21 @@ describe("Pipelines page — ordenação", () => {
     fireEvent.click(await screen.findByText("Mais recentes"));
 
     await waitFor(() => expect(cardTitles()).toEqual(["Zebra", "Alfa"]));
+  });
+
+  it("filters the list by search term", async () => {
+    render(
+      <MemoryRouter>
+        <Pipelines />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(screen.getByText("Alfa")).toBeInTheDocument());
+
+    fireEvent.change(screen.getByPlaceholderText("Buscar pipeline..."), {
+      target: { value: "zeb" },
+    });
+
+    await waitFor(() => expect(cardTitles()).toEqual(["Zebra"]));
   });
 });
