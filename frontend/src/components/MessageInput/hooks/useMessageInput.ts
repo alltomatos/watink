@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useParams } from "react-router";
 import { ReplyMessageContext } from "../../../context/ReplyingMessage/ReplyingMessageContext";
 import { AuthContext } from "../../../context/Auth/AuthContext";
 import { useLocalStorage } from "../../../hooks/useLocalStorage";

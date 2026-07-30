@@ -167,6 +167,8 @@ const messages = {
         title: "Contactos",
         toasts: {
           deleted: "¡Contacto borrado satisfactoriamente!",
+          bulkDeleted: "¡{{count}} contactos borrados satisfactoriamente!",
+          allDeleted: "¡Todos los contactos fueron borrados satisfactoriamente!",
         },
         searchPlaceholder: "Buscar...",
         confirmationModal: {
@@ -176,10 +178,22 @@ const messages = {
             "¿Estás seguro que deseas borrar este contacto? Todos los tickets relacionados se perderán.",
           importMessage:
             "¿Quieres importar todos los contactos desde tu teléfono?",
+          bulkDeleteTitle: "Borrar contactos seleccionados",
+          bulkDeleteMessage:
+            "¿Estás seguro que deseas borrar {{count}} contacto(s) seleccionado(s)? Esta acción no se puede deshacer.",
+          deleteAllTitle: "Borrar todos los contactos",
+          deleteAllMessage:
+            "Atención: esto borrará TODOS los contactos de este tenant permanentemente, incluyendo el historial de tickets vinculado. Esta acción no se puede deshacer.",
         },
         buttons: {
           import: "Importar Contactos",
           add: "Agregar Contacto",
+          deleteSelected: "Borrar Seleccionados",
+          deselectAll: "Desmarcar",
+          deleteAll: "Borrar Todos los Contactos",
+        },
+        selection: {
+          selectedCount: "{{count}} seleccionado(s)",
         },
         table: {
           name: "Nombre",

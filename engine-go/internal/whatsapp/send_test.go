@@ -12,9 +12,9 @@ import (
 
 // mockFullClient satisfies the expanded WhatsAppClient interface.
 type mockFullClient struct {
-	sendErr    error
-	uploadResp whatsmeow.UploadResponse
-	uploadErr  error
+	sendErr     error
+	uploadResp  whatsmeow.UploadResponse
+	uploadErr   error
 	markReadErr error
 }
 
@@ -68,6 +68,36 @@ func TestSendText_NoClient(t *testing.T) {
 		MessageID: "msg-1",
 		To:        "5511999990000@s.whatsapp.net",
 		Body:      "hello",
+	})
+	if err == nil {
+		t.Fatal("expected error for disconnected session")
+	}
+	if len(events) == 0 || events[0] != "message.ack" {
+		t.Fatalf("expected message.ack event, got %v", events)
+	}
+}
+
+// TestSendReaction_NoClient verifies that SendReaction returns an error and
+// emits message.ack when no session is connected.
+func TestSendReaction_NoClient(t *testing.T) {
+	var events []string
+	svc := &WhatsAppService{
+		clients:         make(map[int]*whatsmeow.Client),
+		historyRequests: make(map[string]*pendingHistory),
+		groupNames:      make(map[string]string),
+		groupMetaMap:    make(map[string]groupMeta),
+		picCache:        make(map[string]string),
+	}
+	svc.publishEvent = func(_ string, _ int, eventType string, _ map[string]interface{}) {
+		events = append(events, eventType)
+	}
+
+	err := svc.SendReaction(1, "tenant-1", ReactionCommandPayload{
+		MessageID:    "msg-1",
+		To:           "5511999990000@s.whatsapp.net",
+		TargetMsgID:  "target-1",
+		TargetFromMe: false,
+		Reaction:     "👍",
 	})
 	if err == nil {
 		t.Fatal("expected error for disconnected session")

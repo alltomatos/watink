@@ -1,6 +1,6 @@
 /* @jsxImportSource react */
 import React, { useState, useEffect, useContext, useCallback, useRef } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router";
 import type { AxiosError } from "axios";
 import { ArrowLeft, CheckCircle, ChevronLeft, ChevronRight, Loader2, Puzzle } from "lucide-react";
 import { toast } from "react-toastify";

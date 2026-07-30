@@ -1,6 +1,6 @@
 /* @jsxImportSource react */
 import React, { useState, useContext, useEffect, useCallback } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation } from "react-router";
 import { AuthContext } from "../context/Auth/AuthContext";
 import api from "../services/api";
 import { getBackendUrl } from "../helpers/urlUtils";

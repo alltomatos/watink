@@ -1,5 +1,5 @@
 import React from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router";
 import { parseISO, format, isSameDay } from "date-fns";
 import { Users, Building2, Radio } from "lucide-react";
 

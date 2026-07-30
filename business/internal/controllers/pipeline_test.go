@@ -73,6 +73,74 @@ func TestPipelineController_List_ReturnsOnlyOwnTenant(t *testing.T) {
 	assert.Equal(t, "CRM", pipelines[0]["name"])
 }
 
+func TestPipelineController_List_IncludesDealMetrics(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := setupPipelineTestDB(t)
+	tenantID := uuid.New()
+
+	createPayload, _ := json.Marshal(map[string]interface{}{
+		"name":   "Com Métricas",
+		"stages": []map[string]string{{"name": "A"}, {"name": "B"}},
+	})
+	c, w := setupPipelineContext(t, db, tenantID, "POST", "/pipelines", createPayload)
+	NewPipelineController().Create(c)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var created map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &created))
+	var stageAID, stageBID int
+	for _, s := range created["stages"].([]interface{}) {
+		sm := s.(map[string]interface{})
+		switch sm["name"].(string) {
+		case "A":
+			stageAID = int(sm["id"].(float64))
+		case "B":
+			stageBID = int(sm["id"].(float64))
+		}
+	}
+
+	require.NoError(t, db.Exec(
+		`INSERT INTO "Deals" (name, "stageId", "contactId", "tenantId", status, value) VALUES (?,?,?,?,?,?)`,
+		"D1", stageAID, 1, tenantID, "open", 100.50,
+	).Error)
+	require.NoError(t, db.Exec(
+		`INSERT INTO "Deals" (name, "stageId", "contactId", "tenantId", status, value) VALUES (?,?,?,?,?,?)`,
+		"D2", stageBID, 1, tenantID, "open", 200.00,
+	).Error)
+
+	ctrl := NewPipelineController()
+	c2, w2 := setupPipelineContext(t, db, tenantID, "GET", "/pipelines", nil)
+	ctrl.List(c2)
+
+	assert.Equal(t, http.StatusOK, w2.Code)
+	var pipelines []map[string]interface{}
+	require.NoError(t, json.Unmarshal(w2.Body.Bytes(), &pipelines))
+	require.Len(t, pipelines, 1)
+	assert.Equal(t, float64(2), pipelines[0]["dealsCount"])
+	assert.InDelta(t, 300.50, pipelines[0]["dealsValue"], 0.001)
+}
+
+func TestPipelineController_List_NoDeals_ZeroMetrics(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := setupPipelineTestDB(t)
+	tenantID := uuid.New()
+
+	db.Exec(`INSERT INTO "Pipelines" (name, "tenantId") VALUES (?,?)`, "Sem Deals", tenantID)
+
+	ctrl := NewPipelineController()
+	c, w := setupPipelineContext(t, db, tenantID, "GET", "/pipelines", nil)
+	ctrl.List(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var pipelines []map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &pipelines))
+	require.Len(t, pipelines, 1)
+	// omitempty + zero value: field is absent from JSON, which is equivalent to zero.
+	if v, ok := pipelines[0]["dealsCount"]; ok {
+		assert.Equal(t, float64(0), v)
+	}
+}
+
 func TestPipelineController_Create_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := setupPipelineTestDB(t)
@@ -132,6 +200,88 @@ func TestPipelineController_Update_NotFound(t *testing.T) {
 	ctrl.Update(c)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestPipelineController_Delete_RemovesPipelineStagesAndDeals(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := setupPipelineTestDB(t)
+	tenantID := uuid.New()
+
+	createPayload, _ := json.Marshal(map[string]interface{}{
+		"name":   "Para Excluir",
+		"stages": []map[string]string{{"name": "A"}, {"name": "B"}},
+	})
+	c, w := setupPipelineContext(t, db, tenantID, "POST", "/pipelines", createPayload)
+	NewPipelineController().Create(c)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var created map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &created))
+	pipelineID := int(created["id"].(float64))
+	var stageAID int
+	for _, s := range created["stages"].([]interface{}) {
+		sm := s.(map[string]interface{})
+		if sm["name"].(string) == "A" {
+			stageAID = int(sm["id"].(float64))
+		}
+	}
+	require.NotZero(t, stageAID)
+
+	require.NoError(t, db.Exec(
+		`INSERT INTO "Deals" (name, "stageId", "contactId", "tenantId", status) VALUES (?,?,?,?,?)`,
+		"Negócio A", stageAID, 1, tenantID, "open",
+	).Error)
+
+	c2, w2 := setupPipelineContextWithParam(t, db, tenantID, "DELETE", fmt.Sprintf("/pipelines/%d", pipelineID), nil, "pipelineId", strconv.Itoa(pipelineID))
+	NewPipelineController().Delete(c2)
+	assert.Equal(t, http.StatusOK, w2.Code, "delete body: %s", w2.Body.String())
+
+	var pipelineCount int64
+	require.NoError(t, db.Raw(`SELECT COUNT(*) FROM "Pipelines" WHERE id = ?`, pipelineID).Scan(&pipelineCount).Error)
+	assert.Equal(t, int64(0), pipelineCount, "pipeline must be deleted")
+
+	var stageCount int64
+	require.NoError(t, db.Raw(`SELECT COUNT(*) FROM "PipelineStages" WHERE "pipelineId" = ?`, pipelineID).Scan(&stageCount).Error)
+	assert.Equal(t, int64(0), stageCount, "stages must be deleted with the pipeline")
+
+	var dealCount int64
+	require.NoError(t, db.Raw(`SELECT COUNT(*) FROM "Deals" WHERE "stageId" = ?`, stageAID).Scan(&dealCount).Error)
+	assert.Equal(t, int64(0), dealCount, "deals on the deleted pipeline's stages must not be left orphaned")
+}
+
+func TestPipelineController_Delete_NotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := setupPipelineTestDB(t)
+	tenantID := uuid.New()
+
+	ctrl := NewPipelineController()
+	c, w := setupPipelineContextWithParam(t, db, tenantID, "DELETE", "/pipelines/9999", nil, "pipelineId", "9999")
+
+	ctrl.Delete(c)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestPipelineController_Delete_CrossTenant_NotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := setupPipelineTestDB(t)
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	db.Exec(`INSERT INTO "Pipelines" (name, "tenantId") VALUES (?,?)`, "De Outro Tenant", tenantB)
+	var id int
+	db.Raw(`SELECT id FROM "Pipelines" WHERE name = ?`, "De Outro Tenant").Scan(&id)
+
+	ctrl := NewPipelineController()
+	c, w := setupPipelineContextWithParam(t, db, tenantA, "DELETE", fmt.Sprintf("/pipelines/%d", id), nil, "pipelineId", strconv.Itoa(id))
+
+	ctrl.Delete(c)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+
+	var count int64
+	require.NoError(t, db.Raw(`SELECT COUNT(*) FROM "Pipelines" WHERE id = ?`, id).Scan(&count).Error)
+	assert.Equal(t, int64(1), count, "pipeline from another tenant must survive")
 }
 
 func TestPipelineController_Export_Success(t *testing.T) {

@@ -94,3 +94,33 @@ func (s *WhatsAppService) MarkRead(sessionID int, payload MarkReadCommandPayload
 	}
 	return client.MarkRead(context.Background(), ids, time.Now(), chat, sender)
 }
+
+// SendReaction sends (or, when payload.Reaction == "", removes) an emoji
+// reaction to an existing message.
+func (s *WhatsAppService) SendReaction(sessionID int, tenantID string, payload ReactionCommandPayload) error {
+	client, err := s.getConnectedClient(sessionID)
+	if err != nil {
+		s.emitAck(sessionID, tenantID, payload.MessageID, 5)
+		return err
+	}
+
+	chat, err := ensureJID(payload.To)
+	if err != nil {
+		s.emitAck(sessionID, tenantID, payload.MessageID, 5)
+		return fmt.Errorf("invalid JID %q: %w", payload.To, err)
+	}
+
+	sender := chat
+	if payload.TargetFromMe && client.Store.ID != nil {
+		sender = *client.Store.ID
+	}
+
+	msg := client.BuildReaction(chat, sender, types.MessageID(payload.TargetMsgID), payload.Reaction)
+	_, err = client.SendMessage(context.Background(), chat, msg, whatsmeow.SendRequestExtra{ID: types.MessageID(payload.MessageID)})
+	if err != nil {
+		s.emitAck(sessionID, tenantID, payload.MessageID, 5)
+		return err
+	}
+	s.emitAck(sessionID, tenantID, payload.MessageID, 1)
+	return nil
+}

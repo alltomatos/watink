@@ -31,6 +31,10 @@ func (m *mockRcvContactRepo) Update(_ context.Context, _ *domain.Contact, _ map[
 	return nil
 }
 func (m *mockRcvContactRepo) Delete(_ context.Context, _ int, _ uuid.UUID) error { return nil }
+func (m *mockRcvContactRepo) BulkDelete(_ context.Context, _ []int, _ uuid.UUID) (int64, error) {
+	return 0, nil
+}
+func (m *mockRcvContactRepo) DeleteAll(_ context.Context, _ uuid.UUID) (int64, error) { return 0, nil }
 func (m *mockRcvContactRepo) FindOrCreate(_ context.Context, _ uuid.UUID, _ string, _ string, _ string, _ bool, _ bool, _ string) (*domain.Contact, error) {
 	return m.contact, m.findOrCreateErr
 }

@@ -38,10 +38,15 @@ const QrcodeModal = ({ open, onClose, whatsAppId }: QrcodeModalProps) => {
     if (!whatsAppId) return;
 
     const handleSession = (data: WhatsAppSessionSocketEvent) => {
-      if (data.action === "update" && data.session.id === whatsAppId) {
-        setQrCode(data.session.qrcode ?? "");
+      // whatsAppId chega como number OU string dependendo do chamador;
+      // data.session.id vem sempre number do backend — normalizar os dois
+      // lados antes de comparar, senão a comparação estrita nunca bate e o
+      // modal nunca fecha sozinho ao conectar.
+      if (data.action !== "update" || String(data.session.id) !== String(whatsAppId)) {
+        return;
       }
-      if (data.action === "update" && data.session.qrcode === "") {
+      setQrCode(data.session.qrcode ?? "");
+      if (data.session.qrcode === "") {
         onClose();
       }
     };

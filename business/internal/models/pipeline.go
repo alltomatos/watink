@@ -17,6 +17,11 @@ type Pipeline struct {
 
 	// Relations
 	Stages []PipelineStage `gorm:"foreignKey:PipelineID" json:"stages,omitempty"`
+
+	// DealsCount and DealsValue are populated on-demand (never persisted) by
+	// PipelineController.List as quick metrics for the listing card.
+	DealsCount int64   `gorm:"-" json:"dealsCount,omitempty"`
+	DealsValue float64 `gorm:"-" json:"dealsValue,omitempty"`
 }
 
 func (Pipeline) TableName() string {

@@ -3,6 +3,8 @@ package whatsapp
 import (
 	"testing"
 
+	"go.mau.fi/whatsmeow"
+	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 )
@@ -173,6 +175,42 @@ func TestCachedGroupMeta_RoundTrip(t *testing.T) {
 	}
 	if !meta.isSubGroup {
 		t.Error("expected isSubGroup=true")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// handleEvent(*events.PairSuccess) — after the first QR scan, whatsmeow fires
+// PairSuccess (not a fresh Connected) without reopening the WebSocket. The
+// dispatcher must route it to emitConnected so session.status CONNECTED is
+// published; otherwise the first pairing never leaves "waiting for QR".
+// ---------------------------------------------------------------------------
+
+func TestHandleEvent_PairSuccess_EmitsConnectedStatus(t *testing.T) {
+	svc, calls := newTestService()
+
+	// NewClient never touches the DB/network — safe to use offline with a
+	// zero-value device store (Store.ID stays nil, same branch already
+	// exercised by TestEmitConnected_PublishesSessionStatus).
+	client := whatsmeow.NewClient(&store.Device{}, nil)
+	svc.clients[9] = client
+
+	svc.handleEvent(9, "tenant-pair", &events.PairSuccess{})
+
+	if len(*calls) != 1 {
+		t.Fatalf("expected 1 publishEvent call, got %d", len(*calls))
+	}
+	c := (*calls)[0]
+	if c.eventType != "session.status" {
+		t.Errorf("eventType = %q, want session.status", c.eventType)
+	}
+	if c.payload["status"] != "CONNECTED" {
+		t.Errorf("status = %v, want CONNECTED", c.payload["status"])
+	}
+	if c.tenantID != "tenant-pair" {
+		t.Errorf("tenantID = %q, want tenant-pair", c.tenantID)
+	}
+	if c.sessionID != 9 {
+		t.Errorf("sessionID = %d, want 9", c.sessionID)
 	}
 }
 

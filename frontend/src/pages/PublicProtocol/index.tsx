@@ -1,6 +1,6 @@
 /* @jsxImportSource react */
 import React from "react";
-import { useParams } from "react-router-dom";
+import { useParams } from "react-router";
 import { i18n } from "../../translate/i18n";
 
 import { usePublicProtocol } from "./hooks/usePublicProtocol";

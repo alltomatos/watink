@@ -46,8 +46,9 @@ import (
 )
 
 var (
-	GitCommit = "unknown" // setado via -ldflags no build
-	GitBranch = "unknown" // setado via -ldflags no build
+	GitCommit     = "unknown" // setado via -ldflags no build
+	GitBranch     = "unknown" // setado via -ldflags no build
+	GitCommitDate = "unknown" // setado via -ldflags no build (RFC3339)
 )
 
 func main() {
@@ -94,13 +95,19 @@ func main() {
 	// the WhatsApp adapter (dedup + PublishCommand). The interpreter resolves
 	// adapters from this registry — never whatsmeow directly (ADR 0014).
 	channelRegistry := flow.NewChannelRegistry()
-	channelRegistry.Register(flow.NewWhatsAppAdapter(rabbitMQ, redisSvc))
+	channelRegistry.Register(flow.NewWhatsAppAdapter(rabbitMQ, redisSvc, flow.WhatsAppAdapterDeps{
+		DB:      database.DB,
+		Engines: container.SessionService,
+	}))
+
+	// FlowBuilder FASE 1: the inbound seam is plugged into the EventListener
+	// (NewEventListener wires flow.NewSkeleton with the interpreter+registry),
+	// replacing the two previously-dead workers. No separate AMQP flow worker.
+	// Built unconditionally (not just when RabbitMQ connects) — the izapia
+	// webhook handler below reuses it as a transport-agnostic inbound seam.
+	eventListener := services.NewEventListener(container.ChannelSessionRepo, container.MessageRepo, container.ContactRepo, container.TicketRepo, container.ReceiveMessage, broadcast, database.DB, channelRegistry, redisSvc)
 
 	if err := rabbitMQ.Connect(); err == nil {
-		// FlowBuilder FASE 1: the inbound seam is plugged into the EventListener
-		// (NewEventListener wires flow.NewSkeleton with the interpreter+registry),
-		// replacing the two previously-dead workers. No separate AMQP flow worker.
-		eventListener := services.NewEventListener(container.ChannelSessionRepo, container.MessageRepo, container.ContactRepo, container.TicketRepo, container.ReceiveMessage, broadcast, database.DB, channelRegistry, redisSvc)
 		services.StartEventListener(rabbitMQ, eventListener)
 
 		// Knowledge Base RAG: consume ingestion status events from
@@ -121,6 +128,12 @@ func main() {
 	sseController := controllers.NewSSEController(container.SSEHub, redisSvc)
 	r.GET("/api/v1/events", sseController.Stream)
 
+	// izapia webhook — public route (no JWT), authenticated per-session by
+	// HMAC signature (X-izapia-Signature). See izapia.Provider.ensureSession
+	// for where the webhook secret/URL is configured on session creation.
+	izapiaWebhookController := controllers.NewIzapiaWebhookController(database.DB, eventListener)
+	r.POST("/webhooks/izapia/:sessionId", izapiaWebhookController.HandleWebhook)
+
 	apiGroup := r.Group("/api/v1")
 	apiGroup.Use(gin.Logger())
 	{
@@ -140,9 +153,11 @@ func main() {
 			}
 
 			c.JSON(200, gin.H{
-				"version": version,
-				"commit":  GitCommit,
-				"branch":  GitBranch,
+				"version":      version,
+				"commit":       GitCommit,
+				"branch":       GitBranch,
+				"commitDate":   GitCommitDate,
+				"updateStatus": services.CheckRepoUpdateStatus(GitCommit, GitBranch),
 				"database": gin.H{
 					"engine":  "PostgreSQL",
 					"version": dbVersion,

@@ -1,6 +1,6 @@
 /* @jsxImportSource react */
 import React from "react";
-import { useNavigate, Link as RouterLink } from "react-router-dom";
+import { useNavigate, Link as RouterLink } from "react-router";
 import { ArrowLeft, Check, Loader2 } from "lucide-react";
 
 import { Button } from "../../components/ui/button";

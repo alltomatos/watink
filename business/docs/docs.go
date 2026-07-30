@@ -1000,6 +1000,71 @@ const docTemplate = `{
                 }
             }
         },
+        "/contacts/all": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "contacts"
+                ],
+                "summary": "Excluir todos os contatos do tenant",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/contacts/bulk-delete": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "contacts"
+                ],
+                "summary": "Excluir contatos selecionados",
+                "parameters": [
+                    {
+                        "description": "Lista de IDs a excluir",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/contacts/import": {
             "post": {
                 "security": [
@@ -1923,6 +1988,207 @@ const docTemplate = `{
                 }
             }
         },
+        "/internal/saas/ping": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "internal-saas"
+                ],
+                "summary": "Ping do control plane SaaS",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/internal/saas/tenants": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "internal-saas"
+                ],
+                "summary": "Listar tenants para importação (control plane SaaS)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": true
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "internal-saas"
+                ],
+                "summary": "Provisionar tenant (control plane SaaS)",
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/internal/saas/tenants/{tenantId}/status": {
+            "patch": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "internal-saas"
+                ],
+                "summary": "Alterar status comercial do tenant (control plane SaaS)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/internal/saas/tenants/{tenantId}/subscription": {
+            "put": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "internal-saas"
+                ],
+                "summary": "Push do snapshot de assinatura (control plane SaaS)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/internal/saas/tenants/{tenantId}/usage": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "internal-saas"
+                ],
+                "summary": "Uso corrente do tenant (control plane SaaS)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/izapia-config": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "izapia"
+                ],
+                "summary": "Consultar credencial izapia do tenant",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.izapiaConfigResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Só recebe a API key — a base URL é sempre api.izapia.com.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "izapia"
+                ],
+                "summary": "Salvar a API key izapia do tenant",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.izapiaConfigResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/knowledge-bases": {
             "get": {
                 "security": [
@@ -2408,6 +2674,62 @@ const docTemplate = `{
                 }
             }
         },
+        "/message/{messageId}/react": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "messages"
+                ],
+                "summary": "Reagir a uma mensagem",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID da mensagem",
+                        "name": "messageId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Emoji da reação (vazio remove)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/messages/{ticketId}": {
             "get": {
                 "security": [
@@ -2693,6 +3015,49 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "pipelines"
+                ],
+                "summary": "Excluir pipeline",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID do pipeline",
+                        "name": "pipelineId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
             }
         },
         "/plugins/catalog": {
@@ -2826,6 +3191,31 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/plugins/{slug}/checkout": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cria (ou reaproveita, idempotente) um pedido de compra pending para o plugin ` + "`" + `pro` + "`" + ` indicado e devolve a URL de redirect pro Checkout Pro do Mercado Pago — a licença só nasce quando o webhook confirma o pagamento.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "plugins"
+                ],
+                "summary": "Iniciar checkout de plugin pro (Checkout Pro — pagamento real)",
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/pluginlicense.CheckoutOrderResponse"
                         }
                     }
                 }
@@ -5089,6 +5479,39 @@ const docTemplate = `{
                 }
             }
         },
+        "/webhooks/izapia/{sessionId}": {
+            "post": {
+                "description": "Recebe eventos de mensagem/status da sessão izapia. Autenticado por assinatura HMAC (X-izapia-Signature), não por JWT.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "izapia"
+                ],
+                "summary": "Webhook izapia (inbound)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID da conexão (Whatsapps.id)",
+                        "name": "sessionId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/whatsapp": {
             "get": {
                 "security": [
@@ -5501,6 +5924,17 @@ const docTemplate = `{
                 }
             }
         },
+        "controllers.izapiaConfigResponse": {
+            "type": "object",
+            "properties": {
+                "baseUrl": {
+                    "type": "string"
+                },
+                "hasApiKey": {
+                    "type": "boolean"
+                }
+            }
+        },
         "models.Cargo": {
             "type": "object",
             "properties": {
@@ -5790,6 +6224,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "color": {
+                    "description": "Color é cosmético — NÃO é único (o unique global antigo uni_Queues_color\nimpedia dois tenants de usarem a mesma cor). Dropado na migração.",
                     "type": "string"
                 },
                 "createdAt": {
@@ -5805,6 +6240,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "name": {
+                    "description": "Nome é único POR TENANT (não global) — multi-tenant: dois tenants podem ter\numa fila \"Atendimento Inicial\". O unique global antigo (uni_Queues_name)\nquebrava o provisionamento do 2º tenant; é dropado na migração.",
                     "type": "string"
                 },
                 "parent": {
@@ -6082,6 +6518,10 @@ const docTemplate = `{
                 "isDefault": {
                     "type": "boolean"
                 },
+                "izapiaSessionId": {
+                    "description": "IzapiaSessionID is the session id assigned by the izapia API (distinct from\nthis row's own ID). Only set when EngineType == \"izapia\".",
+                    "type": "string"
+                },
                 "keepAlive": {
                     "type": "boolean"
                 },
@@ -6167,14 +6607,27 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "longDescription": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
                 "price": {
                     "type": "number"
                 },
+                "screenshots": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "slug": {
                     "type": "string"
+                },
+                "taxRatePercent": {
+                    "description": "TaxRatePercent é a taxa global de imposto (ex.: 8) exibida sobre o\npreço no Marketplace — mesma taxa para todo plugin, vem do Hub via\nplugin-manager (HubPlugin.TaxRatePercent).",
+                    "type": "integer"
                 },
                 "type": {
                     "type": "string"
@@ -6195,6 +6648,20 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/pluginlicense.CatalogPlugin"
                     }
+                }
+            }
+        },
+        "pluginlicense.CheckoutOrderResponse": {
+            "type": "object",
+            "properties": {
+                "amountCents": {
+                    "type": "integer"
+                },
+                "checkoutUrl": {
+                    "type": "string"
+                },
+                "orderId": {
+                    "type": "integer"
                 }
             }
         },

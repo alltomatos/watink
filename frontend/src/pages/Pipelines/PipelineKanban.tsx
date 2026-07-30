@@ -1,5 +1,14 @@
 import React from "react";
-import { DragDropContext, Droppable, Draggable, DropResult } from "react-beautiful-dnd";
+import {
+    DragDropContext,
+    Droppable,
+    Draggable,
+    DropResult,
+    DroppableProvided,
+    DroppableStateSnapshot,
+    DraggableProvided,
+    DraggableStateSnapshot,
+} from "@hello-pangea/dnd";
 import { cn } from "@/lib/utils";
 import { Plus, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -100,7 +109,7 @@ const PipelineKanban: React.FC<PipelineKanbanProps> = ({
 
                         {/* ── Cards area ── */}
                         <Droppable droppableId={String(stage.id)}>
-                            {(provided: { droppableProps: Record<string, unknown>; innerRef: (el: HTMLElement | null) => void; placeholder: React.ReactNode }, snapshot: { isDraggingOver: boolean }) => (
+                            {(provided: DroppableProvided, snapshot: DroppableStateSnapshot) => (
                                 <div
                                     {...provided.droppableProps}
                                     ref={provided.innerRef}
@@ -117,11 +126,12 @@ const PipelineKanban: React.FC<PipelineKanbanProps> = ({
                                             draggableId={String(deal.id)}
                                             index={index}
                                         >
-                                            {(prov: { innerRef: (el: HTMLElement | null) => void; draggableProps: Record<string, unknown> & { style?: React.CSSProperties }; dragHandleProps: Record<string, unknown> | null }, snap: { isDragging: boolean }) => (
+                                            {(prov: DraggableProvided, snap: DraggableStateSnapshot) => (
                                                 <div
                                                     ref={prov.innerRef}
                                                     {...prov.draggableProps}
                                                     {...prov.dragHandleProps}
+                                                    style={prov.draggableProps.style as React.CSSProperties}
                                                     className={cn(
                                                         "rounded-xl bg-white px-3 py-2.5 shadow-sm transition-all cursor-grab active:cursor-grabbing",
                                                         "border border-transparent",
@@ -129,7 +139,6 @@ const PipelineKanban: React.FC<PipelineKanbanProps> = ({
                                                             ? "shadow-lg rotate-[1deg] border-primary/20"
                                                             : "hover:-translate-y-0.5 hover:shadow-md"
                                                     )}
-                                                    style={prov.draggableProps.style}
                                                 >
                                                     {/* Deal title */}
                                                     <p className="text-sm font-semibold text-foreground leading-tight">

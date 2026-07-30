@@ -1,6 +1,6 @@
 /* @jsxImportSource react */
 import React, { Suspense, lazy } from "react";
-import { BrowserRouter, Routes as RouterRoutes } from "react-router-dom";
+import { BrowserRouter, Routes as RouterRoutes } from "react-router";
 import { ToastContainer } from "react-toastify";
 
 import LoggedInLayout from "../layout";
@@ -49,7 +49,7 @@ import { WhatsAppsProvider } from "../context/WhatsApp/WhatsAppsContext";
 import { ThemeProvider } from "../context/DarkMode";
 import { TicketsProvider } from "../context/Tickets/TicketsContext";
 import PrivateRoute from "./Route";
-import { Route, Navigate } from "react-router-dom";
+import { Route, Navigate } from "react-router";
 import StatusCheck from "../components/StatusCheck";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";

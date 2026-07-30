@@ -44,4 +44,17 @@ export interface UseContactsReturn {
   handleDeleteContact: (contactId: number) => Promise<void>;
   handleImportContacts: () => Promise<void>;
   handleRequestDelete: (contactId: number) => void;
+
+  // Seleção em massa (bulk-delete / limpar base)
+  selectedIds: Set<number>;
+  isAllSelected: boolean;
+  bulkDeleteConfirmOpen: boolean;
+  deleteAllConfirmOpen: boolean;
+  toggleSelected: (contactId: number) => void;
+  toggleSelectAll: () => void;
+  clearSelection: () => void;
+  setBulkDeleteConfirmOpen: (v: boolean) => void;
+  setDeleteAllConfirmOpen: (v: boolean) => void;
+  handleBulkDeleteContacts: () => Promise<void>;
+  handleDeleteAllContacts: () => Promise<void>;
 }

@@ -165,6 +165,8 @@ const messages = {
         title: "Contacts",
         toasts: {
           deleted: "Contact deleted sucessfully!",
+          bulkDeleted: "{{count}} contacts deleted successfully!",
+          allDeleted: "All contacts were deleted successfully!",
         },
         searchPlaceholder: "Search ...",
         confirmationModal: {
@@ -173,10 +175,22 @@ const messages = {
           deleteMessage:
             "Are you sure you want to delete this contact? All related tickets will be lost.",
           importMessage: "Do you want to import all contacts from the phone?",
+          bulkDeleteTitle: "Delete selected contacts",
+          bulkDeleteMessage:
+            "Are you sure you want to delete {{count}} selected contact(s)? This action cannot be undone.",
+          deleteAllTitle: "Delete all contacts",
+          deleteAllMessage:
+            "Warning: this will permanently delete ALL contacts of this tenant, including linked ticket history. This action cannot be undone.",
         },
         buttons: {
           import: "Import Contacts",
           add: "Add Contact",
+          deleteSelected: "Delete Selected",
+          deselectAll: "Deselect",
+          deleteAll: "Delete All Contacts",
+        },
+        selection: {
+          selectedCount: "{{count}} selected",
         },
         table: {
           name: "Name",

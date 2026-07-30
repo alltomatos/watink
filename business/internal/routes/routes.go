@@ -22,7 +22,7 @@ type RouteRabbitMQ interface {
 
 func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *application.Container, s3Store domain.ObjectStore) {
 	db := container.DB
-	messageController := controllers.NewMessageController(rabbitMQ, container.Broadcast)
+	messageController := controllers.NewMessageController(rabbitMQ, container.Broadcast, container.SessionService)
 	systemController := controllers.NewSystemController(container.SystemRepo, rabbitMQ)
 	setupService := services.NewSetupService(container.DB)
 	setupController := controllers.NewSetupController(setupService)
@@ -38,6 +38,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 	whatsappController := controllers.NewWhatsappController(container.ChannelSessionRepo, container.PlanLimitSvc, container.Broadcast, container.SessionService)
 	proxyController := controllers.NewProxyController()
 	proxyGroupController := controllers.NewProxyGroupController()
+	izapiaConfigController := controllers.NewIzapiaConfigController()
 	connectionGroupController := controllers.NewConnectionGroupController()
 	setorController := controllers.NewSetorController()
 	cargoController := controllers.NewCargoController()
@@ -60,10 +61,13 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 	// on-demand run endpoint (POST /flows/:id/run). Uses the worker DB
 	// (container.DB) with manual WHERE "tenantId"; RLS is inert in StartFlow.
 	flowChannels := flow.NewChannelRegistry()
-	flowChannels.Register(flow.NewWhatsAppAdapter(rabbitMQ, container.RedisSvc))
+	flowChannels.Register(flow.NewWhatsAppAdapter(rabbitMQ, container.RedisSvc, flow.WhatsAppAdapterDeps{
+		DB:      container.DB,
+		Engines: container.SessionService,
+	}))
 	flowRuntime := flow.NewSkeleton(container.DB, flowChannels, container.RedisSvc)
 	flowController := controllers.NewFlowController(flowRuntime)
-	quickAnswerController := controllers.NewQuickAnswerController(rabbitMQ, container.Broadcast, db)
+	quickAnswerController := controllers.NewQuickAnswerController(rabbitMQ, container.Broadcast, db, container.SessionService)
 	versionController := controllers.NewVersionController(container.VersionRepo)
 	swaggerController := controllers.NewSwaggerController(container.SwaggerPermRepo)
 	storageController := controllers.NewStorageController(s3Store)
@@ -172,6 +176,11 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		// On-demand media download (separate path to avoid Gin wildcard conflict
 		// with :ticketId at the same position)
 		protected.POST("/media/:messageId/download", messageController.DownloadMedia)
+		// Nested under a distinct literal segment ("message", singular) --
+		// gin's radix router panics at startup if two routes share a path
+		// position with different wildcard names (":messageId" here vs the
+		// existing ":ticketId" under "/messages/:ticketId").
+		protected.POST("/message/:messageId/react", messageController.ReactToMessage)
 
 		// WhatsApp Connections
 		protected.GET("/whatsapp", auth.RequirePermission("connections", "read"), whatsappController.ListWhatsapps)
@@ -199,6 +208,10 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		protected.POST("/proxies/:id/activate", auth.RequirePermission("connections", "update"), proxyController.Activate)
 		protected.POST("/proxies/:id/test", auth.RequirePermission("connections", "update"), proxyController.Test)
 
+		// Credencial izapia do tenant — mesmo domínio de acesso das conexões.
+		protected.GET("/izapia-config", auth.RequirePermission("connections", "read"), izapiaConfigController.Get)
+		protected.PUT("/izapia-config", auth.RequirePermission("connections", "update"), izapiaConfigController.Save)
+
 		// Grupos de proxy (pool com rotação) e grupos de conexões — idem gate.
 		protected.GET("/proxy-groups", auth.RequirePermission("connections", "read"), proxyGroupController.List)
 		protected.POST("/proxy-groups", auth.RequirePermission("connections", "create"), proxyGroupController.Create)
@@ -222,6 +235,8 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		protected.POST("/contacts", contactController.CreateContact)
 		protected.POST("/contacts/", contactController.CreateContact)
 		protected.POST("/contacts/import", contactController.ImportContacts)
+		protected.POST("/contacts/bulk-delete", contactController.BulkDeleteContacts)
+		protected.DELETE("/contacts/all", contactController.DeleteAllContacts)
 		protected.POST("/contacts/:contactId/sync", contactController.SyncContact)
 		protected.PUT("/contacts/:contactId", contactController.UpdateContact)
 		protected.DELETE("/contacts/:contactId", contactController.DeleteContact)
@@ -353,6 +368,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		protected.GET("/pipelines/", pipelineController.List)
 		protected.POST("/pipelines", pipelineController.Create)
 		protected.PUT("/pipelines/:pipelineId", pipelineController.Update)
+		protected.DELETE("/pipelines/:pipelineId", pipelineController.Delete)
 		protected.POST("/pipelines/import", pipelineController.Import)
 		protected.GET("/pipelines/export/:pipelineId", pipelineController.Export)
 		protected.POST("/pipelines/ai-suggest", pipelineController.AISuggest)

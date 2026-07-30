@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext, useRef } from "react";
 import { Contact } from "../../pages/Contacts/contactsTypes";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { Loader2 } from "lucide-react";
 
 import {

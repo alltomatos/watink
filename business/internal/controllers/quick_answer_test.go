@@ -50,7 +50,7 @@ func TestQuickAnswerController_List(t *testing.T) {
 	db.Exec(`INSERT INTO "QuickAnswers" (shortcut, message, "tenantId") VALUES (?,?,?)`, "/oi", "Olá!", tenantA)
 	db.Exec(`INSERT INTO "QuickAnswers" (shortcut, message, "tenantId") VALUES (?,?,?)`, "/bye", "Bye!", tenantB)
 
-	ctrl := NewQuickAnswerController(nil, nil, nil)
+	ctrl := NewQuickAnswerController(nil, nil, nil, nil)
 	c, w := setupQAContext(t, db, tenantA, "GET", "/quickAnswers", nil)
 
 	ctrl.List(c)
@@ -68,7 +68,7 @@ func TestQuickAnswerController_Create_Success(t *testing.T) {
 	tenantID := uuid.New()
 
 	payload, _ := json.Marshal(map[string]string{"shortcut": "/hello", "message": "Hello there!"})
-	ctrl := NewQuickAnswerController(nil, nil, nil)
+	ctrl := NewQuickAnswerController(nil, nil, nil, nil)
 	c, w := setupQAContext(t, db, tenantID, "POST", "/quickAnswers", payload)
 
 	ctrl.Create(c)
@@ -88,7 +88,7 @@ func TestQuickAnswerController_Show_Success(t *testing.T) {
 	var id int
 	db.Raw(`SELECT LASTVAL()`).Scan(&id)
 
-	ctrl := NewQuickAnswerController(nil, nil, nil)
+	ctrl := NewQuickAnswerController(nil, nil, nil, nil)
 	c, w := setupQAContext(t, db, tenantID, "GET", fmt.Sprintf("/quickAnswers/%d", id), nil)
 	c.Params = gin.Params{{Key: "quickAnswerId", Value: fmt.Sprintf("%d", id)}}
 
@@ -110,7 +110,7 @@ func TestQuickAnswerController_Show_CrossTenant(t *testing.T) {
 	var id int
 	db.Raw(`SELECT LASTVAL()`).Scan(&id)
 
-	ctrl := NewQuickAnswerController(nil, nil, nil)
+	ctrl := NewQuickAnswerController(nil, nil, nil, nil)
 	c, w := setupQAContext(t, db, tenantB, "GET", fmt.Sprintf("/quickAnswers/%d", id), nil)
 	c.Params = gin.Params{{Key: "quickAnswerId", Value: fmt.Sprintf("%d", id)}}
 
@@ -124,7 +124,7 @@ func TestQuickAnswerController_Update_FetchNotFound(t *testing.T) {
 	db := setupQATestDB(t)
 	tenantID := uuid.New()
 
-	ctrl := NewQuickAnswerController(nil, nil, nil)
+	ctrl := NewQuickAnswerController(nil, nil, nil, nil)
 	c, w := setupQAContext(t, db, tenantID, "PUT", "/quickAnswers/9999", nil)
 	c.Params = gin.Params{{Key: "quickAnswerId", Value: "9999"}}
 
@@ -143,7 +143,7 @@ func TestQuickAnswerController_Delete_Success(t *testing.T) {
 	var id int
 	db.Raw(`SELECT LASTVAL()`).Scan(&id)
 
-	ctrl := NewQuickAnswerController(nil, nil, nil)
+	ctrl := NewQuickAnswerController(nil, nil, nil, nil)
 	c, w := setupQAContext(t, db, tenantID, "DELETE", fmt.Sprintf("/quickAnswers/%d", id), nil)
 	c.Params = gin.Params{{Key: "quickAnswerId", Value: fmt.Sprintf("%d", id)}}
 
@@ -160,7 +160,7 @@ func TestQuickAnswerController_Delete_NotFound(t *testing.T) {
 	db := setupQATestDB(t)
 	tenantID := uuid.New()
 
-	ctrl := NewQuickAnswerController(nil, nil, nil)
+	ctrl := NewQuickAnswerController(nil, nil, nil, nil)
 	c, w := setupQAContext(t, db, tenantID, "DELETE", "/quickAnswers/9999", nil)
 	c.Params = gin.Params{{Key: "quickAnswerId", Value: "9999"}}
 

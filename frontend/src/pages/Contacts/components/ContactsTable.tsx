@@ -10,6 +10,7 @@ import {
   TableRow,
 } from "../../../components/ui/table";
 import { Avatar } from "../../../components/ui/avatar";
+import { Checkbox } from "../../../components/ui/checkbox";
 import { i18n } from "../../../translate/i18n";
 import { getBackendUrl } from "../../../helpers/urlUtils";
 import { Contact } from "../contactsTypes";
@@ -23,6 +24,10 @@ interface ContactsTableProps {
   onEdit: (contactId: number) => void;
   onMakeClient: (contact: Contact) => void;
   onDelete: (contactId: number) => void;
+  selectedIds: Set<number>;
+  isAllSelected: boolean;
+  onToggleSelected: (contactId: number) => void;
+  onToggleSelectAll: () => void;
 }
 
 const ContactsTable: React.FC<ContactsTableProps> = ({
@@ -32,12 +37,25 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
   onEdit,
   onMakeClient,
   onDelete,
+  selectedIds,
+  isAllSelected,
+  onToggleSelected,
+  onToggleSelectAll,
 }) => {
   return (
     <div className="rounded-md border bg-card">
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-[48px]">
+              {contacts.length > 0 && (
+                <Checkbox
+                  checked={isAllSelected}
+                  onCheckedChange={onToggleSelectAll}
+                  aria-label={i18n.t("contacts.selection.selectedCount", { count: selectedIds.size }) as string}
+                />
+              )}
+            </TableHead>
             <TableHead className="w-[80px]"></TableHead>
             <TableHead>{i18n.t("contacts.table.name")}</TableHead>
             <TableHead>{i18n.t("contacts.table.number")}</TableHead>
@@ -48,7 +66,7 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
         <TableBody>
           {loading && contacts.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={5} className="h-24 text-center">
+              <TableCell colSpan={6} className="h-24 text-center">
                 <div className="flex items-center justify-center">
                   <Loader2 className="h-6 w-6 animate-spin text-primary" />
                 </div>
@@ -56,13 +74,20 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
             </TableRow>
           ) : contacts.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+              <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                 {i18n.t("contacts.table.empty")}
               </TableCell>
             </TableRow>
           ) : (
             contacts.map((contact) => (
               <TableRow key={contact.id} className="group">
+                <TableCell>
+                  <Checkbox
+                    checked={selectedIds.has(contact.id)}
+                    onCheckedChange={() => onToggleSelected(contact.id)}
+                    aria-label={contact.name}
+                  />
+                </TableCell>
                 <TableCell>
                   <Avatar
                     src={getBackendUrl(contact.profilePicUrl)}

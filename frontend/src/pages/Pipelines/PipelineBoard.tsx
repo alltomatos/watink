@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { DropResult } from "react-beautiful-dnd";
+import { useParams, useNavigate } from "react-router";
+import { DropResult } from "@hello-pangea/dnd";
 import { ArrowLeft, FileDown, Loader2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

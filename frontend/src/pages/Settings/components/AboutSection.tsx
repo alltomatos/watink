@@ -11,17 +11,49 @@ import {
   CardTitle,
   CardDescription,
 } from "../../../components/ui/card";
+import { Badge } from "../../../components/ui/badge";
+
+interface UpdateStatus {
+  status: "up_to_date" | "behind" | "unknown";
+  commitsBehind: number;
+}
 
 interface AboutInfo {
   version: string;
   commit: string;
   branch: string;
+  commitDate: string;
+  updateStatus: UpdateStatus;
   database: {
     engine: string;
     version: string;
   };
   changelog: string;
 }
+
+const formatCommitDate = (iso: string) => {
+  if (!iso || iso === "unknown") return "desconhecida";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "desconhecida";
+  return date.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+};
+
+const UpdateStatusBadge: React.FC<{ status?: UpdateStatus }> = ({ status }) => {
+  if (!status || status.status === "unknown") {
+    return <Badge variant="secondary">Status de atualização desconhecido</Badge>;
+  }
+  if (status.status === "up_to_date") {
+    return <Badge variant="default">Atualizado</Badge>;
+  }
+  const count = status.commitsBehind;
+  return (
+    <Badge variant="destructive">
+      {count > 0
+        ? `${count} ${count === 1 ? "novo commit disponível" : "novos commits disponíveis"}`
+        : "Novos commits disponíveis"}
+    </Badge>
+  );
+};
 
 const AboutSection: React.FC = () => {
   const [info, setInfo] = useState<AboutInfo | null>(null);
@@ -68,6 +100,12 @@ const AboutSection: React.FC = () => {
               <dt className="text-muted-foreground">Commit</dt>
               <dd className="text-foreground font-mono">
                 {info.commit} ({info.branch})
+              </dd>
+              <dt className="text-muted-foreground">Data do commit</dt>
+              <dd className="text-foreground font-mono">{formatCommitDate(info.commitDate)}</dd>
+              <dt className="text-muted-foreground">Atualização</dt>
+              <dd>
+                <UpdateStatusBadge status={info.updateStatus} />
               </dd>
               <dt className="text-muted-foreground">Banco de dados</dt>
               <dd className="text-foreground font-mono">

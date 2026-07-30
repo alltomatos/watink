@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -8,6 +9,26 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+// FriendlyError marca um erro cuja mensagem já é segura pra mostrar direto
+// ao usuário final (ex.: limite de plano atingido, configuração pendente em
+// Configurações) — RespondWithFriendlyOrInternalError usa isso em vez do
+// genérico "Internal server error" quando o erro (ou algo que ele encadeia
+// via %w) é um *FriendlyError.
+type FriendlyError struct {
+	Message string
+	Status  int
+	Err     error
+}
+
+func (e *FriendlyError) Error() string { return e.Err.Error() }
+func (e *FriendlyError) Unwrap() error { return e.Err }
+
+// NewFriendlyError envolve err com uma mensagem segura + status HTTP pra
+// exibir ao usuário final.
+func NewFriendlyError(status int, message string, err error) error {
+	return &FriendlyError{Message: message, Status: status, Err: err}
+}
 
 // ParseIntParam extracts a named path parameter as int, writes 400 and returns false on failure.
 func ParseIntParam(c *gin.Context, name string) (int, bool) {
@@ -72,6 +93,18 @@ func RespondWithServiceError(c *gin.Context, code int, err error, safeMessage st
 		slog.Error("Service error (nil context)", "status", code, "error", err.Error())
 	}
 	c.JSON(code, gin.H{"error": safeMessage})
+}
+
+// RespondWithFriendlyOrInternalError responde com a mensagem segura de um
+// *FriendlyError (encadeado via errors.As) quando presente; caso contrário
+// cai no genérico RespondWithInternalError.
+func RespondWithFriendlyOrInternalError(c *gin.Context, err error, context string) {
+	var fe *FriendlyError
+	if errors.As(err, &fe) {
+		RespondWithServiceError(c, fe.Status, err, fe.Message)
+		return
+	}
+	RespondWithInternalError(c, err, context)
 }
 
 func LogOnlyError(c *gin.Context, err error, context string) {

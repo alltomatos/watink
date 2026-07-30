@@ -1,6 +1,6 @@
 ﻿/* @jsxImportSource react */
 import React from "react";
-import { Search, Plus, Download, List, LayoutGrid } from "lucide-react";
+import { Search, Plus, Download, List, LayoutGrid, Trash2 } from "lucide-react";
 
 import { PageLayout, PageHeader, PageContent } from "../../components/ui/page-layout";
 import ContactModal from "../../components/ContactModal";
@@ -13,6 +13,7 @@ import { i18n } from "../../translate/i18n";
 import { useContacts } from "./hooks/useContacts";
 import ContactsTable from "./components/ContactsTable";
 import ContactsCardGrid from "./components/ContactsCardGrid";
+import ContactsBulkActionsBar from "./components/ContactsBulkActionsBar";
 
 const Contacts: React.FC = () => {
   const {
@@ -40,6 +41,17 @@ const Contacts: React.FC = () => {
     handleDeleteContact,
     handleImportContacts,
     handleRequestDelete,
+    selectedIds,
+    isAllSelected,
+    bulkDeleteConfirmOpen,
+    deleteAllConfirmOpen,
+    toggleSelected,
+    toggleSelectAll,
+    clearSelection,
+    setBulkDeleteConfirmOpen,
+    setDeleteAllConfirmOpen,
+    handleBulkDeleteContacts,
+    handleDeleteAllContacts,
   } = useContacts();
 
   return (
@@ -77,6 +89,24 @@ const Contacts: React.FC = () => {
         {i18n.t("contacts.confirmationModal.importMessage")}
       </ConfirmationModal>
 
+      <ConfirmationModal
+        title={i18n.t("contacts.confirmationModal.bulkDeleteTitle")}
+        open={bulkDeleteConfirmOpen}
+        onClose={() => setBulkDeleteConfirmOpen(false)}
+        onConfirm={handleBulkDeleteContacts}
+      >
+        {i18n.t("contacts.confirmationModal.bulkDeleteMessage", { count: selectedIds.size })}
+      </ConfirmationModal>
+
+      <ConfirmationModal
+        title={i18n.t("contacts.confirmationModal.deleteAllTitle")}
+        open={deleteAllConfirmOpen}
+        onClose={() => setDeleteAllConfirmOpen(false)}
+        onConfirm={handleDeleteAllContacts}
+      >
+        {i18n.t("contacts.confirmationModal.deleteAllMessage")}
+      </ConfirmationModal>
+
       <PageHeader
         title={i18n.t("contacts.title") as string}
         description={`${contacts.length} contatos encontrados`}
@@ -107,6 +137,17 @@ const Contacts: React.FC = () => {
             {i18n.t("contacts.buttons.add")}
           </Button>
 
+          <Button
+            variant="ghost"
+            size="sm"
+            className="hidden sm:flex text-destructive hover:text-destructive"
+            onClick={() => setDeleteAllConfirmOpen(true)}
+            disabled={contacts.length === 0}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            {i18n.t("contacts.buttons.deleteAll")}
+          </Button>
+
           <div className="flex items-center border rounded-md p-1 bg-muted/50">
             <Button
               variant={view === "table" ? "secondary" : "ghost"}
@@ -129,6 +170,11 @@ const Contacts: React.FC = () => {
       </PageHeader>
 
       <PageContent onScroll={handleScroll}>
+        <ContactsBulkActionsBar
+          selectedCount={selectedIds.size}
+          onDeleteSelected={() => setBulkDeleteConfirmOpen(true)}
+          onDeselectAll={clearSelection}
+        />
         {view === "table" ? (
           <ContactsTable
             contacts={contacts}
@@ -137,6 +183,10 @@ const Contacts: React.FC = () => {
             onEdit={handleEditContact}
             onMakeClient={handleOpenClientModal}
             onDelete={handleRequestDelete}
+            selectedIds={selectedIds}
+            isAllSelected={isAllSelected}
+            onToggleSelected={toggleSelected}
+            onToggleSelectAll={toggleSelectAll}
           />
         ) : (
           <ContactsCardGrid
@@ -146,6 +196,8 @@ const Contacts: React.FC = () => {
             onEdit={handleEditContact}
             onMakeClient={handleOpenClientModal}
             onDelete={handleRequestDelete}
+            selectedIds={selectedIds}
+            onToggleSelected={toggleSelected}
           />
         )}
       </PageContent>

@@ -176,6 +176,9 @@ func whatsappModelToDomain(m *models.Whatsapp) *domain.ChannelSession {
 		ProxyGroupID:      m.ProxyGroupID,
 		ConnectionGroupID: m.ConnectionGroupID,
 		Wid:               m.Wid,
+
+		IzapiaSessionID:        m.IzapiaSessionID,
+		IzapiaWebhookSecretEnc: m.IzapiaWebhookSecretEnc,
 	}
 }
 
@@ -208,5 +211,8 @@ func channelSessionDomainToModel(d *domain.ChannelSession) *models.Whatsapp {
 		ProxyGroupID:      d.ProxyGroupID,
 		ConnectionGroupID: d.ConnectionGroupID,
 		Wid:               d.Wid,
+
+		IzapiaSessionID:        d.IzapiaSessionID,
+		IzapiaWebhookSecretEnc: d.IzapiaWebhookSecretEnc,
 	}
 }

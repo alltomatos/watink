@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { MessageSquare, Plus } from "lucide-react";
 import { i18n } from "../../translate/i18n";
 

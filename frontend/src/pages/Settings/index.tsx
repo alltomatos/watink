@@ -1,6 +1,6 @@
 /* @jsxImportSource react */
 import React, { useState, useContext } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { Puzzle, Loader2 } from "lucide-react";
 
 import { AuthContext } from "../../context/Auth/AuthContext";
@@ -15,6 +15,7 @@ import AISettings from "./components/AISettings";
 import StorageSection from "./components/StorageSection";
 import AboutSection from "./components/AboutSection";
 import ProxySection from "./components/ProxySection";
+import IzapiaSection from "./components/IzapiaSection";
 import AddressLookupSettings from "./components/AddressLookupSettings";
 
 import { useSettings } from "./hooks/useSettings";
@@ -113,6 +114,9 @@ const Settings: React.FC = () => {
               )}
               {activeSection === "proxy" && (
                 <ProxySection />
+              )}
+              {activeSection === "izapia" && (
+                <IzapiaSection />
               )}
               {activeSection === "storage" && isSuperAdmin && (
                 <StorageSection />

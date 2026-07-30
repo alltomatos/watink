@@ -1,12 +1,28 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { toast } from "react-toastify";
-import { Layers, Pencil, Plus, Upload } from "lucide-react";
+import { Copy, FileDown, Layers, MoreVertical, Pencil, Plus, Search, Trash2, Upload } from "lucide-react";
 import { PageLayout, PageHeader, PageContent } from "@/components/ui/page-layout";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import ConfirmationModal from "@/components/ConfirmationModal";
 import api from "../../services/api";
+import { useLocalStorage } from "../../hooks/useLocalStorage";
 
 const STAGE_COLORS = [
     "hsl(var(--status-info))",
@@ -27,12 +43,23 @@ interface Pipeline {
     description: string;
     type: "kanban" | "funnel" | "funil";
     stages: PipelineStage[];
+    createdAt?: string;
+    dealsCount?: number;
+    dealsValue?: number;
 }
+
+const formatCurrency = (value: number) =>
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+
+type PipelineSortOption = "name" | "date";
 
 const Pipelines: React.FC = () => {
     const navigate = useNavigate();
     const [pipelines, setPipelines] = useState<Pipeline[]>([]);
     const [loading, setLoading] = useState(true);
+    const [pipelineToDelete, setPipelineToDelete] = useState<Pipeline | null>(null);
+    const [sortBy, setSortBy] = useLocalStorage<PipelineSortOption>("pipelinesSortBy", "name");
+    const [searchTerm, setSearchTerm] = useState("");
 
     useEffect(() => {
         fetchPipelines();
@@ -53,6 +80,74 @@ const Pipelines: React.FC = () => {
         e.stopPropagation();
         navigate(`/pipelines/${id}/edit`);
     };
+
+    const handleRequestDeletePipeline = (e: React.MouseEvent, pipeline: Pipeline) => {
+        e.stopPropagation();
+        // Adia a abertura do Dialog para o próximo tick -- abrir um Dialog
+        // (ConfirmationModal) no mesmo tick em que o DropdownMenu ainda está
+        // fechando faz os FocusScopes dos dois se disputarem o foco. Deixar o
+        // dropdown terminar de fechar primeiro evita esse conflito.
+        setTimeout(() => setPipelineToDelete(pipeline), 0);
+    };
+
+    const handleConfirmDeletePipeline = async () => {
+        if (!pipelineToDelete) return;
+        try {
+            await api.delete(`/pipelines/${pipelineToDelete.id}`);
+            toast.success("Pipeline excluído com sucesso!");
+            fetchPipelines();
+        } catch {
+            toast.error("Erro ao excluir pipeline");
+        } finally {
+            setPipelineToDelete(null);
+        }
+    };
+
+    const handleDuplicatePipeline = async (e: React.MouseEvent, pipeline: Pipeline) => {
+        e.stopPropagation();
+        try {
+            await api.post("/pipelines", {
+                name: `${pipeline.name} (cópia)`,
+                description: pipeline.description,
+                type: pipeline.type,
+                stages: pipeline.stages.map((s) => ({ name: s.name })),
+            });
+            toast.success("Pipeline duplicado com sucesso!");
+            fetchPipelines();
+        } catch {
+            toast.error("Erro ao duplicar pipeline");
+        }
+    };
+
+    const handleExportPipeline = async (e: React.MouseEvent, pipeline: Pipeline) => {
+        e.stopPropagation();
+        try {
+            const { data } = await api.get(`/pipelines/export/${pipeline.id}`);
+            const json = JSON.stringify(data, null, 2);
+            const blob = new Blob([json], { type: "application/json" });
+            const href = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = href;
+            link.download = `${pipeline.name.replace(/\s+/g, "_")}_pipeline.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(href);
+        } catch {
+            toast.error("Erro ao exportar pipeline");
+        }
+    };
+
+    const sortedPipelines = [...pipelines]
+        .filter((p) => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
+        .sort((a, b) => {
+            if (sortBy === "date") {
+                return (
+                    new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+                );
+            }
+            return a.name.localeCompare(b.name);
+        });
 
     const handleImportPipeline = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -76,10 +171,45 @@ const Pipelines: React.FC = () => {
 
     return (
         <PageLayout>
+            <ConfirmationModal
+                title="Excluir pipeline"
+                open={!!pipelineToDelete}
+                onClose={() => setPipelineToDelete(null)}
+                onConfirm={handleConfirmDeletePipeline}
+            >
+                Tem certeza que deseja excluir o pipeline "{pipelineToDelete?.name}"? Todas as
+                etapas e negócios vinculados a ele serão excluídos permanentemente. Esta ação não
+                pode ser desfeita.
+            </ConfirmationModal>
+
             <PageHeader
                 title="Pipelines"
                 description="Gerencie seus fluxos de atendimento e funis de vendas"
             >
+                {pipelines.length > 1 && (
+                    <div className="relative w-full max-w-[220px] hidden md:block">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Buscar pipeline..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-9 h-10"
+                        />
+                    </div>
+                )}
+
+                {pipelines.length > 1 && (
+                    <Select value={sortBy} onValueChange={(v) => setSortBy(v as PipelineSortOption)}>
+                        <SelectTrigger className="w-[160px] h-10">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="name">Nome (A-Z)</SelectItem>
+                            <SelectItem value="date">Mais recentes</SelectItem>
+                        </SelectContent>
+                    </Select>
+                )}
+
                 <input
                     style={{ display: "none" }}
                     id="import-pipeline"
@@ -130,7 +260,7 @@ const Pipelines: React.FC = () => {
 
                 {!loading && pipelines.length > 0 && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                        {pipelines.map((pipeline) => (
+                        {sortedPipelines.map((pipeline) => (
                             <Card
                                 key={pipeline.id}
                                 className="cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-lg rounded-2xl shadow-[0px_4px_20px_rgba(0,0,0,0.06)] border group relative"
@@ -149,14 +279,44 @@ const Pipelines: React.FC = () => {
                                                 </p>
                                             )}
                                         </div>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7 shrink-0 -mt-0.5 -mr-1 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity hover:text-primary hover:bg-primary/10"
-                                            onClick={(e) => handleEditPipeline(e, pipeline.id)}
-                                        >
-                                            <Pencil className="h-3.5 w-3.5" />
-                                        </Button>
+                                        <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 -mt-0.5 -mr-1 text-muted-foreground hover:text-foreground"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        <MoreVertical className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent
+                                                    align="end"
+                                                    onCloseAutoFocus={(e) => e.preventDefault()}
+                                                >
+                                                    <DropdownMenuItem onClick={(e) => handleEditPipeline(e, pipeline.id)}>
+                                                        <Pencil className="mr-2 h-3.5 w-3.5" />
+                                                        Editar
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={(e) => handleDuplicatePipeline(e, pipeline)}>
+                                                        <Copy className="mr-2 h-3.5 w-3.5" />
+                                                        Duplicar
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={(e) => handleExportPipeline(e, pipeline)}>
+                                                        <FileDown className="mr-2 h-3.5 w-3.5" />
+                                                        Exportar JSON
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem
+                                                        className="text-destructive focus:text-destructive"
+                                                        onClick={(e) => handleRequestDeletePipeline(e, pipeline)}
+                                                    >
+                                                        <Trash2 className="mr-2 h-3.5 w-3.5" />
+                                                        Excluir
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
                                     </div>
 
                                     {/* Stage color dots */}
@@ -210,6 +370,21 @@ const Pipelines: React.FC = () => {
                                             </span>
                                         )}
                                     </div>
+
+                                    {/* Quick metrics: deal count + total value */}
+                                    {!!pipeline.dealsCount && (
+                                        <div className="flex items-center justify-between text-[11px] text-muted-foreground border-t pt-2 -mb-1">
+                                            <span>
+                                                {pipeline.dealsCount} negócio
+                                                {pipeline.dealsCount !== 1 ? "s" : ""}
+                                            </span>
+                                            {!!pipeline.dealsValue && (
+                                                <span className="font-semibold">
+                                                    {formatCurrency(pipeline.dealsValue)}
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
                                 </CardContent>
                             </Card>
                         ))}

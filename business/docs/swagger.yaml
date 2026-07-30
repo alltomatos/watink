@@ -10,6 +10,13 @@ definitions:
     - email
     - password
     type: object
+  controllers.izapiaConfigResponse:
+    properties:
+      baseUrl:
+        type: string
+      hasApiKey:
+        type: boolean
+    type: object
   models.Cargo:
     properties:
       createdAt:
@@ -218,6 +225,9 @@ definitions:
   models.Queue:
     properties:
       color:
+        description: |-
+          Color é cosmético — NÃO é único (o unique global antigo uni_Queues_color
+          impedia dois tenants de usarem a mesma cor). Dropado na migração.
         type: string
       createdAt:
         type: string
@@ -228,6 +238,10 @@ definitions:
       id:
         type: integer
       name:
+        description: |-
+          Nome é único POR TENANT (não global) — multi-tenant: dois tenants podem ter
+          uma fila "Atendimento Inicial". O unique global antigo (uni_Queues_name)
+          quebrava o provisionamento do 2º tenant; é dropado na migração.
         type: string
       parent:
         allOf:
@@ -409,6 +423,11 @@ definitions:
         type: integer
       isDefault:
         type: boolean
+      izapiaSessionId:
+        description: |-
+          IzapiaSessionID is the session id assigned by the izapia API (distinct from
+          this row's own ID). Only set when EngineType == "izapia".
+        type: string
       keepAlive:
         type: boolean
       lastConnectedAt:
@@ -469,12 +488,24 @@ definitions:
         type: string
       id:
         type: string
+      longDescription:
+        type: string
       name:
         type: string
       price:
         type: number
+      screenshots:
+        items:
+          type: string
+        type: array
       slug:
         type: string
+      taxRatePercent:
+        description: |-
+          TaxRatePercent é a taxa global de imposto (ex.: 8) exibida sobre o
+          preço no Marketplace — mesma taxa para todo plugin, vem do Hub via
+          plugin-manager (HubPlugin.TaxRatePercent).
+        type: integer
       type:
         type: string
       version:
@@ -488,6 +519,15 @@ definitions:
         items:
           $ref: '#/definitions/pluginlicense.CatalogPlugin'
         type: array
+    type: object
+  pluginlicense.CheckoutOrderResponse:
+    properties:
+      amountCents:
+        type: integer
+      checkoutUrl:
+        type: string
+      orderId:
+        type: integer
     type: object
   pluginlicense.InstanceResponse:
     properties:
@@ -1228,6 +1268,46 @@ paths:
       summary: Sincronizar foto do contato via WhatsApp
       tags:
       - contacts
+  /contacts/all:
+    delete:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Excluir todos os contatos do tenant
+      tags:
+      - contacts
+  /contacts/bulk-delete:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Lista de IDs a excluir
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Excluir contatos selecionados
+      tags:
+      - contacts
   /contacts/import:
     post:
       description: Dispara a importação da agenda de contatos da sessão WhatsApp conectada
@@ -1702,6 +1782,136 @@ paths:
       summary: Verificar setup inicial
       tags:
       - setup
+  /internal/saas/ping:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Ping do control plane SaaS
+      tags:
+      - internal-saas
+  /internal/saas/tenants:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              additionalProperties: true
+              type: object
+            type: array
+      summary: Listar tenants para importação (control plane SaaS)
+      tags:
+      - internal-saas
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Provisionar tenant (control plane SaaS)
+      tags:
+      - internal-saas
+  /internal/saas/tenants/{tenantId}/status:
+    patch:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Alterar status comercial do tenant (control plane SaaS)
+      tags:
+      - internal-saas
+  /internal/saas/tenants/{tenantId}/subscription:
+    put:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Push do snapshot de assinatura (control plane SaaS)
+      tags:
+      - internal-saas
+  /internal/saas/tenants/{tenantId}/usage:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Uso corrente do tenant (control plane SaaS)
+      tags:
+      - internal-saas
+  /izapia-config:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.izapiaConfigResponse'
+      security:
+      - BearerAuth: []
+      summary: Consultar credencial izapia do tenant
+      tags:
+      - izapia
+    put:
+      consumes:
+      - application/json
+      description: Só recebe a API key — a base URL é sempre api.izapia.com.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.izapiaConfigResponse'
+      security:
+      - BearerAuth: []
+      summary: Salvar a API key izapia do tenant
+      tags:
+      - izapia
   /knowledge-bases:
     get:
       produces:
@@ -2006,6 +2216,42 @@ paths:
       summary: Baixar mídia sob demanda
       tags:
       - messages
+  /message/{messageId}/react:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID da mensagem
+        in: path
+        name: messageId
+        required: true
+        type: string
+      - description: Emoji da reação (vazio remove)
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Reagir a uma mensagem
+      tags:
+      - messages
   /messages/{ticketId}:
     get:
       parameters:
@@ -2112,6 +2358,33 @@ paths:
       tags:
       - pipelines
   /pipelines/{pipelineId}:
+    delete:
+      parameters:
+      - description: ID do pipeline
+        in: path
+        name: pipelineId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Excluir pipeline
+      tags:
+      - pipelines
     put:
       consumes:
       - application/json
@@ -2209,6 +2482,23 @@ paths:
       security:
       - BearerAuth: []
       summary: Ativar plugin
+      tags:
+      - plugins
+  /plugins/{slug}/checkout:
+    post:
+      description: Cria (ou reaproveita, idempotente) um pedido de compra pending
+        para o plugin `pro` indicado e devolve a URL de redirect pro Checkout Pro
+        do Mercado Pago — a licença só nasce quando o webhook confirma o pagamento.
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/pluginlicense.CheckoutOrderResponse'
+      security:
+      - BearerAuth: []
+      summary: Iniciar checkout de plugin pro (Checkout Pro — pagamento real)
       tags:
       - plugins
   /plugins/{slug}/deactivate:
@@ -3683,6 +3973,29 @@ paths:
       summary: Atualizar usuário
       tags:
       - users
+  /webhooks/izapia/{sessionId}:
+    post:
+      consumes:
+      - application/json
+      description: Recebe eventos de mensagem/status da sessão izapia. Autenticado
+        por assinatura HMAC (X-izapia-Signature), não por JWT.
+      parameters:
+      - description: ID da conexão (Whatsapps.id)
+        in: path
+        name: sessionId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Webhook izapia (inbound)
+      tags:
+      - izapia
   /whatsapp:
     get:
       produces:
