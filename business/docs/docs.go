@@ -1231,7 +1231,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Solicita ao engine que busque a foto de perfil atualizada do contato no WhatsApp",
+                "description": "Busca a foto de perfil atualizada do contato. Para conexões izapia, roda de forma síncrona e responde 200; para engine-go, publica o comando assíncrono e responde 202.",
                 "produces": [
                     "application/json"
                 ],
@@ -1249,6 +1249,15 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
                     "202": {
                         "description": "Accepted",
                         "schema": {
