@@ -1,7 +1,41 @@
 import React from "react";
-import { expect, describe, it, vi } from "vitest";
-import { render } from "@testing-library/react";
+import { expect, describe, it, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import MessageOptionsMenu from "../index";
+
+const mockApiPost = vi.fn();
+
+vi.mock("../../../services/api", () => ({
+  default: { post: (...args: unknown[]) => mockApiPost(...args), delete: vi.fn() },
+}));
+
+vi.mock("../../../errors/toastError", () => ({ default: vi.fn() }));
+
+describe("MessageOptionsMenu — reações rápidas", () => {
+  beforeEach(() => {
+    mockApiPost.mockReset();
+    mockApiPost.mockResolvedValue({ data: { message: "ok" } });
+  });
+
+  it("sends POST /messages/:id/react with the picked emoji", async () => {
+    const handleClose = vi.fn();
+    render(
+      <MessageOptionsMenu
+        message={{ id: 42, fromMe: false }}
+        menuOpen
+        handleClose={handleClose}
+        anchorEl={null}
+      />
+    );
+
+    fireEvent.click(screen.getByLabelText("Reagir com 👍"));
+
+    await waitFor(() =>
+      expect(mockApiPost).toHaveBeenCalledWith("/messages/42/react", { reaction: "👍" })
+    );
+    expect(handleClose).toHaveBeenCalled();
+  });
+});
 
 describe("MessageOptionsMenu — alinhamento do popup", () => {
   it("mirrors the full bounding rect of anchorEl onto the invisible trigger, not just a zero-size corner point", () => {

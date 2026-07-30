@@ -176,6 +176,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		// On-demand media download (separate path to avoid Gin wildcard conflict
 		// with :ticketId at the same position)
 		protected.POST("/media/:messageId/download", messageController.DownloadMedia)
+		protected.POST("/messages/:messageId/react", messageController.ReactToMessage)
 
 		// WhatsApp Connections
 		protected.GET("/whatsapp", auth.RequirePermission("connections", "read"), whatsappController.ListWhatsapps)

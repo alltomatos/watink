@@ -2216,6 +2216,42 @@ paths:
       summary: Baixar mídia sob demanda
       tags:
       - messages
+  /messages/{messageId}/react:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID da mensagem
+        in: path
+        name: messageId
+        required: true
+        type: string
+      - description: Emoji da reação (vazio remove)
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Reagir a uma mensagem
+      tags:
+      - messages
   /messages/{ticketId}:
     get:
       parameters:

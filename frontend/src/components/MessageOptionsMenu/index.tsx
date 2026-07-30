@@ -13,6 +13,8 @@ import {
 } from "../ui/dropdown-menu";
 import { Trash2, Reply } from "lucide-react";
 
+const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
+
 /**
  * Local Message shape: the canonical `Message` in `types/Message.ts` requires
  * several fields (`read`, `ticketId`, `contactId`, `updatedAt`) that the
@@ -60,6 +62,15 @@ const MessageOptionsMenu: React.FC<MessageOptionsMenuProps> = ({
     handleClose();
   };
 
+  const handleReact = async (reaction: string) => {
+    handleClose();
+    try {
+      await api.post(`/messages/${message.id}/react`, { reaction });
+    } catch (err) {
+      toastError(err);
+    }
+  };
+
   return (
     <>
       <ConfirmationModal
@@ -93,6 +104,19 @@ const MessageOptionsMenu: React.FC<MessageOptionsMenuProps> = ({
           />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-[140px]">
+          <div className="flex items-center justify-between gap-0.5 px-1 py-1">
+            {QUICK_REACTIONS.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                aria-label={`Reagir com ${emoji}`}
+                className="rounded-md p-1 text-base leading-none hover:bg-accent transition-colors"
+                onClick={() => handleReact(emoji)}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
           {message.fromMe && (
             <DropdownMenuItem
               className="gap-2 text-destructive focus:text-destructive"

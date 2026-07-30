@@ -130,6 +130,114 @@ func TestSendMessageTextJSON(t *testing.T) {
 	})
 }
 
+func TestReactToMessage(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := testutil.NewTestDB(t)
+	tenantID := uuid.New()
+	pub := &stubPublisher{}
+	mc := NewMessageController(pub, nil, nil)
+
+	wa := models.Whatsapp{Name: "WA", TenantID: tenantID, Status: "CONNECTED"}
+	if err := db.Create(&wa).Error; err != nil {
+		t.Fatal(err)
+	}
+	contact := models.Contact{Name: "C", Number: "5511999999999", TenantID: tenantID}
+	if err := db.Create(&contact).Error; err != nil {
+		t.Fatal(err)
+	}
+	ticket := models.Ticket{Status: "open", TenantID: tenantID, ContactID: contact.ID, WhatsappID: wa.ID}
+	if err := db.Create(&ticket).Error; err != nil {
+		t.Fatal(err)
+	}
+	msg := models.Message{
+		ID:        "MSG1",
+		Body:      "Olá",
+		TicketID:  ticket.ID,
+		FromMe:    false,
+		ContactID: &contact.ID,
+		TenantID:  tenantID,
+		Reactions: "[]",
+	}
+	if err := db.Create(&msg).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	r := gin.New()
+	r.Use(testScopedMiddleware(db, tenantID.String()))
+	r.POST("/messages/:messageId/react", mc.ReactToMessage)
+
+	t.Run("happy path — publishes command and persists optimistic reaction", func(t *testing.T) {
+		body, _ := json.Marshal(map[string]string{"reaction": "👍"})
+		req := httptest.NewRequest(http.MethodPost, "/messages/MSG1/react", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		res := httptest.NewRecorder()
+		r.ServeHTTP(res, req)
+
+		if res.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d — %s", res.Code, res.Body.String())
+		}
+		if len(pub.calls) == 0 {
+			t.Fatal("expected PublishCommand to be called")
+		}
+
+		var updated models.Message
+		if err := db.First(&updated, "id = ?", "MSG1").Error; err != nil {
+			t.Fatal(err)
+		}
+		if updated.Reactions == "[]" || updated.Reactions == "" {
+			t.Fatalf("expected reactions to be persisted, got %q", updated.Reactions)
+		}
+	})
+
+	t.Run("empty reaction removes the bot's own reaction", func(t *testing.T) {
+		body, _ := json.Marshal(map[string]string{"reaction": ""})
+		req := httptest.NewRequest(http.MethodPost, "/messages/MSG1/react", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		res := httptest.NewRecorder()
+		r.ServeHTTP(res, req)
+
+		if res.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d — %s", res.Code, res.Body.String())
+		}
+
+		var updated models.Message
+		if err := db.First(&updated, "id = ?", "MSG1").Error; err != nil {
+			t.Fatal(err)
+		}
+		if updated.Reactions != "[]" {
+			t.Fatalf("expected reactions to be cleared, got %q", updated.Reactions)
+		}
+	})
+
+	t.Run("message not found returns 404", func(t *testing.T) {
+		body, _ := json.Marshal(map[string]string{"reaction": "👍"})
+		req := httptest.NewRequest(http.MethodPost, "/messages/DOES-NOT-EXIST/react", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		res := httptest.NewRecorder()
+		r.ServeHTTP(res, req)
+
+		if res.Code != http.StatusNotFound {
+			t.Fatalf("expected 404, got %d", res.Code)
+		}
+	})
+
+	t.Run("wrong tenant cannot react", func(t *testing.T) {
+		rOther := gin.New()
+		rOther.Use(testScopedMiddleware(db, uuid.New().String()))
+		rOther.POST("/messages/:messageId/react", mc.ReactToMessage)
+
+		body, _ := json.Marshal(map[string]string{"reaction": "👍"})
+		req := httptest.NewRequest(http.MethodPost, "/messages/MSG1/react", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		res := httptest.NewRecorder()
+		rOther.ServeHTTP(res, req)
+
+		if res.Code != http.StatusNotFound {
+			t.Fatalf("expected 404 for cross-tenant, got %d", res.Code)
+		}
+	})
+}
+
 func TestSanitizeMimeType(t *testing.T) {
 	cases := []struct {
 		input    string

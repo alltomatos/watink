@@ -27,6 +27,20 @@ type MediaCommandPayload struct {
 	Mentions    []string `json:"mentions,omitempty"`
 }
 
+// ReactionCommandPayload sends (or removes, when Reaction=="") an emoji
+// reaction to an existing message. TargetFromMe tells SendReaction who sent
+// the message being reacted to: our own client JID when true (we sent it),
+// or the chat JID (To) otherwise -- whatsmeow's BuildReaction needs that
+// sender, not the reactor.
+type ReactionCommandPayload struct {
+	SessionID    int    `json:"sessionId"`
+	MessageID    string `json:"messageId"`
+	To           string `json:"to"`
+	TargetMsgID  string `json:"targetMsgId"`
+	TargetFromMe bool   `json:"targetFromMe"`
+	Reaction     string `json:"reaction"`
+}
+
 type MarkReadCommandPayload struct {
 	ChatJID    string   `json:"chatJid"`
 	SenderJID  string   `json:"senderJid"`
@@ -118,7 +132,7 @@ type CarouselCard struct {
 	ImageData string                     `json:"imageData,omitempty"` // base64 alternative
 	Title     string                     `json:"title,omitempty"`     // card body text
 	Footer    string                     `json:"footer,omitempty"`
-	Buttons   []InteractiveButtonPayload `json:"buttons,omitempty"`   // {name, params} (NativeFlow)
+	Buttons   []InteractiveButtonPayload `json:"buttons,omitempty"` // {name, params} (NativeFlow)
 }
 
 // TemplateCommandPayload carries a HydratedFourRowTemplate message.
