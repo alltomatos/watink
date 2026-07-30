@@ -96,7 +96,10 @@ func (r *GORMContactRepository) FindOrCreate(ctx context.Context, tenantID uuid.
 	if pushName != "" && (m.Name == "" || m.Name == m.Number) {
 		updates["name"] = pushName
 	}
-	if profilePicUrl != "" && m.ProfilePicUrl == "" {
+	// WhatsApp CDN URLs expire -- refresh whenever a new non-empty URL arrives
+	// (never overwrite a stored URL with an empty one, so a transient lookup
+	// failure never erases an existing picture).
+	if profilePicUrl != "" && profilePicUrl != m.ProfilePicUrl {
 		updates["profilePicUrl"] = profilePicUrl
 	}
 	if isLid && m.Lid == nil {

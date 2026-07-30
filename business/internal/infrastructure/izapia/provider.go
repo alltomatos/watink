@@ -5,7 +5,10 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"strings"
+	"sync"
+	"time"
 
 	"net/http"
 
@@ -15,6 +18,18 @@ import (
 	"github.com/alltomatos/watinkdev/business/pkg/utils"
 	"gorm.io/gorm"
 )
+
+// picCacheTTL bounds how long a contact-picture URL is trusted before
+// GetContactPictureURL hits the izapia API again — mirrors the same
+// trade-off as engine-go's in-memory picture cache (avoid one HTTP round
+// trip per inbound message), but with an explicit TTL since there is no
+// "picture changed" webhook event wired yet to invalidate it eagerly.
+const picCacheTTL = 10 * time.Minute
+
+type picCacheEntry struct {
+	url       string
+	expiresAt time.Time
+}
 
 // mediaTypeToKind maps Watink's internal mediaType (see
 // controllers.mimeTypeToMediaType) to izapia's messages/media "kind" enum.
@@ -31,11 +46,14 @@ var mediaTypeToKind = map[string]string{
 type Provider struct {
 	db        *gorm.DB
 	broadcast domain.Broadcaster
+
+	picCacheMu sync.Mutex
+	picCache   map[string]picCacheEntry
 }
 
 // New wires the izapia provider via constructor DI.
 func New(db *gorm.DB, broadcast domain.Broadcaster) *Provider {
-	return &Provider{db: db, broadcast: broadcast}
+	return &Provider{db: db, broadcast: broadcast, picCache: make(map[string]picCacheEntry)}
 }
 
 var _ domain.WhatsAppEngine = (*Provider)(nil)
@@ -260,6 +278,41 @@ func (p *Provider) SendText(ctx context.Context, w models.Whatsapp, to, messageI
 	}
 	_, err = client.SendText(ctx, *w.IzapiaSessionID, to, body)
 	return err
+}
+
+// GetContactPictureURL resolves the profile picture URL for a contact/group
+// JID on connection w, using an in-memory TTL cache keyed by
+// "<connectionID>:<jid>" to avoid one izapia API call per inbound message.
+// Errors from the izapia API are logged and swallowed (a missing picture
+// must never block message ingestion) — callers get "" on any failure.
+func (p *Provider) GetContactPictureURL(ctx context.Context, w models.Whatsapp, jid string) string {
+	if jid == "" || w.IzapiaSessionID == nil || *w.IzapiaSessionID == "" {
+		return ""
+	}
+	cacheKey := fmt.Sprintf("%d:%s", w.ID, jid)
+
+	p.picCacheMu.Lock()
+	if entry, ok := p.picCache[cacheKey]; ok && time.Now().Before(entry.expiresAt) {
+		p.picCacheMu.Unlock()
+		return entry.url
+	}
+	p.picCacheMu.Unlock()
+
+	client, err := p.clientFor(w)
+	if err != nil {
+		log.Printf("[izapia] GetContactPictureURL(%s): client indisponível: %v", cacheKey, err)
+		return ""
+	}
+	url, err := client.GetContactPicture(ctx, *w.IzapiaSessionID, jid)
+	if err != nil {
+		log.Printf("[izapia] GetContactPictureURL(%s): %v", cacheKey, err)
+		return ""
+	}
+
+	p.picCacheMu.Lock()
+	p.picCache[cacheKey] = picCacheEntry{url: url, expiresAt: time.Now().Add(picCacheTTL)}
+	p.picCacheMu.Unlock()
+	return url
 }
 
 func (p *Provider) SendMedia(ctx context.Context, w models.Whatsapp, to, messageID, mediaType, mediaURL, mimeType string) error {

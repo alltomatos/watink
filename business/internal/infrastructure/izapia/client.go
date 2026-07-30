@@ -291,6 +291,22 @@ func (c *Client) SendCarousel(ctx context.Context, sid, to, body string, cards [
 	return out.MessageID, out.Warning, nil
 }
 
+// GetContactPicture consulta a foto de perfil de um contato/JID. Retorna
+// ("", nil) quando o contato simplesmente não tem foto acessível (404
+// NOT_FOUND) — não é tratado como erro, já que é um estado legítimo e comum.
+func (c *Client) GetContactPicture(ctx context.Context, sid, jid string) (string, error) {
+	var out struct {
+		URL string `json:"url"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/api/v1/sessions/"+sid+"/contacts/"+jid+"/picture", nil, &out); err != nil {
+		if IsNotFound(err) {
+			return "", nil
+		}
+		return "", err
+	}
+	return out.URL, nil
+}
+
 // SetWebhook configures the session's inbound event webhook.
 func (c *Client) SetWebhook(ctx context.Context, sid, url, secret string, events []string) error {
 	body := map[string]interface{}{"url": url, "secret": secret}
