@@ -72,10 +72,25 @@ const MessageOptionsMenu: React.FC<MessageOptionsMenuProps> = ({
       </ConfirmationModal>
 
       <DropdownMenu open={menuOpen} onOpenChange={(open) => !open && handleClose()}>
-        {/* The trigger is the anchorEl provided from outside; we use a hidden trigger */}
+        {/*
+          The trigger is the anchorEl provided from outside (the real
+          "Opções da mensagem" button rendered per-bubble in MessageBubble) --
+          we mirror its full bounding rect onto an invisible fixed-position
+          span so Radix's Popper anchors/aligns the popover against the same
+          area the real button occupies. Anchoring only a zero-size point at
+          the button's bottom-right corner (the previous approach) misaligned
+          the popover relative to the message bubble.
+        */}
         <DropdownMenuTrigger asChild>
-          {/* Invisible trigger — the parent component renders the actual button */}
-          <span style={{ position: "fixed", top: anchorEl?.getBoundingClientRect().bottom ?? 0, left: anchorEl?.getBoundingClientRect().right ?? 0 }} />
+          <span
+            style={{
+              position: "fixed",
+              top: anchorEl?.getBoundingClientRect().top ?? 0,
+              left: anchorEl?.getBoundingClientRect().left ?? 0,
+              width: anchorEl?.getBoundingClientRect().width ?? 0,
+              height: anchorEl?.getBoundingClientRect().height ?? 0,
+            }}
+          />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-[140px]">
           {message.fromMe && (
