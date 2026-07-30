@@ -79,6 +79,61 @@ func (pc *PipelineController) Create(c *gin.Context) {
 	c.JSON(200, pipeline)
 }
 
+// @Summary      Excluir pipeline
+// @Tags         pipelines
+// @Produce      json
+// @Param        pipelineId  path      int  true  "ID do pipeline"
+// @Success      200         {object}  map[string]string
+// @Failure      404         {object}  map[string]string
+// @Security     BearerAuth
+// @Router       /pipelines/{pipelineId} [delete]
+func (pc *PipelineController) Delete(c *gin.Context) {
+	db, tenantID, ok := auth.GetScoped(c, "Pipelines")
+	if !ok {
+		return
+	}
+	id := c.Param("pipelineId")
+
+	var pipeline models.Pipeline
+	if err := db.Where("id = ? AND \"tenantId\" = ?", id, tenantID).Preload("Stages").First(&pipeline).Error; err != nil {
+		c.JSON(404, gin.H{"error": "Pipeline not found"})
+		return
+	}
+
+	stageIDs := make([]int, len(pipeline.Stages))
+	for i, s := range pipeline.Stages {
+		stageIDs[i] = s.ID
+	}
+
+	err := db.Transaction(func(tx *gorm.DB) error {
+		// Não há outro pipeline para o qual migrar os Deals destas etapas — o
+		// container inteiro está sendo removido, então os Deals vinculados são
+		// removidos junto (nunca deixados com stageId apontando para uma etapa
+		// inexistente).
+		if len(stageIDs) > 0 {
+			if err := tx.Session(&gorm.Session{NewDB: true}).
+				Where("\"stageId\" IN ?", stageIDs).
+				Delete(&models.Deal{}).Error; err != nil {
+				return err
+			}
+			if err := tx.Session(&gorm.Session{NewDB: true}).
+				Where("\"pipelineId\" = ?", pipeline.ID).
+				Delete(&models.PipelineStage{}).Error; err != nil {
+				return err
+			}
+		}
+		return tx.Session(&gorm.Session{NewDB: true}).
+			Where("id = ? AND \"tenantId\" = ?", pipeline.ID, tenantID).
+			Delete(&models.Pipeline{}).Error
+	})
+	if err != nil {
+		utils.RespondWithInternalError(c, err, "DeletePipeline")
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "Pipeline deleted successfully"})
+}
+
 // @Summary      Atualizar pipeline
 // @Tags         pipelines
 // @Accept       json

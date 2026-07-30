@@ -10,6 +10,8 @@ import (
 	"github.com/alltomatos/watinkdev/business/pkg/auth"
 	"github.com/alltomatos/watinkdev/business/pkg/utils"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 // PipelineController encapsulates pipeline operations with RLS-scoped DB from auth middleware.
@@ -38,7 +40,59 @@ func (pc *PipelineController) List(c *gin.Context) {
 		return
 	}
 
+	if err := attachDealMetrics(db, tenantID, pipelines); err != nil {
+		utils.RespondWithInternalError(c, err, "ListPipelines")
+		return
+	}
+
 	c.JSON(200, pipelines)
+}
+
+// attachDealMetrics populates DealsCount/DealsValue on each pipeline with a
+// single GROUP BY query (never one query per pipeline) so the listing card
+// can show quick metrics without an N+1.
+func attachDealMetrics(db *gorm.DB, tenantID uuid.UUID, pipelines []models.Pipeline) error {
+	if len(pipelines) == 0 {
+		return nil
+	}
+
+	var rows []struct {
+		PipelineID int
+		Count      int64
+		Total      float64
+	}
+	err := db.Raw(`
+		SELECT ps."pipelineId" AS pipeline_id,
+		       COUNT(d.id)     AS count,
+		       COALESCE(SUM(d.value), 0) AS total
+		FROM "Deals" d
+		JOIN "PipelineStages" ps ON ps.id = d."stageId"
+		JOIN "Pipelines" p ON p.id = ps."pipelineId"
+		WHERE p."tenantId" = ?
+		GROUP BY ps."pipelineId"
+	`, tenantID).Scan(&rows).Error
+	if err != nil {
+		return err
+	}
+
+	metrics := make(map[int]struct {
+		count int64
+		total float64
+	}, len(rows))
+	for _, r := range rows {
+		metrics[r.PipelineID] = struct {
+			count int64
+			total float64
+		}{r.Count, r.Total}
+	}
+
+	for i := range pipelines {
+		if m, ok := metrics[pipelines[i].ID]; ok {
+			pipelines[i].DealsCount = m.count
+			pipelines[i].DealsValue = m.total
+		}
+	}
+	return nil
 }
 
 // @Summary      Importar pipeline

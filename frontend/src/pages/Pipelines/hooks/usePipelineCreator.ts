@@ -142,6 +142,14 @@ export function usePipelineCreator() {
     const handleRemoveStage = (index: number) =>
         setData({ ...data, stages: data.stages.filter((_, i) => i !== index) });
 
+    const handleMoveStage = (index: number, direction: "up" | "down") => {
+        const targetIndex = direction === "up" ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= data.stages.length) return;
+        const newStages = [...data.stages];
+        [newStages[index], newStages[targetIndex]] = [newStages[targetIndex], newStages[index]];
+        setData({ ...data, stages: newStages });
+    };
+
     const handleSendMessage = async () => {
         if (!input.trim()) return;
 
@@ -217,6 +225,7 @@ export function usePipelineCreator() {
         handleStageColorChange,
         handleAddStage,
         handleRemoveStage,
+        handleMoveStage,
         handleSendMessage,
         handleKeyDown,
         navigate,
