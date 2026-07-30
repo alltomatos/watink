@@ -1,5 +1,5 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { Edit, Trash2, Play, GitFork, Calendar } from "lucide-react";
 import {
   Card,

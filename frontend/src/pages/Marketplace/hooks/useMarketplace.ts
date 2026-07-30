@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import pluginApi from "../../../services/pluginApi";
 import type { MarketplacePlugin, MarketplaceEntitlements, ViewMode } from "../marketplaceTypes";
 

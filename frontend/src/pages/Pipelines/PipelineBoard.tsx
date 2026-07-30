@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router";
 import { DropResult } from "@hello-pangea/dnd";
 import { ArrowLeft, FileDown, Loader2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";

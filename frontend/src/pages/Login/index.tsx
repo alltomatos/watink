@@ -1,6 +1,6 @@
 /* @jsxImportSource react */
 import React, { useState, useEffect, useContext } from "react";
-import { Link as RouterLink, useSearchParams } from "react-router-dom";
+import { Link as RouterLink, useSearchParams } from "react-router";
 import { Lock, Eye, EyeOff, Loader2 } from "lucide-react";
 
 import { i18n } from "../../translate/i18n";

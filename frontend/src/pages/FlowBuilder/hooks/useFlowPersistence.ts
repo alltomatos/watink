@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { getConnectedEdges } from '@xyflow/react';
 import type { Node, Edge } from '@xyflow/react';
 import { toast } from 'react-toastify';

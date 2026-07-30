@@ -1,6 +1,6 @@
 /* @jsxImportSource react */
 import React, { useContext } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink } from "react-router";
 import { AuthContext } from "../../context/Auth/AuthContext";
 
 interface VersionFooterProps {

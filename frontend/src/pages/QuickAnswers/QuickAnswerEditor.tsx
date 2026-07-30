@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router";
 import { toast } from "react-toastify";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { PageLayout, PageHeader, PageContent } from "@/components/ui/page-layout";

@@ -1,6 +1,6 @@
 /* @jsxImportSource react */
 import React, { useEffect, useState, useContext } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import toastError from "../../errors/toastError";
 import api from "../../services/api";
 import { AuthContext } from "../../context/Auth/AuthContext";

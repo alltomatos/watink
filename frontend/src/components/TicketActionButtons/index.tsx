@@ -1,5 +1,5 @@
 import React, { useContext, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { MoreVertical, RotateCcw, PanelRight, PanelRightClose } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
