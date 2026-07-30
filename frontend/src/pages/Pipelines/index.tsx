@@ -44,7 +44,12 @@ interface Pipeline {
     type: "kanban" | "funnel" | "funil";
     stages: PipelineStage[];
     createdAt?: string;
+    dealsCount?: number;
+    dealsValue?: number;
 }
+
+const formatCurrency = (value: number) =>
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 
 type PipelineSortOption = "name" | "date";
 
@@ -365,6 +370,21 @@ const Pipelines: React.FC = () => {
                                             </span>
                                         )}
                                     </div>
+
+                                    {/* Quick metrics: deal count + total value */}
+                                    {!!pipeline.dealsCount && (
+                                        <div className="flex items-center justify-between text-[11px] text-muted-foreground border-t pt-2 -mb-1">
+                                            <span>
+                                                {pipeline.dealsCount} negócio
+                                                {pipeline.dealsCount !== 1 ? "s" : ""}
+                                            </span>
+                                            {!!pipeline.dealsValue && (
+                                                <span className="font-semibold">
+                                                    {formatCurrency(pipeline.dealsValue)}
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
                                 </CardContent>
                             </Card>
                         ))}

@@ -125,6 +125,41 @@ describe("Pipelines page — ações do card (excluir/duplicar/exportar)", () =>
   });
 });
 
+describe("Pipelines page — métricas rápidas", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    mockApiGet.mockReset();
+  });
+
+  it("shows deal count and total value when dealsCount > 0", async () => {
+    mockApiGet.mockResolvedValue({
+      data: [{ ...pipeline, dealsCount: 3, dealsValue: 1250.5 }],
+    });
+
+    render(
+      <MemoryRouter>
+        <Pipelines />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(screen.getByText("3 negócios")).toBeInTheDocument());
+    expect(screen.getByText("R$ 1.250,50")).toBeInTheDocument();
+  });
+
+  it("hides the metrics row when there are no deals", async () => {
+    mockApiGet.mockResolvedValue({ data: [pipeline] });
+
+    render(
+      <MemoryRouter>
+        <Pipelines />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(screen.getByText("Funil de Vendas")).toBeInTheDocument());
+    expect(screen.queryByText(/negócio/)).not.toBeInTheDocument();
+  });
+});
+
 describe("Pipelines page — ordenação", () => {
   beforeEach(() => {
     window.localStorage.clear();
