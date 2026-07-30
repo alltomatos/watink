@@ -118,20 +118,16 @@ const TicketsManager: React.FC = () => {
             />
           </div>
 
-          {/* Pills de abas: individuais (Todos/Abertos/Aguardando/Fechados) + Grupos */}
+          {/* Pills de abas: individuais (Todos/Abertos/Aguardando/Fechados) + Grupos -- todas sempre visíveis e clicáveis */}
           <div className="flex items-center gap-1 flex-wrap">
-            {!isGroupsTab && (
-              <>
-                <FilterPill label="Todos"      active={activeTab === "all"}     onClick={() => handleTabChange("all")}     count={activeTab === "all" ? currentCount : undefined} />
-                <FilterPill label="Abertos"    active={activeTab === "open"}    onClick={() => handleTabChange("open")}    count={activeTab === "open" ? currentCount : undefined} />
-                <FilterPill label="Aguardando" active={activeTab === "pending"} onClick={() => handleTabChange("pending")} count={activeTab === "pending" ? currentCount : undefined} />
-                <FilterPill label="Fechados"   active={activeTab === "closed"}  onClick={() => handleTabChange("closed")}  count={activeTab === "closed" ? currentCount : undefined} />
-              </>
-            )}
+            <FilterPill label="Todos"      active={activeTab === "all"}     onClick={() => handleTabChange("all")}     count={activeTab === "all" ? currentCount : undefined} />
+            <FilterPill label="Abertos"    active={activeTab === "open"}    onClick={() => handleTabChange("open")}    count={activeTab === "open" ? currentCount : undefined} />
+            <FilterPill label="Aguardando" active={activeTab === "pending"} onClick={() => handleTabChange("pending")} count={activeTab === "pending" ? currentCount : undefined} />
+            <FilterPill label="Fechados"   active={activeTab === "closed"}  onClick={() => handleTabChange("closed")}  count={activeTab === "closed" ? currentCount : undefined} />
             <FilterPill
               label="Grupos"
               active={isGroupsTab}
-              onClick={() => handleTabChange(isGroupsTab ? "all" : "groups")}
+              onClick={() => handleTabChange("groups")}
               count={isGroupsTab ? currentCount : undefined}
               icon={<Users size={10} />}
             />
