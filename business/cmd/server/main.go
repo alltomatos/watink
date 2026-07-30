@@ -131,7 +131,7 @@ func main() {
 	// izapia webhook — public route (no JWT), authenticated per-session by
 	// HMAC signature (X-izapia-Signature). See izapia.Provider.ensureSession
 	// for where the webhook secret/URL is configured on session creation.
-	izapiaWebhookController := controllers.NewIzapiaWebhookController(database.DB, eventListener)
+	izapiaWebhookController := controllers.NewIzapiaWebhookController(database.DB, eventListener, container.IzapiaProvider)
 	r.POST("/webhooks/izapia/:sessionId", izapiaWebhookController.HandleWebhook)
 
 	apiGroup := r.Group("/api/v1")
