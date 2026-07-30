@@ -61,6 +61,7 @@ func main() {
 		"wbot.*.*.message.send.interactive",
 		"wbot.*.*.message.send.template",
 		"wbot.*.*.message.send.carousel",
+		"wbot.*.*.message.react",
 		"wbot.*.*.message.markAsRead",
 		"wbot.*.*.media.download",
 		"wbot.*.*.contact.sync",
@@ -193,6 +194,13 @@ func handleCommand(d amqp.Delivery, svc *whatsapp.WhatsAppService) error {
 			return err
 		}
 		return svc.SendCarousel(sessionID, tenantID, p)
+
+	case "message.react":
+		var p whatsapp.ReactionCommandPayload
+		if err := json.Unmarshal(env.Payload, &p); err != nil {
+			return err
+		}
+		return svc.SendReaction(sessionID, tenantID, p)
 
 	case "message.markAsRead":
 		var p whatsapp.MarkReadCommandPayload

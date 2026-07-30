@@ -1,10 +1,24 @@
 import { Message, MessagesAction } from "../types";
 
+// createdAt is typed as string, but some messages arrive with a numeric unix
+// timestamp in SECONDS (e.g. 1722259200) rather than an ISO date string or
+// milliseconds. `new Date()` always expects milliseconds, so a raw seconds
+// value gets interpreted as 1970 -- silently breaking the sort order against
+// ISO-dated messages that land correctly in the current year. Detect a
+// numeric value below the seconds/milliseconds threshold (10^12 ~= year
+// 2001 in ms, comfortably above any real unix-seconds value) and scale it up.
+const SECONDS_MS_THRESHOLD = 1e12;
+
+const toTimestampMs = (createdAt: Message["createdAt"]): number => {
+  const numeric = Number(createdAt);
+  if (!Number.isNaN(numeric) && String(createdAt).trim() !== "") {
+    return numeric < SECONDS_MS_THRESHOLD ? numeric * 1000 : numeric;
+  }
+  return new Date(createdAt).getTime();
+};
+
 const sortByDate = (arr: Message[]): Message[] =>
-  [...arr].sort(
-    (a, b) =>
-      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-  );
+  [...arr].sort((a, b) => toTimestampMs(a.createdAt) - toTimestampMs(b.createdAt));
 
 export const messagesReducer = (
   state: Message[],

@@ -89,4 +89,24 @@ describe("TicketsManager", () => {
     const list = screen.getByTestId("tickets-list");
     expect(list.getAttribute("data-is-group")).toBe("undefined");
   });
+
+  it("mantém as abas Todos/Abertos/Aguardando/Fechados visíveis mesmo com Grupos selecionada", () => {
+    render(<TicketsManager />);
+    fireEvent.click(screen.getByText("Grupos"));
+
+    expect(screen.getByText("Todos")).toBeInTheDocument();
+    expect(screen.getByText("Abertos")).toBeInTheDocument();
+    expect(screen.getByText("Aguardando")).toBeInTheDocument();
+    expect(screen.getByText("Fechados")).toBeInTheDocument();
+    expect(screen.getByText("Grupos")).toBeInTheDocument();
+  });
+
+  it("permite alternar de Grupos de volta para outra aba clicando nela diretamente", () => {
+    render(<TicketsManager />);
+    fireEvent.click(screen.getByText("Grupos"));
+    fireEvent.click(screen.getByText("Abertos"));
+
+    const list = screen.getByTestId("tickets-list");
+    expect(list.getAttribute("data-is-group")).toBe("false");
+  });
 });

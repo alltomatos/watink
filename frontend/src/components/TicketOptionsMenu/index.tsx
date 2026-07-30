@@ -1,10 +1,6 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
@@ -24,14 +20,15 @@ interface Ticket {
 
 interface TicketOptionsMenuProps {
   ticket: Ticket;
-  /** Controls the open state of the dropdown from the parent trigger. */
-  menuOpen: boolean;
   handleClose: () => void;
 }
 
+// Renders as a child of the <DropdownMenu> owned by TicketActionButtons
+// (which also owns the <DropdownMenuTrigger> anchoring this content) --
+// DropdownMenuContent needs that Root context to position itself relative to
+// the real trigger button, otherwise the popover has no anchor.
 const TicketOptionsMenu: React.FC<TicketOptionsMenuProps> = ({
   ticket,
-  menuOpen,
   handleClose,
 }) => {
   const [confirmationOpen, setConfirmationOpen] = useState(false);
@@ -71,33 +68,24 @@ const TicketOptionsMenu: React.FC<TicketOptionsMenuProps> = ({
 
   return (
     <>
-      {/*
-        DropdownMenu is opened programmatically via `open` + `onOpenChange`.
-        The trigger is the MoreVertical button rendered in TicketActionButtons,
-        so we use `modal={false}` to avoid Radix trying to manage focus of
-        a trigger it does not own, and keep the menu anchored to the viewport.
-      */}
-      <DropdownMenu open={menuOpen} onOpenChange={(open) => !open && handleClose()} modal={false}>
-        {/* No <DropdownMenuTrigger> here — parent controls open state */}
-        <DropdownMenuContent align="end" side="bottom">
-          <DropdownMenuItem onClick={handleOpenTransferModal}>
-            {i18n.t("ticketOptionsMenu.transfer")}
-          </DropdownMenuItem>
+      <DropdownMenuContent align="end" side="bottom">
+        <DropdownMenuItem onClick={handleOpenTransferModal}>
+          {i18n.t("ticketOptionsMenu.transfer")}
+        </DropdownMenuItem>
 
-          <Can
-            user={user}
-            perform="tickets:delete"
-            yes={() => (
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onClick={handleOpenConfirmationModal}
-              >
-                {i18n.t("ticketOptionsMenu.delete")}
-              </DropdownMenuItem>
-            )}
-          />
-        </DropdownMenuContent>
-      </DropdownMenu>
+        <Can
+          user={user}
+          perform="tickets:delete"
+          yes={() => (
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={handleOpenConfirmationModal}
+            >
+              {i18n.t("ticketOptionsMenu.delete")}
+            </DropdownMenuItem>
+          )}
+        />
+      </DropdownMenuContent>
 
       <ConfirmationModal
         title={`${i18n.t("ticketOptionsMenu.confirmationModal.title")}${ticket.id} ${i18n.t(

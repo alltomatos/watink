@@ -2674,6 +2674,62 @@ const docTemplate = `{
                 }
             }
         },
+        "/message/{messageId}/react": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "messages"
+                ],
+                "summary": "Reagir a uma mensagem",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID da mensagem",
+                        "name": "messageId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Emoji da reação (vazio remove)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/messages/{ticketId}": {
             "get": {
                 "security": [

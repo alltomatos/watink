@@ -9,7 +9,14 @@ import {
 } from "../../ui/dropdown-menu";
 import { i18n } from "../../../translate/i18n";
 
-const EmojiPicker = lazy(() => import("emoji-mart").then((mod) => ({ default: mod.Picker })));
+const EmojiPicker = lazy(() =>
+  // O CSS base do emoji-mart nunca era carregado -- sem ele o Picker renderiza
+  // como uma lista vertical de emojis sem grade/fundo. Carregado junto com o
+  // componente (só quando o picker é de fato aberto), não no bundle inicial.
+  Promise.all([import("emoji-mart"), import("emoji-mart/css/emoji-mart.css")]).then(
+    ([mod]) => ({ default: mod.Picker })
+  )
+);
 
 interface InputToolbarProps {
   loading: boolean;
