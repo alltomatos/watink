@@ -7,6 +7,7 @@ import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu
 import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
 import TicketOptionsMenu from "../TicketOptionsMenu";
+import TicketQuickShortcuts from "../TicketQuickShortcuts";
 import ButtonWithSpinner from "../ButtonWithSpinner";
 import toastError from "../../errors/toastError";
 import { AuthContext } from "../../context/Auth/AuthContext";
@@ -110,6 +111,8 @@ const TicketActionButtons: React.FC<TicketActionButtonsProps> = ({ ticket, onTog
           >
             {i18n.t("messagesList.header.buttons.resolve") as string}
           </ButtonWithSpinner>
+
+          <TicketQuickShortcuts ticketId={ticket.id} />
 
           {onToggleDetails && (
             <Button
