@@ -82,16 +82,24 @@ func (s *WhatsAppService) handleMessageEvent(client *whatsmeow.Client, id int, t
 	}
 
 	// Profile picture for the contact record (group's own photo or individual sender's photo).
+	// LID senders (@lid, increasingly common) previously never got a picture
+	// fetched — GetProfilePictureInfo needs a real JID, so resolve LID→PN
+	// first (same resolution already done above for resolvedSender) instead
+	// of only accepting DefaultUserServer.
 	profilePic := ""
 	senderPic := ""
 	if isGroup {
 		profilePic = s.getCachedPic(client, v.Info.Chat.ToNonAD())
 		// Individual participant photo — shown in message bubble avatars.
-		if !v.Info.IsFromMe && v.Info.Sender.Server == types.DefaultUserServer {
-			senderPic = s.getCachedPic(client, v.Info.Sender.ToNonAD())
+		if !v.Info.IsFromMe {
+			if picJID, ok := s.resolvePicJID(client, v.Info.Sender); ok {
+				senderPic = s.getCachedPic(client, picJID)
+			}
 		}
-	} else if !v.Info.IsFromMe && v.Info.Sender.Server == types.DefaultUserServer {
-		profilePic = s.getCachedPic(client, v.Info.Sender.ToNonAD())
+	} else if !v.Info.IsFromMe {
+		if picJID, ok := s.resolvePicJID(client, v.Info.Sender); ok {
+			profilePic = s.getCachedPic(client, picJID)
+		}
 	}
 
 	// For outbound individual messages (fromMe=true, non-group), PushName is the
