@@ -2674,7 +2674,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/messages/{messageId}/react": {
+        "/message/{messageId}/react": {
             "post": {
                 "security": [
                     {

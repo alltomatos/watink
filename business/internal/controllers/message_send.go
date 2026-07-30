@@ -265,7 +265,7 @@ func (mc *MessageController) SendMessage(c *gin.Context) {
 // @Success      200        {object}  map[string]interface{}
 // @Failure      404        {object}  map[string]string
 // @Security     BearerAuth
-// @Router       /messages/{messageId}/react [post]
+// @Router       /message/{messageId}/react [post]
 func (mc *MessageController) ReactToMessage(c *gin.Context) {
 	db, tenantID, ok := auth.GetScoped(c, "Messages")
 	if !ok {

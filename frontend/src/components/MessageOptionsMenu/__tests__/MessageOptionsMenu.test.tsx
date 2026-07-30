@@ -17,7 +17,7 @@ describe("MessageOptionsMenu — reações rápidas", () => {
     mockApiPost.mockResolvedValue({ data: { message: "ok" } });
   });
 
-  it("sends POST /messages/:id/react with the picked emoji", async () => {
+  it("sends POST /message/:id/react with the picked emoji", async () => {
     const handleClose = vi.fn();
     render(
       <MessageOptionsMenu
@@ -31,7 +31,7 @@ describe("MessageOptionsMenu — reações rápidas", () => {
     fireEvent.click(screen.getByLabelText("Reagir com 👍"));
 
     await waitFor(() =>
-      expect(mockApiPost).toHaveBeenCalledWith("/messages/42/react", { reaction: "👍" })
+      expect(mockApiPost).toHaveBeenCalledWith("/message/42/react", { reaction: "👍" })
     );
     expect(handleClose).toHaveBeenCalled();
   });

@@ -65,7 +65,7 @@ const MessageOptionsMenu: React.FC<MessageOptionsMenuProps> = ({
   const handleReact = async (reaction: string) => {
     handleClose();
     try {
-      await api.post(`/messages/${message.id}/react`, { reaction });
+      await api.post(`/message/${message.id}/react`, { reaction });
     } catch (err) {
       toastError(err);
     }

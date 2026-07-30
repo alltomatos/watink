@@ -164,11 +164,11 @@ func TestReactToMessage(t *testing.T) {
 
 	r := gin.New()
 	r.Use(testScopedMiddleware(db, tenantID.String()))
-	r.POST("/messages/:messageId/react", mc.ReactToMessage)
+	r.POST("/message/:messageId/react", mc.ReactToMessage)
 
 	t.Run("happy path — publishes command and persists optimistic reaction", func(t *testing.T) {
 		body, _ := json.Marshal(map[string]string{"reaction": "👍"})
-		req := httptest.NewRequest(http.MethodPost, "/messages/MSG1/react", bytes.NewReader(body))
+		req := httptest.NewRequest(http.MethodPost, "/message/MSG1/react", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		res := httptest.NewRecorder()
 		r.ServeHTTP(res, req)
@@ -191,7 +191,7 @@ func TestReactToMessage(t *testing.T) {
 
 	t.Run("empty reaction removes the bot's own reaction", func(t *testing.T) {
 		body, _ := json.Marshal(map[string]string{"reaction": ""})
-		req := httptest.NewRequest(http.MethodPost, "/messages/MSG1/react", bytes.NewReader(body))
+		req := httptest.NewRequest(http.MethodPost, "/message/MSG1/react", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		res := httptest.NewRecorder()
 		r.ServeHTTP(res, req)
@@ -211,7 +211,7 @@ func TestReactToMessage(t *testing.T) {
 
 	t.Run("message not found returns 404", func(t *testing.T) {
 		body, _ := json.Marshal(map[string]string{"reaction": "👍"})
-		req := httptest.NewRequest(http.MethodPost, "/messages/DOES-NOT-EXIST/react", bytes.NewReader(body))
+		req := httptest.NewRequest(http.MethodPost, "/message/DOES-NOT-EXIST/react", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		res := httptest.NewRecorder()
 		r.ServeHTTP(res, req)
@@ -224,10 +224,10 @@ func TestReactToMessage(t *testing.T) {
 	t.Run("wrong tenant cannot react", func(t *testing.T) {
 		rOther := gin.New()
 		rOther.Use(testScopedMiddleware(db, uuid.New().String()))
-		rOther.POST("/messages/:messageId/react", mc.ReactToMessage)
+		rOther.POST("/message/:messageId/react", mc.ReactToMessage)
 
 		body, _ := json.Marshal(map[string]string{"reaction": "👍"})
-		req := httptest.NewRequest(http.MethodPost, "/messages/MSG1/react", bytes.NewReader(body))
+		req := httptest.NewRequest(http.MethodPost, "/message/MSG1/react", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		res := httptest.NewRecorder()
 		rOther.ServeHTTP(res, req)

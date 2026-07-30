@@ -2216,7 +2216,7 @@ paths:
       summary: Baixar mídia sob demanda
       tags:
       - messages
-  /messages/{messageId}/react:
+  /message/{messageId}/react:
     post:
       consumes:
       - application/json
