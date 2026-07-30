@@ -6,7 +6,7 @@ import TicketListItem from "../index";
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
 const mockNavigate = vi.fn();
-vi.mock("react-router-dom", () => ({
+vi.mock("react-router", () => ({
   useNavigate: () => mockNavigate,
   useParams: () => ({ ticketId: undefined }),
 }));

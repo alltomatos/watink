@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { subscribeToSocket } from "../../services/sse-client";
 import { toast } from "react-toastify";
 import { i18n } from "../../translate/i18n";

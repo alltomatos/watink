@@ -1,5 +1,5 @@
 import React from "react";
-import { useParams, useNavigate, Navigate } from "react-router-dom";
+import { useParams, useNavigate, Navigate } from "react-router";
 import { Users, Building2, ShieldCheck } from "lucide-react";
 
 import { PageContainer, PageHeader, PageContent } from "../../components/ui/page-layout";

@@ -1,6 +1,6 @@
 /* @jsxImportSource react */
 import React, { useState, useContext } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { Puzzle, Loader2 } from "lucide-react";
 
 import { AuthContext } from "../../context/Auth/AuthContext";

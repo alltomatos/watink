@@ -1,6 +1,6 @@
 /* @jsxImportSource react */
 import React, { useEffect, useState } from "react";
-import { useNavigate, useSearchParams, Link as RouterLink } from "react-router-dom";
+import { useNavigate, useSearchParams, Link as RouterLink } from "react-router";
 import { Loader2, ArrowLeft, Eye, EyeOff, PartyPopper } from "lucide-react";
 
 import api from "../../services/api";

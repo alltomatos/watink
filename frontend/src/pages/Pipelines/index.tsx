@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { toast } from "react-toastify";
 import { Copy, FileDown, Layers, MoreVertical, Pencil, Plus, Search, Trash2, Upload } from "lucide-react";
 import { PageLayout, PageHeader, PageContent } from "@/components/ui/page-layout";

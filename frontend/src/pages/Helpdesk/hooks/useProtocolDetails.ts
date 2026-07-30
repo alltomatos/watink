@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router";
 import { toast } from "react-toastify";
 import api from "../../../services/api";
 import type { Protocol, Attachment, HistoryItem, UpdateFormData } from "../protocolTypes";

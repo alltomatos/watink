@@ -1,5 +1,5 @@
 import React, { useState, useEffect, ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import axios from "axios";
 import SplashScreen from "../SplashScreen";
 import { getBackendUrl } from "../../config";

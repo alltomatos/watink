@@ -1,6 +1,6 @@
 /* @jsxImportSource react */
 import React, { useEffect, useState, useContext, useCallback } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink } from "react-router";
 import { RotateCcw } from "lucide-react";
 import api from "../../services/api";
 import { AuthContext } from "../../context/Auth/AuthContext";
