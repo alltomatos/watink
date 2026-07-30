@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { MoreVertical, RotateCcw, PanelRight, PanelRightClose } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
 import TicketOptionsMenu from "../TicketOptionsMenu";
@@ -126,20 +127,18 @@ const TicketActionButtons: React.FC<TicketActionButtonsProps> = ({ ticket, onTog
             </Button>
           )}
 
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleOpenMenu}
-            aria-label="Mais opções"
+          <DropdownMenu
+            open={menuOpen}
+            onOpenChange={(open) => (open ? handleOpenMenu() : handleCloseMenu())}
           >
-            <MoreVertical className="h-4 w-4" />
-          </Button>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="Mais opções">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
 
-          <TicketOptionsMenu
-            ticket={ticket}
-            menuOpen={menuOpen}
-            handleClose={handleCloseMenu}
-          />
+            <TicketOptionsMenu ticket={ticket} handleClose={handleCloseMenu} />
+          </DropdownMenu>
         </>
       )}
 
