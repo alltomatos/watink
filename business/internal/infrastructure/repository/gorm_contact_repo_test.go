@@ -228,3 +228,37 @@ func TestGORMContactRepo_FindOrCreate_TenantIsolation(t *testing.T) {
 	assert.NotNil(t, found)
 	assert.Equal(t, created.ID, found.ID, "FindOrCreate deveria retornar o mesmo contato")
 }
+
+func TestGORMContactRepo_FindOrCreate_RefreshesExpiredProfilePicUrl(t *testing.T) {
+	db := setupContactTestDB(t)
+	tenantA, _, _, _ := seedTwoTenantsContacts(t, db)
+	repo := NewGORMContactRepo(db)
+	ctx := context.Background()
+
+	created, err := repo.FindOrCreate(ctx, tenantA, "5599994444", "Ana", "https://cdn.example.com/old.jpg", false, false, "")
+	require.NoError(t, err)
+	require.Equal(t, "https://cdn.example.com/old.jpg", created.ProfilePicUrl)
+
+	// URL da CDN expirou e uma nova chega -- deve substituir a antiga, não
+	// ficar travada porque o campo já estava preenchido.
+	updated, err := repo.FindOrCreate(ctx, tenantA, "5599994444", "Ana", "https://cdn.example.com/new.jpg", false, false, "")
+	require.NoError(t, err)
+	assert.Equal(t, "https://cdn.example.com/new.jpg", updated.ProfilePicUrl)
+}
+
+func TestGORMContactRepo_FindOrCreate_NeverErasesProfilePicUrlWithEmpty(t *testing.T) {
+	db := setupContactTestDB(t)
+	tenantA, _, _, _ := seedTwoTenantsContacts(t, db)
+	repo := NewGORMContactRepo(db)
+	ctx := context.Background()
+
+	created, err := repo.FindOrCreate(ctx, tenantA, "5599995555", "Bruno", "https://cdn.example.com/pic.jpg", false, false, "")
+	require.NoError(t, err)
+	require.Equal(t, "https://cdn.example.com/pic.jpg", created.ProfilePicUrl)
+
+	// Falha transitória de busca de foto chega como string vazia -- nunca
+	// deve apagar a URL já persistida.
+	updated, err := repo.FindOrCreate(ctx, tenantA, "5599995555", "Bruno", "", false, false, "")
+	require.NoError(t, err)
+	assert.Equal(t, "https://cdn.example.com/pic.jpg", updated.ProfilePicUrl)
+}
