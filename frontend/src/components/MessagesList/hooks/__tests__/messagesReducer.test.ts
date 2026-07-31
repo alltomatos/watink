@@ -55,6 +55,27 @@ describe("messagesReducer — sortByDate", () => {
     expect(state.map((m) => m.id)).toEqual([1, 2, 3]);
   });
 
+  it("breaks a same-second timestamp tie deterministically by id (issue #414)", () => {
+    // WhatsApp timestamps carry only second precision -- two messages sent
+    // within the same second arrive with an identical createdAt. Without an
+    // explicit tiebreak the resulting order depends on whatever order the
+    // backend/network happened to deliver them in, which corrupts the
+    // reply/reply-back flow shown in the chat.
+    const same = "2026-07-30T12:00:00.000Z";
+    const a = msg(2, same);
+    const b = msg(10, same);
+    const c = msg(1, same);
+
+    const state = messagesReducer([], {
+      type: "LOAD_MESSAGES",
+      payload: [b, a, c],
+    });
+
+    // Tiebreak is string comparison of id (matches the backend's `id DESC`
+    // tiebreak, reversed the same way createdAt is) -- "1" < "10" < "2" lexically.
+    expect(state.map((m) => m.id)).toEqual([1, 10, 2]);
+  });
+
   it("sorts correctly when timestamps are already in milliseconds", () => {
     const a = msg(1, 1700000000000 as unknown as string);
     const b = msg(2, 1750000000000 as unknown as string);
