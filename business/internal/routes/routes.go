@@ -116,7 +116,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 	// (X-Internal-Token vs env PLUGIN_MANAGER_INTERNAL_TOKEN, fail-closed).
 	// O plugin-manager consulta esses números pra popular `counters` no
 	// heartbeat do Hub — soma TODOS os tenants da instância, sem filtro (o
-	// Hub não conhece tenants individuais, ADR 0003).
+	// Hub não conhece cada tenant em separado, ADR 0003).
 	internalPluginManager := group.Group("/internal/plugin-manager")
 	internalPluginManager.Use(middleware.InternalPluginManagerOnly())
 	{

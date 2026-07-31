@@ -15,7 +15,7 @@ import (
 // API interna consumida EXCLUSIVAMENTE pelo plugin-manager local (via
 // X-Internal-Token), que repassa esses números no `counters` do heartbeat
 // pro Watink Hub. Opera cross-tenant com o DB sem escopo (soma TODOS os
-// tenants da instância) — o Hub não conhece tenants individuais (ADR 0003),
+// tenants da instância) — o Hub não conhece cada tenant em separado (ADR 0003),
 // só a instância como um todo.
 type PluginManagerInternalController struct {
 	db *gorm.DB
@@ -72,7 +72,7 @@ func (ctrl *PluginManagerInternalController) InstanceStats(c *gin.Context) {
 	}
 	admins := make([]instanceStatsAdmin, 0, len(adminRows))
 	for _, row := range adminRows {
-		admins = append(admins, instanceStatsAdmin{TenantName: row.TenantName, OwnerEmail: row.OwnerEmail})
+		admins = append(admins, instanceStatsAdmin(row))
 	}
 
 	schemaVersion := os.Getenv("APP_VERSION")
