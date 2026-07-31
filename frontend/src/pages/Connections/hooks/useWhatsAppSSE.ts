@@ -72,9 +72,19 @@ export const useWhatsAppSocket = ({
       }
     };
 
+    // Sinal ao vivo de risco de ban/throttle (whatsmeow IQ 401/403/429/463).
+    // O valor persistido (lastRiskCode/lastRiskAt) só chega no fetch seguinte,
+    // então refazemos o fetch para o banner reagir sem esperar outro evento.
+    const handleSessionRisk = (data: { sessionId: number }) => {
+      if (data.sessionId === parseInt(whatsappId ?? "0")) {
+        void fetchWhatsapp();
+      }
+    };
+
     return subscribeToSocket({
       whatsappSession: handleSession,
       whatsapp: handleWhatsapp,
+      whatsappSessionRisk: handleSessionRisk,
     });
   }, [
     whatsappId,
