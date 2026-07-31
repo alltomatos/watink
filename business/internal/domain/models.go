@@ -149,4 +149,11 @@ type ChannelSession struct {
 	// max_sessions do tenant na izapia.
 	IzapiaSessionID        *string `json:"izapiaSessionId"`
 	IzapiaWebhookSecretEnc *string `json:"-"`
+
+	// LastRisk* — último sinal de risco de ban/throttle (whatsmeow IQ
+	// 401/403/429/463) recebido para esta conexão. Ver models.Whatsapp.
+	LastRiskCode    int        `json:"lastRiskCode"`
+	LastRiskAction  string     `json:"lastRiskAction"`
+	LastRiskMessage string     `json:"lastRiskMessage"`
+	LastRiskAt      *time.Time `json:"lastRiskAt"`
 }

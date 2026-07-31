@@ -6537,6 +6537,19 @@ const docTemplate = `{
                 "lastConnectedAt": {
                     "type": "string"
                 },
+                "lastRiskAction": {
+                    "type": "string"
+                },
+                "lastRiskAt": {
+                    "type": "string"
+                },
+                "lastRiskCode": {
+                    "description": "LastRisk* persist the most recent whatsmeow ban/throttle risk signal\n(IQ codes 401/403/429/463) for this connection, so the Conexões page can\nwarn the user even after the live SSE event has been missed.",
+                    "type": "integer"
+                },
+                "lastRiskMessage": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },

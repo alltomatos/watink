@@ -8,6 +8,7 @@ import ConnectionModals from "./components/ConnectionModals";
 import ConnectionPageHeader from "./components/ConnectionPageHeader";
 import ConnectionActionGrid from "./components/ConnectionActionGrid";
 import ConnectionStatusBanner from "./components/ConnectionStatusBanner";
+import { ConnectionRiskBanner } from "./components/ConnectionRiskBanner";
 import IdentityCard from "./components/IdentityCard";
 import PairingCodePanel from "./components/PairingCodePanel";
 import QrCodePanel from "./components/QrCodePanel";
@@ -104,6 +105,8 @@ const ConnectionConfig = () => {
             onConnectQr={handleStartSessionQr}
             onConnectPairing={() => setInputPairingModalOpen(true)}
           />
+
+          <ConnectionRiskBanner lastRiskCode={whatsapp.lastRiskCode} lastRiskAt={whatsapp.lastRiskAt} />
 
           {status === "QRCODE" && showQrCode && (
             <QrCodePanel qrcode={whatsapp.qrcode} onCancel={openDisconnectConfirmation} />

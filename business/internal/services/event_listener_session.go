@@ -139,6 +139,16 @@ func (el *EventListener) handleSessionRisk(ctx context.Context, payload json.Raw
 
 	log.Printf("[EventListener] RISK session=%d action=%s code=%d: %s", p.SessionID, p.Action, p.Code, p.Message)
 
+	now := time.Now()
+	if err := el.sessions.Update(ctx, &domain.ChannelSession{ID: p.SessionID, TenantID: tenantID}, map[string]interface{}{
+		"lastRiskCode":    p.Code,
+		"lastRiskAction":  p.Action,
+		"lastRiskMessage": p.Message,
+		"lastRiskAt":      &now,
+	}); err != nil {
+		log.Printf("[EventListener] falha ao persistir sinal de risco da conexão %d: %v", p.SessionID, err)
+	}
+
 	if riskCodesTriggeringIsolation[p.Code] {
 		el.isolateConnectionProxy(ctx, p.SessionID, tenantID)
 	}

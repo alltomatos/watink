@@ -204,6 +204,32 @@ func TestHandleSessionRisk_401DoesNotIsolateProxy(t *testing.T) {
 	}
 }
 
+// The risk signal must be persisted on the connection row, so the Conexões
+// page can still show it after the live SSE event has been missed.
+func TestHandleSessionRisk_PersistsLastRiskFields(t *testing.T) {
+	db, sessions, _ := setupEventListenerRepos(t)
+	tenantID := uuid.New()
+	seedWhatsapp(t, db, 7, tenantID)
+
+	el := &EventListener{sessions: sessions, db: db}
+	payload, _ := json.Marshal(SessionRiskPayload{SessionID: 7, Action: "message.send", Code: 463, Message: "info query returned status 463: rate-overlimit"})
+	if err := el.handleSessionRisk(context.Background(), payload, tenantID); err != nil {
+		t.Fatalf("handleSessionRisk: %v", err)
+	}
+
+	var wa models.Whatsapp
+	db.First(&wa, 7)
+	if wa.LastRiskCode != 463 {
+		t.Errorf("LastRiskCode = %d, want 463", wa.LastRiskCode)
+	}
+	if wa.LastRiskAction != "message.send" {
+		t.Errorf("LastRiskAction = %q, want message.send", wa.LastRiskAction)
+	}
+	if wa.LastRiskAt == nil {
+		t.Fatal("LastRiskAt should be set")
+	}
+}
+
 func TestHandleSessionRisk_InvalidJSON(t *testing.T) {
 	el := &EventListener{}
 	err := el.handleSessionRisk(context.Background(), json.RawMessage(`{bad`), uuid.New())
