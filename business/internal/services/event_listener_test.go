@@ -152,6 +152,66 @@ func TestHandleSessionStatus_BannedIsolatesProxy(t *testing.T) {
 	}
 }
 
+// --- handleSessionRisk ---
+
+// code 463 (rate-overlimit) is a strong ban/throttle signal — must
+// auto-isolate the connection's proxy the same way BANNED does.
+func TestHandleSessionRisk_463IsolatesProxy(t *testing.T) {
+	db, sessions, _ := setupEventListenerRepos(t)
+	tenantID := uuid.New()
+	proxy := models.Proxy{TenantID: tenantID, Scheme: "http", Host: "h", Port: 8080, Status: "active"}
+	if err := db.Create(&proxy).Error; err != nil {
+		t.Fatalf("seed proxy: %v", err)
+	}
+	wa := models.Whatsapp{ID: 5, Name: "s5", Status: "CONNECTED", TenantID: tenantID, ProxyMode: "single", ProxyID: &proxy.ID}
+	if err := db.Create(&wa).Error; err != nil {
+		t.Fatalf("seed wa: %v", err)
+	}
+
+	el := &EventListener{sessions: sessions, db: db}
+	payload, _ := json.Marshal(SessionRiskPayload{SessionID: 5, Action: "message.send", Code: 463, Message: "info query returned status 463: rate-overlimit"})
+	if err := el.handleSessionRisk(context.Background(), payload, tenantID); err != nil {
+		t.Fatalf("handleSessionRisk: %v", err)
+	}
+
+	var reloaded models.Proxy
+	db.First(&reloaded, proxy.ID)
+	if reloaded.Status != "isolated" {
+		t.Fatalf("expected proxy isolated after code 463, got %q", reloaded.Status)
+	}
+}
+
+// code 401 is surfaced but must NOT auto-isolate — it isn't an IP/volume
+// signal, isolating the proxy wouldn't address it.
+func TestHandleSessionRisk_401DoesNotIsolateProxy(t *testing.T) {
+	db, sessions, _ := setupEventListenerRepos(t)
+	tenantID := uuid.New()
+	proxy := models.Proxy{TenantID: tenantID, Scheme: "http", Host: "h", Port: 8080, Status: "active"}
+	db.Create(&proxy)
+	wa := models.Whatsapp{ID: 6, Name: "s6", Status: "CONNECTED", TenantID: tenantID, ProxyMode: "single", ProxyID: &proxy.ID}
+	db.Create(&wa)
+
+	el := &EventListener{sessions: sessions, db: db}
+	payload, _ := json.Marshal(SessionRiskPayload{SessionID: 6, Action: "profile.picture", Code: 401, Message: "info query returned status 401: not-authorized"})
+	if err := el.handleSessionRisk(context.Background(), payload, tenantID); err != nil {
+		t.Fatalf("handleSessionRisk: %v", err)
+	}
+
+	var reloaded models.Proxy
+	db.First(&reloaded, proxy.ID)
+	if reloaded.Status != "active" {
+		t.Fatalf("proxy should stay active on code 401, got %q", reloaded.Status)
+	}
+}
+
+func TestHandleSessionRisk_InvalidJSON(t *testing.T) {
+	el := &EventListener{}
+	err := el.handleSessionRisk(context.Background(), json.RawMessage(`{bad`), uuid.New())
+	if err == nil {
+		t.Error("expected error for invalid JSON, got nil")
+	}
+}
+
 // A non-ban status must NOT isolate the proxy.
 func TestHandleSessionStatus_DisconnectKeepsProxyActive(t *testing.T) {
 	db, sessions, _ := setupEventListenerRepos(t)

@@ -42,6 +42,7 @@ func StartEventListener(rabbitMQ *RabbitMQService, eventListener *EventListener)
 		"wbot.*.*.session.pairing_code",
 		"wbot.*.*.session.status",
 		"wbot.*.*.session.history_sync",
+		"wbot.*.*.session.risk",
 		"wbot.*.*.message.received",
 		"wbot.*.*.message.ack",
 		"wbot.*.*.message.revoke",
@@ -77,6 +78,8 @@ func StartEventListener(rabbitMQ *RabbitMQService, eventListener *EventListener)
 			return eventListener.handleSessionStatus(ctx, env.Payload, tid)
 		case "session.history_sync":
 			return eventListener.handleHistorySync(ctx, env.Payload, tid)
+		case "session.risk":
+			return eventListener.handleSessionRisk(ctx, env.Payload, tid)
 		case "message.received":
 			var p MessageReceivedPayload
 			if err := json.Unmarshal(env.Payload, &p); err != nil {

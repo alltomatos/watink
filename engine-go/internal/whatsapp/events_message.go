@@ -89,16 +89,16 @@ func (s *WhatsAppService) handleMessageEvent(client *whatsmeow.Client, id int, t
 	profilePic := ""
 	senderPic := ""
 	if isGroup {
-		profilePic = s.getCachedPic(client, v.Info.Chat.ToNonAD())
+		profilePic = s.getCachedPic(client, id, tenantID, v.Info.Chat.ToNonAD())
 		// Individual participant photo — shown in message bubble avatars.
 		if !v.Info.IsFromMe {
 			if picJID, ok := s.resolvePicJID(client, v.Info.Sender); ok {
-				senderPic = s.getCachedPic(client, picJID)
+				senderPic = s.getCachedPic(client, id, tenantID, picJID)
 			}
 		}
 	} else if !v.Info.IsFromMe {
 		if picJID, ok := s.resolvePicJID(client, v.Info.Sender); ok {
-			profilePic = s.getCachedPic(client, picJID)
+			profilePic = s.getCachedPic(client, id, tenantID, picJID)
 		}
 	}
 
