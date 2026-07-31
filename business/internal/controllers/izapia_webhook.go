@@ -72,6 +72,15 @@ type izapiaSessionStatusPayload struct {
 	JID    string `json:"jid"`
 }
 
+// izapiaSessionRiskPayload is the "session.risk" webhook data shape (izapia
+// OpenAPI spec, épico E-G4): {code, action, message} — same contract as
+// engine-go's SessionRiskPayload, emitted for whatsmeow IQ codes 401/403/429/463.
+type izapiaSessionRiskPayload struct {
+	Code    int    `json:"code"`
+	Action  string `json:"action"`
+	Message string `json:"message"`
+}
+
 // izapiaPollVotePayload is the CONFIRMED shape of a "message.pollVote"
 // webhook data field (captured live 2026-07-24): {from, message_id,
 // poll_message_id, selected:[{label}]}. Selected carries every chosen option
@@ -281,6 +290,18 @@ func (wc *IzapiaWebhookController) dispatch(ctx context.Context, env izapiaWebho
 			"number":    p.JID,
 		})
 		return wc.eventListener.HandleSessionStatusEvent(ctx, payload, whatsapp.TenantID)
+	case "session.risk":
+		var p izapiaSessionRiskPayload
+		if err := json.Unmarshal(env.Data, &p); err != nil {
+			return err
+		}
+		payload, _ := json.Marshal(map[string]interface{}{
+			"sessionId": whatsapp.ID,
+			"action":    p.Action,
+			"code":      p.Code,
+			"message":   p.Message,
+		})
+		return wc.eventListener.HandleSessionRiskEvent(ctx, payload, whatsapp.TenantID)
 	default:
 		log.Printf("[IzapiaWebhook] unrecognized event type %q (session=%d) — ignored", env.Type, whatsapp.ID)
 		return nil

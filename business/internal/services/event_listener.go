@@ -142,6 +142,15 @@ func (el *EventListener) HandlePollVoteEvent(ctx context.Context, payload json.R
 	return el.handlePollVote(ctx, payload, tenantID)
 }
 
+// HandleSessionRiskEvent is the exported entry point for non-AMQP transports
+// (izapia webhook) to apply a ban/throttle risk signal (401/403/429/463)
+// through the same logic as the engine-go AMQP consumer (handleSessionRisk):
+// persists lastRiskCode/Action/Message/At on the connection, auto-isolates
+// the proxy for 429/463, and broadcasts whatsappSessionRisk to the tenant.
+func (el *EventListener) HandleSessionRiskEvent(ctx context.Context, payload json.RawMessage, tenantID uuid.UUID) error {
+	return el.handleSessionRisk(ctx, payload, tenantID)
+}
+
 func (el *EventListener) processMessage(ctx context.Context, p MessagePayload, rawSessionID string, tenantID uuid.UUID) error {
 	sessionID := getSessionID(rawSessionID)
 
