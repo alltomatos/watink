@@ -1801,6 +1801,19 @@ paths:
       summary: Verificar setup inicial
       tags:
       - setup
+  /internal/plugin-manager/instance-stats:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Uso agregado da instância (plugin-manager)
+      tags:
+      - internal-plugin-manager
   /internal/saas/ping:
     get:
       produces:

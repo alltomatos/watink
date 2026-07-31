@@ -27,6 +27,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 	setupService := services.NewSetupService(container.DB)
 	setupController := controllers.NewSetupController(setupService)
 	saasInternalController := controllers.NewSaaSInternalController(db, setupService)
+	pluginManagerInternalController := controllers.NewPluginManagerInternalController(db)
 	registerController := controllers.NewRegisterController(saasclient.NewFromEnv(), saasclient.NewCaptchaVerifierFromEnv())
 	userController := controllers.NewUserController(container.UserRepo, container.PlanLimitSvc)
 	queueController := controllers.NewQueueController()
@@ -108,6 +109,18 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		internalSaaS.PATCH("/tenants/:tenantId/status", saasInternalController.SetStatus)
 		internalSaaS.PUT("/tenants/:tenantId/subscription", saasInternalController.PushSubscription)
 		internalSaaS.GET("/tenants/:tenantId/usage", saasInternalController.Usage)
+	}
+
+	// Internal control-plane (Watink Hub via plugin-manager local) — mesmo
+	// padrão do bloco acima: SEM JWT, protegido por InternalPluginManagerOnly
+	// (X-Internal-Token vs env PLUGIN_MANAGER_INTERNAL_TOKEN, fail-closed).
+	// O plugin-manager consulta esses números pra popular `counters` no
+	// heartbeat do Hub — soma TODOS os tenants da instância, sem filtro (o
+	// Hub não conhece cada tenant em separado, ADR 0003).
+	internalPluginManager := group.Group("/internal/plugin-manager")
+	internalPluginManager.Use(middleware.InternalPluginManagerOnly())
+	{
+		internalPluginManager.GET("/instance-stats", pluginManagerInternalController.InstanceStats)
 	}
 
 	// Protected Routes (IsAuth + TenantMiddleware required)

@@ -1997,6 +1997,26 @@ const docTemplate = `{
                 }
             }
         },
+        "/internal/plugin-manager/instance-stats": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "internal-plugin-manager"
+                ],
+                "summary": "Uso agregado da instância (plugin-manager)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/internal/saas/ping": {
             "get": {
                 "produces": [
