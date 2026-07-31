@@ -246,6 +246,37 @@ func TestGORMContactRepo_FindOrCreate_RefreshesExpiredProfilePicUrl(t *testing.T
 	assert.Equal(t, "https://cdn.example.com/new.jpg", updated.ProfilePicUrl)
 }
 
+// A contact with ticket/message history must delete cleanly instead of
+// bouncing off fk_Contacts_tickets (issue #408) — there is nowhere to migrate
+// that history to, so Delete cascades Messages/Tickets (and the sibling
+// Deals/Protocols/ConversationEmbeddings FKs) for the deleted contact.
+func TestGORMContactRepo_Delete_CascadesTicketsAndMessages(t *testing.T) {
+	db := setupContactTestDB(t)
+	tenantID, _, contactA, _ := seedTwoTenantsContacts(t, db)
+	repo := NewGORMContactRepo(db)
+	ctx := context.Background()
+
+	wa := models.Whatsapp{Name: "wa-1", TenantID: tenantID}
+	require.NoError(t, db.Create(&wa).Error)
+
+	ticket := models.Ticket{ContactID: contactA.ID, WhatsappID: wa.ID, TenantID: tenantID}
+	require.NoError(t, db.Create(&ticket).Error)
+
+	msg := models.Message{ID: "msg-cascade-1", Body: "oi", TicketID: ticket.ID, TenantID: tenantID}
+	require.NoError(t, db.Create(&msg).Error)
+
+	err := repo.Delete(ctx, contactA.ID, tenantID)
+	require.NoError(t, err, "delete não deveria falhar com violação de FK")
+
+	var contactCount, ticketCount, msgCount int64
+	db.Model(&models.Contact{}).Where("id = ?", contactA.ID).Count(&contactCount)
+	db.Model(&models.Ticket{}).Where("id = ?", ticket.ID).Count(&ticketCount)
+	db.Model(&models.Message{}).Where("id = ?", msg.ID).Count(&msgCount)
+	assert.Zero(t, contactCount, "contato deveria ter sido removido")
+	assert.Zero(t, ticketCount, "ticket vinculado deveria ter sido removido em cascata")
+	assert.Zero(t, msgCount, "mensagem vinculada deveria ter sido removida em cascata")
+}
+
 func TestGORMContactRepo_FindOrCreate_NeverErasesProfilePicUrlWithEmpty(t *testing.T) {
 	db := setupContactTestDB(t)
 	tenantA, _, _, _ := seedTwoTenantsContacts(t, db)
