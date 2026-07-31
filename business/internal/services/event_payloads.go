@@ -29,6 +29,17 @@ type SessionStatusPayload struct {
 	FirstConnection bool   `json:"firstConnection"`
 }
 
+// SessionRiskPayload carries a whatsmeow IQ error code the anti-ban research
+// links to account-level throttling/ban risk (401/403/429/463) — surfaced
+// from any outbound action (send/upload/markRead/reaction/profile-picture
+// fetch), not just profile-picture fetches.
+type SessionRiskPayload struct {
+	SessionID int    `json:"sessionId"`
+	Action    string `json:"action"`
+	Code      int    `json:"code"`
+	Message   string `json:"message"`
+}
+
 type MessagePayload struct {
 	ID            string `json:"id"`
 	From          string `json:"from"`

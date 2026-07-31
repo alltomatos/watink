@@ -13,7 +13,7 @@ import (
 
 // getCachedPic returns the profile picture URL for the given JID, using an
 // in-memory cache to avoid a WhatsApp CDN round-trip on every message.
-func (s *WhatsAppService) getCachedPic(client *whatsmeow.Client, jid types.JID) string {
+func (s *WhatsAppService) getCachedPic(client *whatsmeow.Client, sessionID int, tenantID string, jid types.JID) string {
 	key := jid.String()
 	s.picMu.Lock()
 	if url, ok := s.picCache[key]; ok {
@@ -31,6 +31,7 @@ func (s *WhatsAppService) getCachedPic(client *whatsmeow.Client, jid types.JID) 
 		// silenciosos; qualquer outro erro (rate-limit, rede, etc.) é
 		// acionável e não deve desaparecer sem rastro.
 		log.Printf("[Picture] GetProfilePictureInfo(%s) failed: %v", key, err)
+		s.reportIfRiskSignal(sessionID, tenantID, "profile.picture", err)
 	}
 	if url != "" {
 		s.picMu.Lock()

@@ -234,7 +234,7 @@ func TestGetCachedPic_ReturnsCachedURL(t *testing.T) {
 
 	// getCachedPic with a nil client — the cache hit branch returns before
 	// calling client.GetProfilePictureInfo, so nil is safe here.
-	got := svc.getCachedPic(nil, jid)
+	got := svc.getCachedPic(nil, 1, "tenant-1", jid)
 	if got != want {
 		t.Errorf("getCachedPic = %q, want %q", got, want)
 	}
