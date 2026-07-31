@@ -164,6 +164,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		protected.GET("/tickets/", ticketController.ListTickets)
 		protected.GET("/tickets/:ticketId", ticketController.ShowTicket)
 		protected.PUT("/tickets/:ticketId", auth.RequirePermission("tickets", "update"), ticketController.UpdateTicket)
+		protected.DELETE("/tickets/:ticketId", auth.RequirePermission("tickets", "delete"), ticketController.DeleteTicket)
 		protected.GET("/tickets/:ticketId/logs", ticketController.ListTicketLogs)
 		protected.POST("/tickets/:ticketId/history/recover", ticketController.RecoverHistory)
 

@@ -12,6 +12,7 @@ import (
 	"github.com/alltomatos/watinkdev/business/pkg/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 // @Summary      Atualizar ticket
@@ -72,6 +73,56 @@ func (tc *TicketController) UpdateTicket(c *gin.Context) {
 
 	tc.broadcast.EmitToTenantRoom(tenantID.String(), "ticket", gin.H{"action": "update", "ticket": updatedTicket})
 	c.JSON(http.StatusOK, updatedTicket)
+}
+
+// @Summary      Excluir ticket
+// @Description  Remove definitivamente a conversa e suas mensagens. Deals vinculados via ticketId são preservados (só desvinculados, nunca apagados) — o funil de vendas não depende do ticket existir.
+// @Tags         tickets
+// @Produce      json
+// @Param        ticketId  path      int  true  "ID do ticket"
+// @Success      200       {object}  map[string]string
+// @Failure      404       {object}  map[string]string
+// @Security     BearerAuth
+// @Router       /tickets/{ticketId} [delete]
+func (tc *TicketController) DeleteTicket(c *gin.Context) {
+	db, tenantID, ok := auth.GetScoped(c, "Tickets")
+	if !ok {
+		return
+	}
+	id := c.Param("ticketId")
+
+	var ticket models.Ticket
+	if err := db.Where("id = ?", id).First(&ticket).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Ticket not found or access denied"})
+		return
+	}
+
+	err := db.Session(&gorm.Session{NewDB: true}).Transaction(func(tx *gorm.DB) error {
+		// Deals não têm pra onde migrar quando o ticket some, mas o funil de
+		// vendas não depende do ticket — desvincula (ticketId nullable) em vez
+		// de apagar, ao contrário de Messages/ConversationEmbeddings que só
+		// existem em função do ticket.
+		if err := tx.Exec(`UPDATE "Deals" SET "ticketId" = NULL WHERE "ticketId" = ? AND "tenantId" = ?`, ticket.ID, tenantID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec(`DELETE FROM "ConversationEmbeddings" WHERE "ticketId" = ? AND "tenantId" = ?`, ticket.ID, tenantID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec(`DELETE FROM "EntityTags" WHERE "entityType" = 'ticket' AND "entityId" = ? AND "tenantId" = ?`, ticket.ID, tenantID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec(`DELETE FROM "Messages" WHERE "ticketId" = ? AND "tenantId" = ?`, ticket.ID, tenantID).Error; err != nil {
+			return err
+		}
+		return tx.Where("id = ? AND \"tenantId\" = ?", ticket.ID, tenantID).Delete(&models.Ticket{}).Error
+	})
+	if err != nil {
+		utils.RespondWithInternalError(c, err, "DeleteTicket")
+		return
+	}
+
+	tc.broadcast.EmitToTenantRoom(tenantID.String(), "ticket", gin.H{"action": "delete", "ticketId": ticket.ID})
+	c.JSON(http.StatusOK, gin.H{"message": "Ticket deleted"})
 }
 
 // @Summary      Recuperar histórico da conversa
