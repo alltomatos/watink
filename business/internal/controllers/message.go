@@ -47,7 +47,12 @@ func (mc *MessageController) ListMessages(c *gin.Context) {
 	var messages []models.Message
 	if err := db.
 		Where("\"ticketId\" = ?", ticketID).
-		Order("\"createdAt\" DESC").
+		// WhatsApp timestamps (createdAt) only carry second precision, so
+		// messages exchanged within the same second tie — without a
+		// deterministic tiebreak, Postgres returns them in arbitrary heap
+		// order, corrupting the reply/reply-back flow (issue #414). `id DESC`
+		// mirrors the tiebreak the frontend sort applies after reversing.
+		Order("\"createdAt\" DESC, id DESC").
 		Limit(pageSize).
 		Offset(offset).
 		Find(&messages).Error; err != nil {

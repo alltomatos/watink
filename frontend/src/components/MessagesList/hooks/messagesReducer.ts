@@ -17,8 +17,18 @@ const toTimestampMs = (createdAt: Message["createdAt"]): number => {
   return new Date(createdAt).getTime();
 };
 
+// WhatsApp timestamps carry only second precision, so messages exchanged in
+// the same second tie (toTimestampMs(a) === toTimestampMs(b)). Relying on
+// Array.sort's stability to keep those ties in insertion order isn't
+// reliable once the backend page itself already returned them without a
+// deterministic tiebreak — so id (mirrors the backend's `id DESC` tiebreak,
+// reversed the same way createdAt is) breaks ties explicitly here too.
 const sortByDate = (arr: Message[]): Message[] =>
-  [...arr].sort((a, b) => toTimestampMs(a.createdAt) - toTimestampMs(b.createdAt));
+  [...arr].sort((a, b) => {
+    const diff = toTimestampMs(a.createdAt) - toTimestampMs(b.createdAt);
+    if (diff !== 0) return diff;
+    return String(a.id).localeCompare(String(b.id));
+  });
 
 export const messagesReducer = (
   state: Message[],
