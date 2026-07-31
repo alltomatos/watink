@@ -29,6 +29,7 @@ type Container struct {
 	RedisSvc           domain.RedisService
 	Broadcast          domain.Broadcaster
 	SessionService     *services.WhatsAppSessionService
+	IzapiaProvider     *izapia.Provider
 	SSEHub             *services.SSEHub
 	ReceiveMessage     *usecases.ReceiveMessageUseCase
 	DistributeTicket   *usecases.DistributeTicketUseCase
@@ -89,6 +90,7 @@ func NewContainer(db *gorm.DB, redisSvc domain.RedisService, broadcast domain.Br
 		RedisSvc:           redisSvc,
 		Broadcast:          broadcast,
 		SessionService:     sessionService,
+		IzapiaProvider:     izapiaProvider,
 		SSEHub:             sseHub,
 		ReceiveMessage:     receiveMessage,
 		DistributeTicket:   distributeTicket,

@@ -1234,8 +1234,9 @@ paths:
       - contacts
   /contacts/{contactId}/sync:
     post:
-      description: Solicita ao engine que busque a foto de perfil atualizada do contato
-        no WhatsApp
+      description: Busca a foto de perfil atualizada do contato. Para conexões izapia,
+        roda de forma síncrona e responde 200; para engine-go, publica a mensagem
+        assíncrona via AMQP e responde 202.
       parameters:
       - description: ID do contato
         in: path
@@ -1245,6 +1246,12 @@ paths:
       produces:
       - application/json
       responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
         "202":
           description: Accepted
           schema:

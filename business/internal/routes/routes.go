@@ -30,7 +30,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 	registerController := controllers.NewRegisterController(saasclient.NewFromEnv(), saasclient.NewCaptchaVerifierFromEnv())
 	userController := controllers.NewUserController(container.UserRepo, container.PlanLimitSvc)
 	queueController := controllers.NewQueueController()
-	contactController := controllers.NewContactController(container.ContactRepo, container.ChannelSessionRepo, rabbitMQ, container.Broadcast)
+	contactController := controllers.NewContactController(container.ContactRepo, container.ChannelSessionRepo, rabbitMQ, container.Broadcast, container.IzapiaProvider)
 	clientController := controllers.NewClientController()
 	addressLookupController := controllers.NewAddressLookupController()
 	sessionController := controllers.NewSessionController(container.ChannelSessionRepo, container.Broadcast, container.SessionService)

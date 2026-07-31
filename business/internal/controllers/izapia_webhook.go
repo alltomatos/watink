@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/alltomatos/watinkdev/business/internal/infrastructure/izapia"
 	"github.com/alltomatos/watinkdev/business/internal/models"
 	"github.com/alltomatos/watinkdev/business/internal/services"
 	"github.com/alltomatos/watinkdev/business/pkg/cryptobox"
@@ -26,12 +27,13 @@ import (
 // verified against the secret generated on session creation
 // (izapia.Provider.ensureSession, Whatsapp.IzapiaWebhookSecretEnc).
 type IzapiaWebhookController struct {
-	db            *gorm.DB
-	eventListener *services.EventListener
+	db             *gorm.DB
+	eventListener  *services.EventListener
+	izapiaProvider *izapia.Provider
 }
 
-func NewIzapiaWebhookController(db *gorm.DB, eventListener *services.EventListener) *IzapiaWebhookController {
-	return &IzapiaWebhookController{db: db, eventListener: eventListener}
+func NewIzapiaWebhookController(db *gorm.DB, eventListener *services.EventListener, izapiaProvider *izapia.Provider) *IzapiaWebhookController {
+	return &IzapiaWebhookController{db: db, eventListener: eventListener, izapiaProvider: izapiaProvider}
 }
 
 // izapiaWebhookEnvelope is the confirmed shape of an izapia webhook delivery
@@ -182,17 +184,35 @@ func (wc *IzapiaWebhookController) dispatch(ctx context.Context, env izapiaWebho
 			// (From = chat JID, Participant = sender within the group).
 			participant = p.From
 		}
+
+		// Profile picture for the contact record — mirrors engine-go's
+		// handleMessageEvent: group's own photo (Chat) + individual sender
+		// photo for group messages, or just the sender's photo for a DM.
+		// Skipped for outbound (FromMe) messages, same as engine-go.
+		profilePicUrl := ""
+		senderPicUrl := ""
+		if wc.izapiaProvider != nil && !p.FromMe {
+			if isGroup {
+				profilePicUrl = wc.izapiaProvider.GetContactPictureURL(ctx, whatsapp, from)
+				senderPicUrl = wc.izapiaProvider.GetContactPictureURL(ctx, whatsapp, participant)
+			} else {
+				profilePicUrl = wc.izapiaProvider.GetContactPictureURL(ctx, whatsapp, from)
+			}
+		}
+
 		return wc.eventListener.HandleInboundMessage(ctx, services.MessagePayload{
-			ID:          p.MessageID,
-			From:        from,
-			Body:        p.Text,
-			FromMe:      p.FromMe,
-			Timestamp:   p.Timestamp,
-			PushName:    p.PushName,
-			IsGroup:     isGroup,
-			Participant: participant,
-			MediaUrl:    p.MediaURL,
-			Mimetype:    p.Mimetype,
+			ID:            p.MessageID,
+			From:          from,
+			Body:          p.Text,
+			FromMe:        p.FromMe,
+			Timestamp:     p.Timestamp,
+			PushName:      p.PushName,
+			IsGroup:       isGroup,
+			Participant:   participant,
+			MediaUrl:      p.MediaURL,
+			Mimetype:      p.Mimetype,
+			ProfilePicUrl: profilePicUrl,
+			SenderPicUrl:  senderPicUrl,
 		}, strconv.Itoa(whatsapp.ID), whatsapp.TenantID)
 	case "message.pollVote":
 		var p izapiaPollVotePayload

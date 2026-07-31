@@ -5,20 +5,22 @@ import (
 	"strconv"
 
 	"github.com/alltomatos/watinkdev/business/internal/domain"
+	"github.com/alltomatos/watinkdev/business/internal/infrastructure/izapia"
 	"github.com/alltomatos/watinkdev/business/pkg/auth"
 	"github.com/alltomatos/watinkdev/business/pkg/utils"
 	"github.com/gin-gonic/gin"
 )
 
 type ContactController struct {
-	contactRepo domain.ContactRepository
-	sessions    domain.ChannelSessionRepository
-	publisher   domain.CommandPublisher
-	broadcast   domain.Broadcaster
+	contactRepo    domain.ContactRepository
+	sessions       domain.ChannelSessionRepository
+	publisher      domain.CommandPublisher
+	broadcast      domain.Broadcaster
+	izapiaProvider *izapia.Provider
 }
 
-func NewContactController(cr domain.ContactRepository, sessions domain.ChannelSessionRepository, publisher domain.CommandPublisher, broadcast domain.Broadcaster) *ContactController {
-	return &ContactController{contactRepo: cr, sessions: sessions, publisher: publisher, broadcast: domain.BroadcastOrNop(broadcast)}
+func NewContactController(cr domain.ContactRepository, sessions domain.ChannelSessionRepository, publisher domain.CommandPublisher, broadcast domain.Broadcaster, izapiaProvider *izapia.Provider) *ContactController {
+	return &ContactController{contactRepo: cr, sessions: sessions, publisher: publisher, broadcast: domain.BroadcastOrNop(broadcast), izapiaProvider: izapiaProvider}
 }
 
 // @Summary      Listar contatos

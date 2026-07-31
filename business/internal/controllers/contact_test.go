@@ -34,7 +34,7 @@ func TestUpdateContactDoesNotAcceptTenantIDFromPayload(t *testing.T) {
 	db := testutil.NewTestDB(t)
 
 	mockRepo := &MockContactRepo{db: db}
-	controller := NewContactController(mockRepo, nil, nil, nil)
+	controller := NewContactController(mockRepo, nil, nil, nil, nil)
 
 	tenantA := uuid.New()
 	tenantB := uuid.New()
@@ -136,7 +136,7 @@ func newContactRouter(db *gorm.DB, tenantID string) *gin.Engine {
 	r := gin.New()
 	r.Use(testScopedMiddleware(db, tenantID))
 	repo := &MockContactRepo{db: db}
-	ctrl := NewContactController(repo, nil, nil, nil)
+	ctrl := NewContactController(repo, nil, nil, nil, nil)
 	r.GET("/contacts", ctrl.ListContacts)
 	r.GET("/contacts/:contactId", ctrl.ShowContact)
 	r.POST("/contacts", ctrl.CreateContact)

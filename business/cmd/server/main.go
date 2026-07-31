@@ -131,7 +131,7 @@ func main() {
 	// izapia webhook — public route (no JWT), authenticated per-session by
 	// HMAC signature (X-izapia-Signature). See izapia.Provider.ensureSession
 	// for where the webhook secret/URL is configured on session creation.
-	izapiaWebhookController := controllers.NewIzapiaWebhookController(database.DB, eventListener)
+	izapiaWebhookController := controllers.NewIzapiaWebhookController(database.DB, eventListener, container.IzapiaProvider)
 	r.POST("/webhooks/izapia/:sessionId", izapiaWebhookController.HandleWebhook)
 
 	apiGroup := r.Group("/api/v1")
@@ -145,6 +145,12 @@ func main() {
 			version := "dev"
 			if m := regexp.MustCompile(`## (v[0-9][^\s]*)`).FindStringSubmatch(web.ChangelogMD); m != nil {
 				version = m[1]
+			} else if GitBranch == "main" {
+				// "dev" é enganoso em produção: nenhuma release foi publicada
+				// ainda (release-business-binaries.yml não rodou), mas o
+				// binário É a main -- cai no commit curto como pseudo-versão
+				// até a primeira tag real existir.
+				version = "main-" + GitCommit
 			}
 
 			dbVersion := "unknown"

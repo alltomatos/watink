@@ -2,6 +2,7 @@ package whatsapp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 
@@ -22,8 +23,14 @@ func (s *WhatsAppService) getCachedPic(client *whatsmeow.Client, jid types.JID) 
 	s.picMu.Unlock()
 
 	url := ""
-	if info, err := client.GetProfilePictureInfo(context.Background(), jid, &whatsmeow.GetProfilePictureParams{}); err == nil && info != nil {
+	info, err := client.GetProfilePictureInfo(context.Background(), jid, &whatsmeow.GetProfilePictureParams{})
+	if err == nil && info != nil {
 		url = info.URL
+	} else if err != nil && !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) {
+		// "não tem foto" e "privacidade escondeu de mim" são esperados e
+		// silenciosos; qualquer outro erro (rate-limit, rede, etc.) é
+		// acionável e não deve desaparecer sem rastro.
+		log.Printf("[Picture] GetProfilePictureInfo(%s) failed: %v", key, err)
 	}
 	if url != "" {
 		s.picMu.Lock()
@@ -31,6 +38,22 @@ func (s *WhatsAppService) getCachedPic(client *whatsmeow.Client, jid types.JID) 
 		s.picMu.Unlock()
 	}
 	return url
+}
+
+// resolvePicJID resolves the JID to use for a profile-picture lookup.
+// LID senders (@lid) cannot be queried directly — GetProfilePictureInfo needs
+// the underlying phone-number JID, resolved via the LID→PN store mapping.
+// Returns ok=false when no picture-fetchable JID is available (LID with no
+// resolved PN yet).
+func (s *WhatsAppService) resolvePicJID(client *whatsmeow.Client, jid types.JID) (types.JID, bool) {
+	if jid.Server != types.HiddenUserServer {
+		return jid.ToNonAD(), true
+	}
+	pn, err := client.Store.LIDs.GetPNForLID(context.Background(), jid)
+	if err != nil || pn.IsEmpty() {
+		return types.JID{}, false
+	}
+	return pn.ToNonAD(), true
 }
 
 // handlePictureEvent fires when a contact or group changes its profile picture.
