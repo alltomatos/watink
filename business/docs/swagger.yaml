@@ -3782,6 +3782,36 @@ paths:
       tags:
       - tickets
   /tickets/{ticketId}:
+    delete:
+      description: Remove definitivamente a conversa e suas mensagens. Deals vinculados
+        via ticketId são preservados (só desvinculados, nunca apagados) — o funil
+        de vendas não depende do ticket existir.
+      parameters:
+      - description: ID do ticket
+        in: path
+        name: ticketId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Excluir ticket
+      tags:
+      - tickets
     get:
       parameters:
       - description: ID do ticket
