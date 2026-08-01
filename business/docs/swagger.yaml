@@ -432,6 +432,18 @@ definitions:
         type: boolean
       lastConnectedAt:
         type: string
+      lastRiskAction:
+        type: string
+      lastRiskAt:
+        type: string
+      lastRiskCode:
+        description: |-
+          LastRisk* persist the most recent whatsmeow ban/throttle risk signal
+          (IQ codes 401/403/429/463) for this connection, so the Conexões page can
+          warn the user even after the live SSE event has been missed.
+        type: integer
+      lastRiskMessage:
+        type: string
       name:
         type: string
       number:
@@ -1789,6 +1801,19 @@ paths:
       summary: Verificar setup inicial
       tags:
       - setup
+  /internal/plugin-manager/instance-stats:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Uso agregado da instância (plugin-manager)
+      tags:
+      - internal-plugin-manager
   /internal/saas/ping:
     get:
       produces:
@@ -3770,6 +3795,36 @@ paths:
       tags:
       - tickets
   /tickets/{ticketId}:
+    delete:
+      description: Remove definitivamente a conversa e suas mensagens. Deals vinculados
+        via ticketId são preservados (só desvinculados, nunca apagados) — o funil
+        de vendas não depende do ticket existir.
+      parameters:
+      - description: ID do ticket
+        in: path
+        name: ticketId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Excluir ticket
+      tags:
+      - tickets
     get:
       parameters:
       - description: ID do ticket

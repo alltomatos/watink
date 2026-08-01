@@ -4,6 +4,7 @@ import { useParams, useNavigate, useLocation } from "react-router";
 import type { AxiosError } from "axios";
 import { ArrowLeft, CheckCircle, ChevronLeft, ChevronRight, Loader2, Puzzle } from "lucide-react";
 import { toast } from "react-toastify";
+import DOMPurify from "dompurify";
 
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { Can } from "../../components/Can";
@@ -186,6 +187,11 @@ const PluginDetail: React.FC = () => {
     setCheckoutOpen(false);
   };
 
+  // Sempre tenta ativar direto primeiro -- o backend (/plugins/:slug/activate)
+  // já checa a licença real (GetLicense): se o Hub liberou o plugin pro
+  // gratuitamente (admin grant) ou a compra já foi confirmada, ativa nesta
+  // mesma chamada, sem passar por pagamento algum. O checkout pago só é uma
+  // consequência de 402 (genuinamente sem licença), nunca o caminho padrão.
   const handleActivate = async () => {
     if (!plugin) return;
     setActivating(true);
@@ -196,9 +202,15 @@ const PluginDetail: React.FC = () => {
     } catch (err) {
       const axiosErr = err as AxiosError<PluginActivateUnlicensedResponse>;
       const body = axiosErr.response?.data;
-      if (axiosErr.response?.status === 402 && body?.checkoutRequested) {
-        toast.info(body.message || "Licença solicitada — aguardando confirmação, tentando novamente...");
-        pollForActivation(plugin.slug, 0);
+      if (axiosErr.response?.status === 402) {
+        if (plugin.type === "pro") {
+          // Genuinamente sem licença (nem admin grant, nem compra prévia) --
+          // só agora faz sentido oferecer o checkout pago interativo.
+          setCheckoutOpen(true);
+        } else {
+          toast.info(body?.message || "Licença solicitada — aguardando confirmação, tentando novamente...");
+          pollForActivation(plugin.slug, 0);
+        }
       } else {
         toast.error(body?.message || "Erro na ativação");
       }
@@ -267,10 +279,7 @@ const PluginDetail: React.FC = () => {
                         Desativar
                       </Button>
                     ) : (
-                      <Button
-                        onClick={() => (plugin.type === "pro" ? setCheckoutOpen(true) : handleActivate())}
-                        disabled={activating}
-                      >
+                      <Button onClick={() => void handleActivate()} disabled={activating}>
                         Ativar Plugin
                       </Button>
                     )}
@@ -308,9 +317,12 @@ const PluginDetail: React.FC = () => {
           <Card className="rounded-2xl shadow-[0px_4px_20px_rgba(0,0,0,0.08)]">
             <CardContent className="pt-6 space-y-4">
               <h3 className="font-semibold text-lg">Sobre este plugin</h3>
-              <p className="text-muted-foreground whitespace-pre-line">
-                {plugin.longDescription || plugin.description || FALLBACK_DESCRIPTION}
-              </p>
+              <div
+                className="text-muted-foreground whitespace-pre-line [&_h2]:text-foreground [&_h2]:font-semibold [&_h2]:text-base [&_h2]:mt-4 [&_h2]:mb-1 [&_h3]:text-foreground [&_h3]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_strong]:text-foreground [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mt-1"
+                dangerouslySetInnerHTML={{
+                  __html: DOMPurify.sanitize(plugin.longDescription || plugin.description || FALLBACK_DESCRIPTION),
+                }}
+              />
             </CardContent>
           </Card>
         </PageContent>

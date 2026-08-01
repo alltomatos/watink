@@ -117,6 +117,51 @@ func (el *EventListener) isolateConnectionProxy(ctx context.Context, sessionID i
 	log.Printf("[EventListener] proxy %d isolado automaticamente após ban da conexão %d", *w.ProxyID, sessionID)
 }
 
+// riskCodesTriggeringIsolation are the IQ codes strong enough on their own to
+// treat the connection's IP as burned — 429/463 are WhatsApp's own
+// rate-overlimit signals, the same ones tracked as risk-score inputs in the
+// anti-ban research (evolution-api#2228, tulir/whatsmeow#810). 401/403 are
+// still surfaced to the tenant but don't auto-isolate: unlike 429/463 they are
+// not IP/volume signals and isolating the proxy wouldn't address them.
+var riskCodesTriggeringIsolation = map[int]bool{429: true, 463: true}
+
+// handleSessionRisk reacts to a "session.risk" event — a whatsmeow IQ error
+// (401/403/429/463) surfaced from ANY outbound action (send, upload,
+// markRead, reaction, profile-picture fetch), not just the profile-picture
+// path. 429/463 auto-isolate the connection's proxy exactly like a BANNED
+// status does; every code is broadcast to the tenant so the UI can warn
+// before an actual ban lands.
+func (el *EventListener) handleSessionRisk(ctx context.Context, payload json.RawMessage, tenantID uuid.UUID) error {
+	var p SessionRiskPayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return err
+	}
+
+	log.Printf("[EventListener] RISK session=%d action=%s code=%d: %s", p.SessionID, p.Action, p.Code, p.Message)
+
+	now := time.Now()
+	if err := el.sessions.Update(ctx, &domain.ChannelSession{ID: p.SessionID, TenantID: tenantID}, map[string]interface{}{
+		"lastRiskCode":    p.Code,
+		"lastRiskAction":  p.Action,
+		"lastRiskMessage": p.Message,
+		"lastRiskAt":      &now,
+	}); err != nil {
+		log.Printf("[EventListener] falha ao persistir sinal de risco da conexão %d: %v", p.SessionID, err)
+	}
+
+	if riskCodesTriggeringIsolation[p.Code] {
+		el.isolateConnectionProxy(ctx, p.SessionID, tenantID)
+	}
+
+	el.bcast().EmitToTenantRoom(tenantID.String(), "whatsappSessionRisk", map[string]interface{}{
+		"sessionId": p.SessionID,
+		"action":    p.Action,
+		"code":      p.Code,
+		"message":   p.Message,
+	})
+	return nil
+}
+
 // handleHistorySync inserts recovered conversation history into a ticket.
 //
 // On-demand recovery (ticketId > 0) inserts each message into the given ticket

@@ -142,5 +142,9 @@ func allModels() []interface{} {
 		&models.ConnectionGroup{},
 		&models.PluginInstallation{},
 		&models.IzapiaConfig{},
+		&models.Assistant{},
+		&models.AssistantRouterOption{},
+		&models.AiGateway{},
+		&models.AssistantProactiveLog{},
 	}
 }

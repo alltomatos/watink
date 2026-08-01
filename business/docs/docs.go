@@ -1997,6 +1997,26 @@ const docTemplate = `{
                 }
             }
         },
+        "/internal/plugin-manager/instance-stats": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "internal-plugin-manager"
+                ],
+                "summary": "Uso agregado da instância (plugin-manager)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/internal/saas/ping": {
             "get": {
                 "produces": [
@@ -5241,6 +5261,50 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Remove definitivamente a conversa e suas mensagens. Deals vinculados via ticketId são preservados (só desvinculados, nunca apagados) — o funil de vendas não depende do ticket existir.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tickets"
+                ],
+                "summary": "Excluir ticket",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID do ticket",
+                        "name": "ticketId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
             }
         },
         "/tickets/{ticketId}/history/recover": {
@@ -6535,6 +6599,19 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "lastConnectedAt": {
+                    "type": "string"
+                },
+                "lastRiskAction": {
+                    "type": "string"
+                },
+                "lastRiskAt": {
+                    "type": "string"
+                },
+                "lastRiskCode": {
+                    "description": "LastRisk* persist the most recent whatsmeow ban/throttle risk signal\n(IQ codes 401/403/429/463) for this connection, so the Conexões page can\nwarn the user even after the live SSE event has been missed.",
+                    "type": "integer"
+                },
+                "lastRiskMessage": {
                     "type": "string"
                 },
                 "name": {

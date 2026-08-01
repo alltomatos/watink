@@ -31,6 +31,18 @@ type picCacheEntry struct {
 	expiresAt time.Time
 }
 
+// subscribedWebhookEvents lists exactly the event types
+// controllers.IzapiaWebhookController.dispatch handles — explicit rather than
+// relying on izapia's server-side default subscription (undocumented, and
+// "session.risk" — the ban/throttle signal, épico E-G4 — is opt-in per the
+// izapia OpenAPI spec, not guaranteed to be in any default set).
+var subscribedWebhookEvents = []string{
+	"message.received", "message.pollVote", "message.interactiveReply",
+	"message.ack", "usage.message",
+	"session.qr", "session.status", "session.connected", "session.disconnected", "session.logged_out",
+	"session.risk",
+}
+
 // mediaTypeToKind maps Watink's internal mediaType (see
 // controllers.mimeTypeToMediaType) to izapia's messages/media "kind" enum.
 var mediaTypeToKind = map[string]string{
@@ -147,7 +159,7 @@ func (p *Provider) ensureSession(ctx context.Context, client *Client, w *models.
 		return "", err
 	}
 	webhookURL := fmt.Sprintf("%s/webhooks/izapia/%d", baseURL, w.ID)
-	if err := client.SetWebhook(ctx, sid, webhookURL, secret, nil); err != nil {
+	if err := client.SetWebhook(ctx, sid, webhookURL, secret, subscribedWebhookEvents); err != nil {
 		wrapped := fmt.Errorf("izapia: configurar webhook: %w", err)
 		if IsQuotaExceeded(err) {
 			return "", utils.NewFriendlyError(http.StatusTooManyRequests,

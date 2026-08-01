@@ -85,6 +85,14 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             docker compose -p watink-prod -f docker-compose.prod.yml --env-file .env.prod build --pull
+            # pull explícito só do plugin-manager: é o único serviço image:-only
+            # SEM build: neste stack (proprietário — ver CLAUDE.md); um `pull` sem
+            # filtro tenta puxar watink/business:prod e watink/engine:prod também,
+            # que só existem localmente (buildados acima) e não em nenhum registry
+            # — isso derruba o deploy inteiro. Sem esta linha, `up -d` nunca
+            # atualiza plugin-manager mesmo com :latest novo no Docker Hub, porque
+            # o pull_policy default só busca a imagem quando ela está ausente.
+            docker compose -p watink-prod -f docker-compose.prod.yml --env-file .env.prod pull plugin-manager
             docker compose -p watink-prod -f docker-compose.prod.yml --env-file .env.prod up -d
 
   smoke-tests:

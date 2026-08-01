@@ -5,12 +5,36 @@ import (
 	"strconv"
 
 	"github.com/alltomatos/watinkdev/business/internal/models"
+	"github.com/alltomatos/watinkdev/business/internal/plugins"
 	"github.com/alltomatos/watinkdev/business/pkg/auth"
 	"github.com/alltomatos/watinkdev/business/pkg/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
+
+// pipelineIDForStage resolves the owning Pipeline of a stage — used to scope
+// the domain event published on Deal create/update (Assistants plugin,
+// mode=pipeline, ADR 0027) to the right PipelineID.
+func pipelineIDForStage(db *gorm.DB, stageID int) int {
+	var stage models.PipelineStage
+	if err := db.Session(&gorm.Session{NewDB: true}).Where("id = ?", stageID).First(&stage).Error; err != nil {
+		return 0
+	}
+	return stage.PipelineID
+}
+
+// closedLikeStatus reports whether a Deal status string represents a
+// terminal/closed state — free-text field (CONTEXT.md), so this is a
+// best-effort heuristic, not an enum check.
+func closedLikeStatus(status string) bool {
+	switch status {
+	case "closed", "won", "lost":
+		return true
+	default:
+		return false
+	}
+}
 
 type DealController struct{}
 
@@ -165,6 +189,13 @@ func (dc *DealController) Create(c *gin.Context) {
 		return
 	}
 
+	plugins.PublishDomainEvent(c.Request.Context(), "pipeline.deal.deal_created", map[string]any{
+		"tenantId":   tenantID.String(),
+		"dealId":     deal.ID,
+		"pipelineId": pipelineIDForStage(db, deal.StageID),
+		"ticketId":   deal.TicketID,
+	})
+
 	c.JSON(http.StatusCreated, deal)
 }
 
@@ -214,6 +245,8 @@ func (dc *DealController) Update(c *gin.Context) {
 		return
 	}
 
+	oldStageID, oldStatus := deal.StageID, deal.Status
+
 	if input.StageID != nil {
 		deal.StageID = *input.StageID
 	}
@@ -233,6 +266,27 @@ func (dc *DealController) Update(c *gin.Context) {
 	if err := db.Session(&gorm.Session{NewDB: true}).Save(&deal).Error; err != nil {
 		utils.RespondWithInternalError(c, err, "DealUpdate")
 		return
+	}
+
+	// Domain events for the Assistants plugin (mode=pipeline, ADR 0027) — fired
+	// AFTER the write commits, best-effort (never blocks/fails the response).
+	if input.StageID != nil && deal.StageID != oldStageID {
+		plugins.PublishDomainEvent(c.Request.Context(), "pipeline.deal.stage_changed", map[string]any{
+			"tenantId":    tenantID.String(),
+			"dealId":      deal.ID,
+			"pipelineId":  pipelineIDForStage(db, deal.StageID),
+			"fromStageId": oldStageID,
+			"toStageId":   deal.StageID,
+			"ticketId":    deal.TicketID,
+		})
+	}
+	if !closedLikeStatus(oldStatus) && closedLikeStatus(deal.Status) {
+		plugins.PublishDomainEvent(c.Request.Context(), "pipeline.deal.closed", map[string]any{
+			"tenantId":   tenantID.String(),
+			"dealId":     deal.ID,
+			"pipelineId": pipelineIDForStage(db, deal.StageID),
+			"ticketId":   deal.TicketID,
+		})
 	}
 
 	c.JSON(http.StatusOK, deal)

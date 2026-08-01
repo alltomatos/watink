@@ -127,7 +127,9 @@ func (fc *FlowController) List(c *gin.Context) {
 	}
 
 	var flows []models.Flow
-	if err := db.Preload("Whatsapp").Where("\"tenantId\" = ?", tenantID).Find(&flows).Error; err != nil {
+	// internal=false: hide plugin-generated synthetic Flows (Assistentes de
+	// IA, ADR 0027) from the normal listing — they are not user-authored.
+	if err := db.Preload("Whatsapp").Where("\"tenantId\" = ? AND internal = false", tenantID).Find(&flows).Error; err != nil {
 		utils.RespondWithInternalError(c, err, "Failed to fetch flows")
 		return
 	}
@@ -188,14 +190,15 @@ func (fc *FlowController) Create(c *gin.Context) {
 	whatsappID := req.WhatsAppID
 
 	flow := models.Flow{
-		Name:         flowName,
-		Nodes:        req.Nodes,
-		Edges:        req.Edges,
-		Active:       req.Active,
-		WhatsAppID:   whatsappID,
-		TriggerType:  proj.Type,
-		TriggerValue: proj.Value,
-		TenantID:     tenantID,
+		Name:            flowName,
+		Nodes:           req.Nodes,
+		Edges:           req.Edges,
+		Active:          req.Active,
+		WhatsAppID:      whatsappID,
+		TriggerType:     proj.Type,
+		TriggerValue:    proj.Value,
+		TriggerOperator: proj.Operator,
+		TenantID:        tenantID,
 	}
 
 	if err := db.Create(&flow).Error; err != nil {
@@ -330,6 +333,7 @@ func (fc *FlowController) Update(c *gin.Context) {
 		proj := projectFlowTrigger(effNodes, effEdges)
 		updates["triggerType"] = proj.Type
 		updates["triggerValue"] = proj.Value
+		updates["triggerOperator"] = proj.Operator
 		// A conexão NÃO vem mais do nó de gatilho — é o editor (toolbar) quem define
 		// o whatsappId do fluxo (ver bloco de presença acima).
 	}

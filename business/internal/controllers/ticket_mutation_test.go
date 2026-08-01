@@ -122,6 +122,89 @@ func TestUpdateTicket(t *testing.T) {
 	})
 }
 
+// DeleteTicket had no backend route at all (issue #413) — the frontend
+// already called DELETE /tickets/:ticketId, which 404'd unconditionally.
+func TestDeleteTicket(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := testutil.NewTestDB(t)
+	tenantID := uuid.New()
+
+	ticketRepo := repository.NewGORMTicketRepo(db)
+	updateUC := usecases.NewUpdateTicketUseCase(ticketRepo, &stubEventBus{}, nil, nil)
+	tc := NewTicketController(updateUC, nil, &stubMessageRepo{}, &stubPublisher{})
+
+	wa := models.Whatsapp{Name: "WA", TenantID: tenantID, Status: "CONNECTED"}
+	if err := db.Create(&wa).Error; err != nil {
+		t.Fatal(err)
+	}
+	contact := models.Contact{Name: "C", Number: "5511999999999", TenantID: tenantID}
+	if err := db.Create(&contact).Error; err != nil {
+		t.Fatal(err)
+	}
+	ticket := models.Ticket{Status: "open", TenantID: tenantID, ContactID: contact.ID, WhatsappID: wa.ID}
+	if err := db.Create(&ticket).Error; err != nil {
+		t.Fatal(err)
+	}
+	msg := models.Message{ID: "msg-del-1", Body: "oi", TicketID: ticket.ID, TenantID: tenantID}
+	if err := db.Create(&msg).Error; err != nil {
+		t.Fatal(err)
+	}
+	pipeline := models.Pipeline{Name: "P1", TenantID: tenantID}
+	if err := db.Create(&pipeline).Error; err != nil {
+		t.Fatal(err)
+	}
+	stage := models.PipelineStage{Name: "S1", PipelineID: pipeline.ID}
+	if err := db.Create(&stage).Error; err != nil {
+		t.Fatal(err)
+	}
+	deal := models.Deal{Name: "D1", StageID: stage.ID, ContactID: contact.ID, TicketID: &ticket.ID, TenantID: tenantID}
+	if err := db.Create(&deal).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	r := gin.New()
+	r.Use(testScopedMiddleware(db, tenantID.String()))
+	r.DELETE("/tickets/:ticketId", tc.DeleteTicket)
+
+	t.Run("happy path — deletes ticket and messages, detaches deal", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodDelete, "/tickets/"+strconv.Itoa(ticket.ID), nil)
+		res := httptest.NewRecorder()
+		r.ServeHTTP(res, req)
+
+		if res.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d — %s", res.Code, res.Body.String())
+		}
+
+		var ticketCount, msgCount int64
+		db.Model(&models.Ticket{}).Where("id = ?", ticket.ID).Count(&ticketCount)
+		db.Model(&models.Message{}).Where("id = ?", msg.ID).Count(&msgCount)
+		if ticketCount != 0 {
+			t.Error("expected ticket to be deleted")
+		}
+		if msgCount != 0 {
+			t.Error("expected ticket's messages to be deleted")
+		}
+
+		var reloadedDeal models.Deal
+		if err := db.First(&reloadedDeal, deal.ID).Error; err != nil {
+			t.Fatalf("deal should survive ticket deletion: %v", err)
+		}
+		if reloadedDeal.TicketID != nil {
+			t.Error("expected deal.ticketId to be detached (nil), not the deal deleted")
+		}
+	})
+
+	t.Run("ticket not found returns 404", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodDelete, "/tickets/999999", nil)
+		res := httptest.NewRecorder()
+		r.ServeHTTP(res, req)
+
+		if res.Code != http.StatusNotFound {
+			t.Fatalf("expected 404, got %d", res.Code)
+		}
+	})
+}
+
 func TestRecoverHistory(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := testutil.NewTestDB(t)

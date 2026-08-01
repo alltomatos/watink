@@ -14,6 +14,8 @@ import { Avatar } from "@/components/ui/avatar";
 import { getBackendUrl } from "../../../helpers/urlUtils";
 import type { ConnectionSession } from "../connectionsTypes";
 import { ConnectionStatusBadge } from "./ConnectionStatusBadge";
+import { ConnectionHealthBadge } from "./ConnectionHealthBadge";
+import { ConnectionRiskBanner } from "./ConnectionRiskBanner";
 import { ConnectionActionButtons } from "./ConnectionActionButtons";
 
 interface ConnectionCardProps {
@@ -62,7 +64,10 @@ export const ConnectionCard: React.FC<ConnectionCardProps> = ({
             </CardDescription>
           </div>
         </div>
-        <ConnectionStatusBadge status={whatsApp.status} />
+        <div className="flex items-center gap-1.5">
+          <ConnectionHealthBadge lastRiskCode={whatsApp.lastRiskCode} lastRiskAt={whatsApp.lastRiskAt} />
+          <ConnectionStatusBadge status={whatsApp.status} />
+        </div>
       </CardHeader>
 
       <CardContent className="flex-1 py-4">
@@ -88,6 +93,7 @@ export const ConnectionCard: React.FC<ConnectionCardProps> = ({
               </span>
             </div>
           )}
+          <ConnectionRiskBanner lastRiskCode={whatsApp.lastRiskCode} lastRiskAt={whatsApp.lastRiskAt} />
         </div>
       </CardContent>
 

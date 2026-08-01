@@ -18,6 +18,11 @@ export interface ConnectionSession {
   queue?: ConnectionQueue;
   /** "none" | "single" | "group" — indicador leve; detalhe completo só na tela de configuração. */
   proxyMode?: string;
+  /** Último sinal de risco de ban/throttle (whatsmeow IQ 401/403/429/463). */
+  lastRiskCode?: number;
+  lastRiskAction?: string;
+  lastRiskMessage?: string;
+  lastRiskAt?: string | null;
 }
 
 export const STATUS_LABELS: Record<string, string> = {

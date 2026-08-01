@@ -15,6 +15,7 @@ import {
   Briefcase,
   Headphones,
   Shield,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AuthContext } from "../../../context/Auth/AuthContext";
@@ -44,6 +45,16 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed, isLightSidebar, acti
           />
         )}
       />
+
+      {activePlugins.includes("assistant") && (
+        <SidebarItem
+          to="/assistants"
+          label={i18n.t("mainDrawer.listItems.assistants")}
+          icon={<Sparkles size={20} />}
+          collapsed={collapsed}
+          activeColor="var(--nav-icon-purple)"
+        />
+      )}
 
       <Can
         user={user}

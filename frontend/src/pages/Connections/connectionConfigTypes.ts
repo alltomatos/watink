@@ -40,6 +40,11 @@ export interface WhatsApp {
   proxyId?: number | null;
   proxyGroupId?: number | null;
   proxy?: ConnectionProxySummary;
+  /** Último sinal de risco de ban/throttle (whatsmeow IQ 401/403/429/463). */
+  lastRiskCode?: number;
+  lastRiskAction?: string;
+  lastRiskMessage?: string;
+  lastRiskAt?: string | null;
 }
 
 export type ConfirmationAction = "disconnect" | "delete" | null;

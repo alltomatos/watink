@@ -20,13 +20,14 @@ type RouteRabbitMQ interface {
 	domain.KnowledgeJobPublisher
 }
 
-func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *application.Container, s3Store domain.ObjectStore) {
+func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *application.Container, s3Store domain.ObjectStore, build controllers.BuildInfo) {
 	db := container.DB
 	messageController := controllers.NewMessageController(rabbitMQ, container.Broadcast, container.SessionService)
 	systemController := controllers.NewSystemController(container.SystemRepo, rabbitMQ)
 	setupService := services.NewSetupService(container.DB)
 	setupController := controllers.NewSetupController(setupService)
 	saasInternalController := controllers.NewSaaSInternalController(db, setupService)
+	pluginManagerInternalController := controllers.NewPluginManagerInternalController(db, build)
 	registerController := controllers.NewRegisterController(saasclient.NewFromEnv(), saasclient.NewCaptchaVerifierFromEnv())
 	userController := controllers.NewUserController(container.UserRepo, container.PlanLimitSvc)
 	queueController := controllers.NewQueueController()
@@ -66,6 +67,10 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		Engines: container.SessionService,
 	}))
 	flowRuntime := flow.NewSkeleton(container.DB, flowChannels, container.RedisSvc)
+	// Wires the "Assistentes de IA" plugin's runtime into the synthetic Flow's
+	// "assistant" node (ADR 0027) — set post-construction since the
+	// implementation lives in the plugins package (DI pura, no global).
+	flowRuntime.SetAssistantRuntime(plugins.NewAssistantRuntime(container.DB))
 	flowController := controllers.NewFlowController(flowRuntime)
 	quickAnswerController := controllers.NewQuickAnswerController(rabbitMQ, container.Broadcast, db, container.SessionService)
 	versionController := controllers.NewVersionController(container.VersionRepo)
@@ -110,6 +115,18 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		internalSaaS.GET("/tenants/:tenantId/usage", saasInternalController.Usage)
 	}
 
+	// Internal control-plane (Watink Hub via plugin-manager local) — mesmo
+	// padrão do bloco acima: SEM JWT, protegido por InternalPluginManagerOnly
+	// (X-Internal-Token vs env PLUGIN_MANAGER_INTERNAL_TOKEN, fail-closed).
+	// O plugin-manager consulta esses números pra popular `counters` no
+	// heartbeat do Hub — soma TODOS os tenants da instância, sem filtro (o
+	// Hub não conhece cada tenant em separado, ADR 0003).
+	internalPluginManager := group.Group("/internal/plugin-manager")
+	internalPluginManager.Use(middleware.InternalPluginManagerOnly())
+	{
+		internalPluginManager.GET("/instance-stats", pluginManagerInternalController.InstanceStats)
+	}
+
 	// Protected Routes (IsAuth + TenantMiddleware required)
 	protected := group.Group("/")
 	protected.Use(controllers.MaintenanceMiddleware())
@@ -148,9 +165,10 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		// RegisterPublicRoute (e.g. the helpdesk public share link, no login).
 		// Reuses pluginRegistry (above) so gating is the exact same license x
 		// allocation cross the marketplace endpoints above already use.
-		pluginManager := plugins.NewPluginManagerWithRegistry(db, protected, group, pluginRegistry, container.Broadcast, rabbitMQ)
+		pluginManager := plugins.NewPluginManagerWithRegistry(db, protected, group, pluginRegistry, container.Broadcast, rabbitMQ, container.RedisSvc)
 		pluginManager.Register(&plugins.HelpdeskPlugin{})
 		pluginManager.Register(&plugins.WebchatPlugin{})
+		pluginManager.Register(&plugins.AssistantPlugin{})
 
 		// Auth
 		protected.DELETE("/auth/logout", authController.Logout)
@@ -164,6 +182,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		protected.GET("/tickets/", ticketController.ListTickets)
 		protected.GET("/tickets/:ticketId", ticketController.ShowTicket)
 		protected.PUT("/tickets/:ticketId", auth.RequirePermission("tickets", "update"), ticketController.UpdateTicket)
+		protected.DELETE("/tickets/:ticketId", auth.RequirePermission("tickets", "delete"), ticketController.DeleteTicket)
 		protected.GET("/tickets/:ticketId/logs", ticketController.ListTicketLogs)
 		protected.POST("/tickets/:ticketId/history/recover", ticketController.RecoverHistory)
 

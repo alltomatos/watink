@@ -452,6 +452,27 @@ MUI v4 **completamente removido** — `@material-ui/*` não é dependência do p
 
 **Referência:** [`docs/agents/plugins.md`](docs/agents/plugins.md) · ADR 0024 (supera 0003) · ADR 0025 + plano [`docs/agents/marketplace-terceiros.md`](docs/agents/marketplace-terceiros.md) (expansão para terceiros) · Hub: `watink-ecosistema/hub`
 
+## Módulo: Assistants (Assistentes de IA)
+
+**Responsabilidade:** Plugin `pro` de automação conversacional por IA, configurável por conexão WhatsApp, com 4 modos: `pipeline` (notificação proativa por evento de Pipeline), `flow` (delega a um Flow existente), `persona` (multi-turno via Agent Runtime + RAG), `router` (menu que delega a sub-Assistants). Reaproveita o Agent Runtime já embrionário no nó `agent` do FlowBuilder (ADR 0020) em vez de duplicar lógica de IA.
+
+**Invariants:**
+- Sempre usar `auth.GetScoped(c, "Assistants"|"AiGateways")` — nunca `c.Get("tenantId")` bruto
+- Regra padrão "1 Assistant ativo por conexão" validada em Go com lock transacional (`SELECT ... FOR UPDATE`), nunca como constraint de banco — é condicional (`AllowMultipleOnConnection`)
+- Não duplicar keyword-matching/debounce/sessão — o Assistant usa um Flow sintético interno (`Flow.Internal=true`) para reaproveitar `trigger.go`/`FlowRun` do FlowBuilder
+- `AiGateway.ApiKey` sempre cifrado at-rest (`cryptobox`), nunca em resposta/log; distinto do `omniroute` do core (ver CONTEXT.md)
+- Licença expirada nunca aborta conversa em andamento — só bloqueia crescimento (criar/ativar novo Assistant), seguindo o invariante padrão de licenciamento
+- RAG sem resposta é configurável por Assistant (`handoff`|`generic_answer`|`fixed_message`) — nunca alucinar por padrão
+
+**O que NÃO fazer:**
+- Não reimplementar chamada de LLM/RAG dentro do plugin — sempre via `flow.AgentResponder`
+- Não deixar o Flow sintético de um Assistant vazar na listagem normal de Flows — filtrar `Internal=false` em `FlowController.List`
+- Não modelar `AssistantRouterOption` como array JSON — é tabela relacional (precedente `PipelineStage`)
+- Não permitir que um Assistant `router` aponte para um `TargetAssistant` de outra conexão (`WhatsAppID` deve casar)
+- Não confundir `AiGateway` (plugin, plural) com `omniroute` (core, singular, usado por embeddings/RAG)
+
+**Referência:** [`docs/agents/assistants.md`](docs/agents/assistants.md) · ADR 0020 (Agent Runtime) · ADR novo (Flow sintético + extensão do SDK — a criar)
+
 ## Domain Docs
 
 - **Glossário**: [`CONTEXT.md`](CONTEXT.md)

@@ -26,6 +26,7 @@ func (s *WhatsAppService) SendText(sessionID int, tenantID string, payload TextC
 	msg := buildTextMessage(payload.Body, payload.QuotedMsgID, payload.QuotedJID, payload.Mentions)
 	_, err = client.SendMessage(context.Background(), to, msg, whatsmeow.SendRequestExtra{ID: types.MessageID(payload.MessageID)})
 	if err != nil {
+		s.reportIfRiskSignal(sessionID, tenantID, "message.send", err)
 		s.emitAck(sessionID, tenantID, payload.MessageID, 5)
 		return err
 	}
@@ -56,6 +57,7 @@ func (s *WhatsAppService) SendMedia(sessionID int, tenantID string, payload Medi
 	mediaType := normalizeMediaType(payload.MediaType)
 	uploaded, err := client.Upload(context.Background(), data, mediaType)
 	if err != nil {
+		s.reportIfRiskSignal(sessionID, tenantID, "message.upload", err)
 		s.emitAck(sessionID, tenantID, payload.MessageID, 5)
 		return err
 	}
@@ -63,6 +65,7 @@ func (s *WhatsAppService) SendMedia(sessionID int, tenantID string, payload Medi
 	message := buildMediaMessage(payload, uploaded)
 	_, err = client.SendMessage(context.Background(), to, message, whatsmeow.SendRequestExtra{ID: types.MessageID(payload.MessageID)})
 	if err != nil {
+		s.reportIfRiskSignal(sessionID, tenantID, "message.send", err)
 		s.emitAck(sessionID, tenantID, payload.MessageID, 5)
 		return err
 	}
@@ -71,7 +74,7 @@ func (s *WhatsAppService) SendMedia(sessionID int, tenantID string, payload Medi
 }
 
 // MarkRead marks one or more messages as read for the given chat.
-func (s *WhatsAppService) MarkRead(sessionID int, payload MarkReadCommandPayload) error {
+func (s *WhatsAppService) MarkRead(sessionID int, tenantID string, payload MarkReadCommandPayload) error {
 	client, err := s.getConnectedClient(sessionID)
 	if err != nil {
 		return err
@@ -92,7 +95,11 @@ func (s *WhatsAppService) MarkRead(sessionID int, payload MarkReadCommandPayload
 	for _, id := range payload.MessageIDs {
 		ids = append(ids, types.MessageID(id))
 	}
-	return client.MarkRead(context.Background(), ids, time.Now(), chat, sender)
+	err = client.MarkRead(context.Background(), ids, time.Now(), chat, sender)
+	if err != nil {
+		s.reportIfRiskSignal(sessionID, tenantID, "message.markread", err)
+	}
+	return err
 }
 
 // SendReaction sends (or, when payload.Reaction == "", removes) an emoji
@@ -118,6 +125,7 @@ func (s *WhatsAppService) SendReaction(sessionID int, tenantID string, payload R
 	msg := client.BuildReaction(chat, sender, types.MessageID(payload.TargetMsgID), payload.Reaction)
 	_, err = client.SendMessage(context.Background(), chat, msg, whatsmeow.SendRequestExtra{ID: types.MessageID(payload.MessageID)})
 	if err != nil {
+		s.reportIfRiskSignal(sessionID, tenantID, "message.reaction", err)
 		s.emitAck(sessionID, tenantID, payload.MessageID, 5)
 		return err
 	}

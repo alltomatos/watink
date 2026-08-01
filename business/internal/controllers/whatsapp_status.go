@@ -104,6 +104,10 @@ func (wc *WhatsappController) ShowWhatsapp(c *gin.Context) {
 		"proxyMode":       whatsappModel.ProxyMode,
 		"proxyId":         whatsappModel.ProxyID,
 		"proxyGroupId":    whatsappModel.ProxyGroupID,
+		"lastRiskCode":    whatsappModel.LastRiskCode,
+		"lastRiskAction":  whatsappModel.LastRiskAction,
+		"lastRiskMessage": whatsappModel.LastRiskMessage,
+		"lastRiskAt":      whatsappModel.LastRiskAt,
 	}
 
 	// Adiciona relations apenas se existirem

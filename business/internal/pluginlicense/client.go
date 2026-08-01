@@ -44,15 +44,26 @@ const (
 	// para um servidor falso que sempre responde "active", contornando o
 	// licenciamento inteiro. Fixa em código, sem override possível.
 	pluginManagerBaseURL = "http://plugin-manager:8081"
+
+	// internalSecretHeader e envInternalSecret provam ao plugin-manager que a
+	// chamada vem do business real — mesmo com a URL fixa acima, alguém com
+	// acesso ao compose/Swarm podia trocar o serviço `plugin-manager` por um
+	// responder falso sem precisar tocar nesta constante. Reaproveita o MESMO
+	// segredo já provisionado nos dois serviços para o sentido inverso
+	// (plugin-manager -> business, ver middleware.InternalPluginManagerOnly) —
+	// já está no compose/Swarm de produção, sem exigir novo rollout de secret.
+	internalSecretHeader = "X-Internal-Token"
+	envInternalSecret    = "PLUGIN_MANAGER_INTERNAL_TOKEN"
 )
 
 // Client consulta o plugin-manager para obter o status de licença de
 // plugins, com cache em memória (TTL configurável) para não bater no
 // plugin-manager a cada requisição.
 type Client struct {
-	baseURL    string
-	httpClient *http.Client
-	ttl        time.Duration
+	baseURL        string
+	httpClient     *http.Client
+	ttl            time.Duration
+	internalSecret string
 
 	mu        sync.Mutex
 	cache     map[string]LicenseInfo
@@ -89,10 +100,11 @@ func NewClientWithBaseURL(baseURL string) *Client {
 // NewClientWithBaseURL — centraliza os defaults do http.Client e do cache.
 func newClient(baseURL string, ttl time.Duration) *Client {
 	return &Client{
-		baseURL:    baseURL,
-		httpClient: &http.Client{Timeout: defaultTimeout},
-		ttl:        ttl,
-		cache:      make(map[string]LicenseInfo),
+		baseURL:        baseURL,
+		httpClient:     &http.Client{Timeout: defaultTimeout},
+		ttl:            ttl,
+		cache:          make(map[string]LicenseInfo),
+		internalSecret: os.Getenv(envInternalSecret),
 	}
 }
 
@@ -149,7 +161,15 @@ func (c *Client) GetLicense(pluginSlug string) (LicenseInfo, error) {
 // fetchLicenses faz o GET /internal/licenses no plugin-manager e decodifica
 // a resposta completa (todos os slugs).
 func (c *Client) fetchLicenses() (map[string]LicenseInfo, error) {
-	resp, err := c.httpClient.Get(c.baseURL + "/internal/licenses")
+	req, err := http.NewRequest(http.MethodGet, c.baseURL+"/internal/licenses", nil)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao montar request ao plugin-manager: %w", err)
+	}
+	if c.internalSecret != "" {
+		req.Header.Set(internalSecretHeader, c.internalSecret)
+	}
+
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao consultar plugin-manager: %w", err)
 	}

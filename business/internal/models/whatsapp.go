@@ -38,6 +38,14 @@ type Whatsapp struct {
 	ProxyGroupID      *int   `gorm:"column:proxyGroupId" json:"proxyGroupId"`
 	ConnectionGroupID *int   `gorm:"column:connectionGroupId;index" json:"connectionGroupId"`
 
+	// LastRisk* persist the most recent whatsmeow ban/throttle risk signal
+	// (IQ codes 401/403/429/463) for this connection, so the Conexões page can
+	// warn the user even after the live SSE event has been missed.
+	LastRiskCode    int        `gorm:"column:lastRiskCode;default:0" json:"lastRiskCode"`
+	LastRiskAction  string     `gorm:"column:lastRiskAction" json:"lastRiskAction"`
+	LastRiskMessage string     `gorm:"column:lastRiskMessage" json:"lastRiskMessage"`
+	LastRiskAt      *time.Time `gorm:"column:lastRiskAt" json:"lastRiskAt"`
+
 	// IzapiaSessionID is the session id assigned by the izapia API (distinct from
 	// this row's own ID). Only set when EngineType == "izapia".
 	IzapiaSessionID *string `gorm:"column:izapiaSessionId" json:"izapiaSessionId"`

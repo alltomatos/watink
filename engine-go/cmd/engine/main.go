@@ -207,7 +207,7 @@ func handleCommand(d amqp.Delivery, svc *whatsapp.WhatsAppService) error {
 		if err := json.Unmarshal(env.Payload, &p); err != nil {
 			return err
 		}
-		return svc.MarkRead(sessionID, p)
+		return svc.MarkRead(sessionID, tenantID, p)
 
 	case "media.download":
 		var p whatsapp.DownloadMediaCommandPayload

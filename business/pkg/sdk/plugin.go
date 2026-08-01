@@ -1,6 +1,9 @@
 package sdk
 
 import (
+	"context"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -43,6 +46,30 @@ type WatinkCore interface {
 	// to engine-go, persists the Message, emits real-time events). Returns an
 	// error if the ticket doesn't belong to tenantID or has no contact.
 	SendTicketMessage(tenantID uuid.UUID, ticketID int, body string) error
+}
+
+// WatinkCoreScheduler is an OPTIONAL extension of WatinkCore (ADR 0027) for
+// plugins that need periodic jobs or internal domain-event subscriptions —
+// capabilities the base WatinkCore does not provide. It is intentionally a
+// separate interface, not added to WatinkCore directly, so existing plugins
+// (HelpdeskPlugin, WebchatPlugin) keep compiling untouched. A plugin that
+// needs it type-asserts:
+//
+//	if scheduler, ok := core.(sdk.WatinkCoreScheduler); ok {
+//	    scheduler.RegisterCron("assistant-idle-sweep", 5*time.Minute, sweep)
+//	}
+type WatinkCoreScheduler interface {
+	// RegisterCron runs fn every interval, guarded by a Redis leader-lock
+	// (same SetNX pattern as the FlowBuilder scheduler) so exactly one node
+	// executes a given job name at a time in a multi-node deployment. fn
+	// errors are logged, never panic the process. Returns an error if name is
+	// already registered.
+	RegisterCron(name string, interval time.Duration, fn func(ctx context.Context) error) error
+	// Subscribe registers fn against an internal domain event type (e.g.
+	// "pipeline.deal.stage_changed", published by DomainEventBus). Delivery is
+	// in-process, best-effort — no persistence/replay. Returns an error if the
+	// event type has no publisher wired.
+	Subscribe(eventType string, fn func(ctx context.Context, payload map[string]any)) error
 }
 
 // WatinkPlugin is the interface that every backend plugin must implement

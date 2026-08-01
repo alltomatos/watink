@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -38,6 +39,24 @@ type coreImpl struct {
 	registry     *PluginRegistry
 	broadcaster  domain.Broadcaster
 	rabbit       domain.CommandPublisher
+	// scheduler backs sdk.WatinkCoreScheduler (ADR 0027) — nil in constructors
+	// that don't wire redis (e.g. tests via NewPluginManager), in which case
+	// RegisterRoute/EmitSocketEvent/SendTicketMessage still work but
+	// RegisterCron/Subscribe fail closed with a clear error.
+	scheduler *cronScheduler
+}
+
+// RegisterCron implements sdk.WatinkCoreScheduler.
+func (c *coreImpl) RegisterCron(name string, interval time.Duration, fn func(ctx context.Context) error) error {
+	if c.scheduler == nil {
+		return errors.New("scheduler not configured for this plugin manager")
+	}
+	return c.scheduler.register(name, interval, fn)
+}
+
+// Subscribe implements sdk.WatinkCoreScheduler.
+func (c *coreImpl) Subscribe(eventType string, fn func(ctx context.Context, payload map[string]any)) error {
+	return eventBus.subscribe(eventType, fn)
 }
 
 func (c *coreImpl) GetDB() *gorm.DB {
@@ -220,7 +239,14 @@ func NewPluginManager(db *gorm.DB, router *gin.RouterGroup) *PluginManager {
 // RegisterPublicRoute. broadcaster wires EmitSocketEvent to real delivery;
 // nil keeps it a no-op. rabbit wires SendTicketMessage to the real engine
 // dispatch; nil makes it fail-closed (returns an error, never silently drops).
-func NewPluginManagerWithRegistry(db *gorm.DB, router *gin.RouterGroup, publicRouter *gin.RouterGroup, registry *PluginRegistry, broadcaster domain.Broadcaster, rabbit domain.CommandPublisher) *PluginManager {
+// redis, when non-nil, backs sdk.WatinkCoreScheduler.RegisterCron's
+// multi-node leader-lock (ADR 0027) — nil keeps RegisterCron/Subscribe
+// fail-closed with an error rather than silently no-op.
+func NewPluginManagerWithRegistry(db *gorm.DB, router *gin.RouterGroup, publicRouter *gin.RouterGroup, registry *PluginRegistry, broadcaster domain.Broadcaster, rabbit domain.CommandPublisher, redis domain.RedisService) *PluginManager {
+	var scheduler *cronScheduler
+	if redis != nil {
+		scheduler = newCronScheduler(redis)
+	}
 	return &PluginManager{
 		plugins: make(map[string]sdk.WatinkPlugin),
 		core: &coreImpl{
@@ -230,6 +256,7 @@ func NewPluginManagerWithRegistry(db *gorm.DB, router *gin.RouterGroup, publicRo
 			registry:     registry,
 			broadcaster:  broadcaster,
 			rabbit:       rabbit,
+			scheduler:    scheduler,
 		},
 	}
 }
@@ -251,6 +278,7 @@ func (pm *PluginManager) Register(p sdk.WatinkPlugin) {
 		registry:     pm.core.registry,
 		broadcaster:  pm.core.broadcaster,
 		rabbit:       pm.core.rabbit,
+		scheduler:    pm.core.scheduler,
 	}
 	if err := p.OnActivate(pluginCore); err != nil {
 		log.Printf("Error activating plugin %s: %v", manifest.Slug, err)

@@ -118,7 +118,7 @@ func TestMarkRead_NoClient(t *testing.T) {
 	}
 	svc.publishEvent = func(_ string, _ int, _ string, _ map[string]interface{}) {}
 
-	err := svc.MarkRead(99, MarkReadCommandPayload{
+	err := svc.MarkRead(99, "tenant-1", MarkReadCommandPayload{
 		ChatJID:    "5511999990000@s.whatsapp.net",
 		MessageIDs: []string{"mid-1"},
 	})
@@ -140,7 +140,7 @@ func TestMarkRead_InvalidChatJID(t *testing.T) {
 	svc.publishEvent = func(_ string, _ int, _ string, _ map[string]interface{}) {}
 
 	// No client connected, so we get the session error first.
-	err := svc.MarkRead(1, MarkReadCommandPayload{
+	err := svc.MarkRead(1, "tenant-1", MarkReadCommandPayload{
 		ChatJID:    "",
 		MessageIDs: []string{"mid-1"},
 	})

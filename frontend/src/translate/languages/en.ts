@@ -357,6 +357,7 @@ const messages = {
       mainDrawer: {
         listItems: {
           dashboard: "Dashboard",
+          assistants: "AI Assistants",
           pipelines: "Pipelines",
           tickets: "Tickets",
           myActivities: "My Activities",

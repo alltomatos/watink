@@ -1,0 +1,209 @@
+package plugins
+
+import (
+	"net/http"
+	"strconv"
+
+	"github.com/alltomatos/watinkdev/business/internal/models"
+	"github.com/alltomatos/watinkdev/business/pkg/auth"
+	"github.com/alltomatos/watinkdev/business/pkg/cryptobox"
+	"github.com/alltomatos/watinkdev/business/pkg/utils"
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+)
+
+// AiGatewayController manages the AI providers registered inside the
+// "Assistentes de IA" plugin (Configurações → Agentes de IA). Distinct from
+// omniroute (core, single endpoint for embeddings/RAG) — see CONTEXT.md.
+//
+// ApiKey is encrypted at rest via cryptobox (same primitive used by Proxy
+// passwords and Client documents) and never serialized back to the client.
+// Fail-closed: if the cryptobox master key is not configured, Create/Update
+// refuse to persist the secret rather than falling back to plaintext.
+type AiGatewayController struct{}
+
+func NewAiGatewayController() *AiGatewayController { return &AiGatewayController{} }
+
+func toAiGatewayResponse(g models.AiGateway) gin.H {
+	return gin.H{
+		"id":        g.ID,
+		"tenantId":  g.TenantID,
+		"name":      g.Name,
+		"provider":  g.Provider,
+		"baseUrl":   g.BaseURL,
+		"model":     g.Model,
+		"hasApiKey": g.HasApiKey(),
+		"createdAt": g.CreatedAt,
+		"updatedAt": g.UpdatedAt,
+	}
+}
+
+// List returns the tenant's AiGateways.
+func (ac *AiGatewayController) List(c *gin.Context) {
+	db, tenantID, ok := auth.GetScoped(c, "AiGateways")
+	if !ok {
+		return
+	}
+	var gateways []models.AiGateway
+	if err := db.Where(`"tenantId" = ?`, tenantID).Order("id DESC").Find(&gateways).Error; err != nil {
+		utils.RespondWithInternalError(c, err, "ListAiGateways")
+		return
+	}
+	resp := make([]gin.H, len(gateways))
+	for i := range gateways {
+		resp[i] = toAiGatewayResponse(gateways[i])
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
+// Get returns a single AiGateway of the tenant.
+func (ac *AiGatewayController) Get(c *gin.Context) {
+	db, tenantID, ok := auth.GetScoped(c, "AiGateways")
+	if !ok {
+		return
+	}
+	id, _ := strconv.Atoi(c.Param("id"))
+	var g models.AiGateway
+	if err := db.Where(`id = ? AND "tenantId" = ?`, id, tenantID).First(&g).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "gateway de IA não encontrado"})
+		return
+	}
+	c.JSON(http.StatusOK, toAiGatewayResponse(g))
+}
+
+type aiGatewayInput struct {
+	Name     string  `json:"name"`
+	Provider string  `json:"provider"`
+	ApiKey   string  `json:"apiKey"`
+	BaseURL  *string `json:"baseUrl"`
+	Model    string  `json:"model"`
+}
+
+func validateAiGatewayStrings(c *gin.Context, in aiGatewayInput) bool {
+	for _, f := range []struct {
+		v     string
+		name  string
+		limit int
+	}{
+		{in.Name, "name", 120},
+		{in.Provider, "provider", 60},
+		{in.Model, "model", 120},
+		{in.ApiKey, "apiKey", 2048},
+	} {
+		if _, err := utils.ValidateStringField(f.v, f.name, f.limit); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return false
+		}
+	}
+	return true
+}
+
+// Create inserts a new AiGateway. The API key, when provided, is encrypted
+// at rest — fail-closed if the cryptobox master key is not configured.
+func (ac *AiGatewayController) Create(c *gin.Context) {
+	db, tenantID, ok := auth.GetScoped(c, "AiGateways")
+	if !ok {
+		return
+	}
+	var in aiGatewayInput
+	if err := c.ShouldBindJSON(&in); err != nil {
+		utils.RespondWithBindError(c, err)
+		return
+	}
+	if !validateAiGatewayStrings(c, in) {
+		return
+	}
+
+	enc := ""
+	if in.ApiKey != "" {
+		if !cryptobox.IsConfigured() {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": cryptobox.ErrNotConfigured.Error()})
+			return
+		}
+		e, err := cryptobox.Encrypt(in.ApiKey)
+		if err != nil {
+			utils.RespondWithInternalError(c, err, "EncryptAiGatewayApiKey")
+			return
+		}
+		enc = e
+	}
+
+	g := models.AiGateway{
+		TenantID: tenantID, Name: in.Name, Provider: in.Provider,
+		ApiKeyEnc: enc, BaseURL: in.BaseURL, Model: in.Model,
+	}
+	if err := db.Create(&g).Error; err != nil {
+		utils.RespondWithInternalError(c, err, "CreateAiGateway")
+		return
+	}
+	c.JSON(http.StatusOK, toAiGatewayResponse(g))
+}
+
+// Update edits an AiGateway. The API key is only re-encrypted when a new one
+// is sent — an empty apiKey in the payload preserves the existing secret.
+func (ac *AiGatewayController) Update(c *gin.Context) {
+	db, tenantID, ok := auth.GetScoped(c, "AiGateways")
+	if !ok {
+		return
+	}
+	id, _ := strconv.Atoi(c.Param("id"))
+	var existing models.AiGateway
+	if err := db.Where(`id = ? AND "tenantId" = ?`, id, tenantID).First(&existing).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "gateway de IA não encontrado"})
+		return
+	}
+	var in aiGatewayInput
+	if err := c.ShouldBindJSON(&in); err != nil {
+		utils.RespondWithBindError(c, err)
+		return
+	}
+	if !validateAiGatewayStrings(c, in) {
+		return
+	}
+
+	fields := map[string]interface{}{
+		"name":     in.Name,
+		"provider": in.Provider,
+		"baseUrl":  in.BaseURL,
+		"model":    in.Model,
+	}
+	if in.ApiKey != "" {
+		if !cryptobox.IsConfigured() {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": cryptobox.ErrNotConfigured.Error()})
+			return
+		}
+		enc, err := cryptobox.Encrypt(in.ApiKey)
+		if err != nil {
+			utils.RespondWithInternalError(c, err, "EncryptAiGatewayApiKey")
+			return
+		}
+		fields["apiKeyEnc"] = enc
+	}
+
+	if err := db.Session(&gorm.Session{NewDB: true}).Model(&models.AiGateway{}).
+		Where(`id = ? AND "tenantId" = ?`, id, tenantID).Updates(fields).Error; err != nil {
+		utils.RespondWithInternalError(c, err, "UpdateAiGateway")
+		return
+	}
+	_ = db.Session(&gorm.Session{NewDB: true}).Where(`id = ? AND "tenantId" = ?`, id, tenantID).First(&existing).Error
+	c.JSON(http.StatusOK, toAiGatewayResponse(existing))
+}
+
+// Delete removes an AiGateway of the tenant.
+func (ac *AiGatewayController) Delete(c *gin.Context) {
+	db, tenantID, ok := auth.GetScoped(c, "AiGateways")
+	if !ok {
+		return
+	}
+	id, _ := strconv.Atoi(c.Param("id"))
+	res := db.Session(&gorm.Session{NewDB: true}).Where(`id = ? AND "tenantId" = ?`, id, tenantID).Delete(&models.AiGateway{})
+	if res.Error != nil {
+		utils.RespondWithInternalError(c, res.Error, "DeleteAiGateway")
+		return
+	}
+	if res.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "gateway de IA não encontrado"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Gateway de IA removido"})
+}

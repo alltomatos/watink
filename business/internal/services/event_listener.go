@@ -42,6 +42,7 @@ func StartEventListener(rabbitMQ *RabbitMQService, eventListener *EventListener)
 		"wbot.*.*.session.pairing_code",
 		"wbot.*.*.session.status",
 		"wbot.*.*.session.history_sync",
+		"wbot.*.*.session.risk",
 		"wbot.*.*.message.received",
 		"wbot.*.*.message.ack",
 		"wbot.*.*.message.revoke",
@@ -77,6 +78,8 @@ func StartEventListener(rabbitMQ *RabbitMQService, eventListener *EventListener)
 			return eventListener.handleSessionStatus(ctx, env.Payload, tid)
 		case "session.history_sync":
 			return eventListener.handleHistorySync(ctx, env.Payload, tid)
+		case "session.risk":
+			return eventListener.handleSessionRisk(ctx, env.Payload, tid)
 		case "message.received":
 			var p MessageReceivedPayload
 			if err := json.Unmarshal(env.Payload, &p); err != nil {
@@ -137,6 +140,15 @@ func (el *EventListener) HandleSessionStatusEvent(ctx context.Context, payload j
 // (mirrors whatsmeow: a poll vote is metadata, not an inbound message).
 func (el *EventListener) HandlePollVoteEvent(ctx context.Context, payload json.RawMessage, tenantID uuid.UUID) error {
 	return el.handlePollVote(ctx, payload, tenantID)
+}
+
+// HandleSessionRiskEvent is the exported entry point for non-AMQP transports
+// (izapia webhook) to apply a ban/throttle risk signal (401/403/429/463)
+// through the same logic as the engine-go AMQP consumer (handleSessionRisk):
+// persists lastRiskCode/Action/Message/At on the connection, auto-isolates
+// the proxy for 429/463, and broadcasts whatsappSessionRisk to the tenant.
+func (el *EventListener) HandleSessionRiskEvent(ctx context.Context, payload json.RawMessage, tenantID uuid.UUID) error {
+	return el.handleSessionRisk(ctx, payload, tenantID)
 }
 
 func (el *EventListener) processMessage(ctx context.Context, p MessagePayload, rawSessionID string, tenantID uuid.UUID) error {

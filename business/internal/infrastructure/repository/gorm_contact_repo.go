@@ -149,33 +149,80 @@ func (r *GORMContactRepository) Find(ctx context.Context, tenantID uuid.UUID, se
 	return contacts, nil
 }
 
-// Delete removes a contact by ID scoped to tenantID.
+// Delete removes a contact by ID scoped to tenantID, cascading every row
+// that has a NOT NULL foreign key into Contacts (Tickets, Messages, Deals,
+// Protocols, ConversationEmbeddings) — otherwise Postgres rejects the delete
+// with fk_Contacts_tickets (or a sibling constraint) whenever the contact has
+// any history. There is nowhere to migrate that history to, so cascading is
+// the deliberate behavior here, same reasoning as PipelineController.Delete
+// cascading Deals when the whole container is removed.
 func (r *GORMContactRepository) Delete(ctx context.Context, id int, tenantID uuid.UUID) error {
-	return r.db.WithContext(ctx).
-		Where("id = ? AND \"tenantId\" = ?", id, tenantID).
-		Delete(&models.Contact{}).Error
+	return r.deleteContactsCascade(ctx, tenantID, "id = ?", id)
 }
 
 // BulkDelete removes the contacts in ids that belong to tenantID, silently
 // ignoring any ID that doesn't exist or belongs to another tenant, and
-// returns the number of rows actually deleted.
+// returns the number of rows actually deleted. Cascades the same dependent
+// rows as Delete.
 func (r *GORMContactRepository) BulkDelete(ctx context.Context, ids []int, tenantID uuid.UUID) (int64, error) {
 	if len(ids) == 0 {
 		return 0, nil
 	}
-	tx := r.db.WithContext(ctx).
-		Where("id IN ? AND \"tenantId\" = ?", ids, tenantID).
-		Delete(&models.Contact{})
-	return tx.RowsAffected, tx.Error
+	return r.deleteAffectedCount(ctx, tenantID, "id IN ?", ids)
 }
 
 // DeleteAll removes every contact belonging to tenantID and returns the
-// number of rows deleted.
+// number of rows deleted. Cascades the same dependent rows as Delete.
 func (r *GORMContactRepository) DeleteAll(ctx context.Context, tenantID uuid.UUID) (int64, error) {
-	tx := r.db.WithContext(ctx).
-		Where("\"tenantId\" = ?", tenantID).
-		Delete(&models.Contact{})
-	return tx.RowsAffected, tx.Error
+	return r.deleteAffectedCount(ctx, tenantID, "\"tenantId\" = ?", tenantID)
+}
+
+func (r *GORMContactRepository) deleteContactsCascade(ctx context.Context, tenantID uuid.UUID, contactCond string, contactArgs ...interface{}) error {
+	_, err := r.deleteAffectedCount(ctx, tenantID, contactCond, contactArgs...)
+	return err
+}
+
+// deleteAffectedCount runs the full cascade transactionally and returns how
+// many Contacts rows were actually deleted. contactCond/contactArgs select
+// the target contacts (already tenant-scoped by the caller's WHERE, but every
+// child-table statement below re-applies "tenantId" defensively).
+func (r *GORMContactRepository) deleteAffectedCount(ctx context.Context, tenantID uuid.UUID, contactCond string, contactArgs ...interface{}) (int64, error) {
+	var affected int64
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var ids []int
+		if err := tx.Model(&models.Contact{}).
+			Where(contactCond, contactArgs...).Where(`"tenantId" = ?`, tenantID).
+			Pluck("id", &ids).Error; err != nil {
+			return err
+		}
+		if len(ids) == 0 {
+			return nil
+		}
+
+		if err := tx.Exec(`DELETE FROM "Messages" WHERE "ticketId" IN (SELECT id FROM "Tickets" WHERE "contactId" IN ? AND "tenantId" = ?)`, ids, tenantID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec(`DELETE FROM "ConversationEmbeddings" WHERE "contactId" IN ? AND "tenantId" = ?`, ids, tenantID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec(`DELETE FROM "Protocols" WHERE "contactId" IN ? AND "tenantId" = ?`, ids, tenantID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec(`DELETE FROM "Deals" WHERE "contactId" IN ? AND "tenantId" = ?`, ids, tenantID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec(`DELETE FROM "Tickets" WHERE "contactId" IN ? AND "tenantId" = ?`, ids, tenantID).Error; err != nil {
+			return err
+		}
+
+		res := tx.Where("id IN ?", ids).Where(`"tenantId" = ?`, tenantID).Delete(&models.Contact{})
+		if res.Error != nil {
+			return res.Error
+		}
+		affected = res.RowsAffected
+		return nil
+	})
+	return affected, err
 }
 
 // Create inserts a new contact record from the domain struct.

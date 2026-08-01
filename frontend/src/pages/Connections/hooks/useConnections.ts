@@ -42,7 +42,9 @@ export const useConnections = (): UseConnectionsReturn => {
 
   useEffect(() => {
     const refetch = () => { reloadWhatsApps(); };
-    return subscribeToSocket({ whatsappSession: refetch, whatsapp: refetch });
+    // whatsappSessionRisk é o mesmo refetch — o valor persistido (lastRiskCode/
+    // lastRiskAt) já vem no GET /whatsapp, então só precisamos disparar o reload.
+    return subscribeToSocket({ whatsappSession: refetch, whatsapp: refetch, whatsappSessionRisk: refetch });
   }, [reloadWhatsApps]);
 
   const handleStartSession = async (id: number) => {
