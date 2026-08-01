@@ -184,7 +184,11 @@ func main() {
 			}
 		}
 
-		routes.SetupRoutes(apiGroup, rabbitMQ, container, s3Store)
+		routes.SetupRoutes(apiGroup, rabbitMQ, container, s3Store, controllers.BuildInfo{
+			GitCommit:     GitCommit,
+			GitBranch:     GitBranch,
+			GitCommitDate: GitCommitDate,
+		})
 	}
 
 	r.GET("/api/health", func(c *gin.Context) {
