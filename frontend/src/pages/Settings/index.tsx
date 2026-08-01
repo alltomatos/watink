@@ -24,6 +24,7 @@ import PersonalizationSection from "./components/PersonalizationSection";
 import SMTPSection from "./components/SMTPSection";
 import PAPISection from "./components/PAPISection";
 import HelpdeskSection from "./components/HelpdeskSection";
+import AiGatewaysSection from "./components/AiGatewaysSection";
 import SettingsSideNav from "./components/SettingsSideNav";
 
 const Settings: React.FC = () => {
@@ -108,6 +109,9 @@ const Settings: React.FC = () => {
               )}
               {activeSection === "ai" && (
                 <AISettings {...sharedProps} />
+              )}
+              {activeSection === "ai-gateways" && activePlugins.includes("assistant") && (
+                <AiGatewaysSection />
               )}
               {activeSection === "address" && (
                 <AddressLookupSettings {...sharedProps} />
