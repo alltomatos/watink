@@ -25,28 +25,28 @@ func NewAssistantController() *AssistantController { return &AssistantController
 
 func toAssistantResponse(a models.Assistant) gin.H {
 	return gin.H{
-		"id":                         a.ID,
-		"tenantId":                   a.TenantID,
-		"name":                       a.Name,
-		"description":                a.Description,
-		"whatsappId":                 a.WhatsAppID,
-		"allowMultipleOnConnection":  a.AllowMultipleOnConnection,
-		"mode":                       a.Mode,
-		"config":                     a.Config,
-		"triggerType":                a.TriggerType,
-		"triggerOperator":            a.TriggerOperator,
-		"triggerValue":               a.TriggerValue,
-		"sessionExpiryMinutes":       a.SessionExpiryMinutes,
-		"typingDelayMs":              a.TypingDelayMs,
-		"debounceSeconds":            a.DebounceSeconds,
-		"endKeyword":                 a.EndKeyword,
-		"expiryMessage":              a.ExpiryMessage,
-		"closingMessage":             a.ClosingMessage,
-		"stopOnHumanReply":           a.StopOnHumanReply,
-		"ignoreGroups":               a.IgnoreGroups,
-		"active":                     a.Active,
-		"createdAt":                  a.CreatedAt,
-		"updatedAt":                  a.UpdatedAt,
+		"id":                        a.ID,
+		"tenantId":                  a.TenantID,
+		"name":                      a.Name,
+		"description":               a.Description,
+		"whatsappId":                a.WhatsAppID,
+		"allowMultipleOnConnection": a.AllowMultipleOnConnection,
+		"mode":                      a.Mode,
+		"config":                    a.Config,
+		"triggerType":               a.TriggerType,
+		"triggerOperator":           a.TriggerOperator,
+		"triggerValue":              a.TriggerValue,
+		"sessionExpiryMinutes":      a.SessionExpiryMinutes,
+		"typingDelayMs":             a.TypingDelayMs,
+		"debounceSeconds":           a.DebounceSeconds,
+		"endKeyword":                a.EndKeyword,
+		"expiryMessage":             a.ExpiryMessage,
+		"closingMessage":            a.ClosingMessage,
+		"stopOnHumanReply":          a.StopOnHumanReply,
+		"ignoreGroups":              a.IgnoreGroups,
+		"active":                    a.Active,
+		"createdAt":                 a.CreatedAt,
+		"updatedAt":                 a.UpdatedAt,
 	}
 }
 
@@ -84,24 +84,24 @@ func (ac *AssistantController) Get(c *gin.Context) {
 }
 
 type assistantInput struct {
-	Name                       string          `json:"name"`
-	Description                string          `json:"description"`
-	WhatsAppID                 *int            `json:"whatsappId"`
-	AllowMultipleOnConnection  bool            `json:"allowMultipleOnConnection"`
-	Mode                       string          `json:"mode"`
-	Config                     json.RawMessage `json:"config"`
-	TriggerType                string          `json:"triggerType"`
-	TriggerOperator            string          `json:"triggerOperator"`
-	TriggerValue               string          `json:"triggerValue"`
-	SessionExpiryMinutes       *int            `json:"sessionExpiryMinutes"`
-	TypingDelayMs              *int            `json:"typingDelayMs"`
-	DebounceSeconds            *int            `json:"debounceSeconds"`
-	EndKeyword                 *string         `json:"endKeyword"`
-	ExpiryMessage               *string         `json:"expiryMessage"`
-	ClosingMessage              *string         `json:"closingMessage"`
-	StopOnHumanReply            *bool           `json:"stopOnHumanReply"`
-	IgnoreGroups                 *bool           `json:"ignoreGroups"`
-	Active                       *bool           `json:"active"`
+	Name                      string          `json:"name"`
+	Description               string          `json:"description"`
+	WhatsAppID                *int            `json:"whatsappId"`
+	AllowMultipleOnConnection bool            `json:"allowMultipleOnConnection"`
+	Mode                      string          `json:"mode"`
+	Config                    json.RawMessage `json:"config"`
+	TriggerType               string          `json:"triggerType"`
+	TriggerOperator           string          `json:"triggerOperator"`
+	TriggerValue              string          `json:"triggerValue"`
+	SessionExpiryMinutes      *int            `json:"sessionExpiryMinutes"`
+	TypingDelayMs             *int            `json:"typingDelayMs"`
+	DebounceSeconds           *int            `json:"debounceSeconds"`
+	EndKeyword                *string         `json:"endKeyword"`
+	ExpiryMessage             *string         `json:"expiryMessage"`
+	ClosingMessage            *string         `json:"closingMessage"`
+	StopOnHumanReply          *bool           `json:"stopOnHumanReply"`
+	IgnoreGroups              *bool           `json:"ignoreGroups"`
+	Active                    *bool           `json:"active"`
 }
 
 func validateAssistantStrings(c *gin.Context, in assistantInput) bool {
@@ -245,7 +245,10 @@ func (ac *AssistantController) Create(c *gin.Context) {
 		if err := assertConnectionAvailable(tx, tenantID, in.WhatsAppID, in.AllowMultipleOnConnection, active, 0); err != nil {
 			return err
 		}
-		return tx.Create(&a).Error
+		if err := tx.Create(&a).Error; err != nil {
+			return err
+		}
+		return syncSyntheticFlow(tx, tenantID, a)
 	})
 	if err != nil {
 		if err.Error() == "já existe um Assistant ativo nesta conexão — ative 'permitir múltiplos assistentes' para adicionar outro" {
@@ -311,7 +314,14 @@ func (ac *AssistantController) Update(c *gin.Context) {
 		if err := assertConnectionAvailable(tx, tenantID, in.WhatsAppID, in.AllowMultipleOnConnection, active, id); err != nil {
 			return err
 		}
-		return tx.Model(&models.Assistant{}).Where(`id = ? AND "tenantId" = ?`, id, tenantID).Updates(fields).Error
+		if err := tx.Model(&models.Assistant{}).Where(`id = ? AND "tenantId" = ?`, id, tenantID).Updates(fields).Error; err != nil {
+			return err
+		}
+		var updated models.Assistant
+		if err := tx.Where(`id = ? AND "tenantId" = ?`, id, tenantID).First(&updated).Error; err != nil {
+			return err
+		}
+		return syncSyntheticFlow(tx, tenantID, updated)
 	})
 	if err != nil {
 		if err.Error() == "já existe um Assistant ativo nesta conexão — ative 'permitir múltiplos assistentes' para adicionar outro" {
@@ -335,6 +345,9 @@ func (ac *AssistantController) Delete(c *gin.Context) {
 
 	err := db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where(`"routerAssistantId" = ? AND "tenantId" = ?`, id, tenantID).Delete(&models.AssistantRouterOption{}).Error; err != nil {
+			return err
+		}
+		if err := deleteSyntheticFlow(tx, tenantID, id); err != nil {
 			return err
 		}
 		return tx.Where(`id = ? AND "tenantId" = ?`, id, tenantID).Delete(&models.Assistant{}).Error

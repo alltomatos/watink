@@ -38,12 +38,21 @@ var optOutWords = map[string]struct{}{
 // app.current_tenant), so every query carries WHERE "tenantId" MANUALLY and
 // writes use Session(NewDB:true).
 type Skeleton struct {
-	db          *gorm.DB
-	registry    *ChannelRegistry
-	redis       domain.RedisService
-	interpreter *Interpreter
-	retriever   Retriever
-	responder   AgentResponder
+	db               *gorm.DB
+	registry         *ChannelRegistry
+	redis            domain.RedisService
+	interpreter      *Interpreter
+	retriever        Retriever
+	responder        AgentResponder
+	assistantRuntime AssistantRuntime
+}
+
+// SetAssistantRuntime wires the "Assistentes de IA" plugin's runtime after
+// construction (the plugin manager, which owns the implementation, is built
+// after the Skeleton in routes.go — DI pura, no global). Nil is the default
+// (no plugin active): the assistant executor then advances gracefully.
+func (s *Skeleton) SetAssistantRuntime(ar AssistantRuntime) {
+	s.assistantRuntime = ar
 }
 
 // NewSkeleton builds the skeleton with an injected DB, the outbound channel
@@ -273,15 +282,17 @@ func (s *Skeleton) StartFlow(ctx context.Context, in InboundContext, f models.Fl
 	}
 
 	st := &ExecState{
-		TenantID:  in.TenantID,
-		Run:       &run,
-		Graph:     graph,
-		Vars:      buildVars(in),
-		Inbound:   in.Body, // carry the triggering body for the first menu/switch
-		Ticket:    in.Ticket,
-		Contact:   in.Contact,
-		Retriever: s.retriever,
-		Responder: s.responder,
+		TenantID:         in.TenantID,
+		Run:              &run,
+		Graph:            graph,
+		Vars:             buildVars(in),
+		Inbound:          in.Body, // carry the triggering body for the first menu/switch
+		Ticket:           in.Ticket,
+		Contact:          in.Contact,
+		Retriever:        s.retriever,
+		Responder:        s.responder,
+		AssistantRuntime: s.assistantRuntime,
+		Starter:          s,
 	}
 	return s.interpreter.Run(ctx, st)
 }
@@ -335,14 +346,16 @@ func (s *Skeleton) StartFlowForContact(ctx context.Context, tenantID uuid.UUID, 
 	}
 
 	st := &ExecState{
-		TenantID:  tenantID,
-		Run:       &run,
-		Graph:     graph,
-		Vars:      vars,
-		Inbound:   "",
-		Contact:   contact,
-		Retriever: s.retriever,
-		Responder: s.responder,
+		TenantID:         tenantID,
+		Run:              &run,
+		Graph:            graph,
+		Vars:             vars,
+		Inbound:          "",
+		Contact:          contact,
+		Retriever:        s.retriever,
+		Responder:        s.responder,
+		AssistantRuntime: s.assistantRuntime,
+		Starter:          s,
 	}
 	return s.interpreter.Run(ctx, st)
 }
@@ -396,16 +409,18 @@ func (s *Skeleton) resume(ctx context.Context, in InboundContext, run models.Flo
 	}
 
 	st := &ExecState{
-		TenantID:     in.TenantID,
-		Run:          &run,
-		Graph:        graph,
-		Vars:         vars,
-		Inbound:      in.Body,
-		ResumeNodeID: run.CurrentNodeID, // the node we suspended at owns the reply
-		Ticket:       in.Ticket,
-		Contact:      in.Contact,
-		Retriever:    s.retriever,
-		Responder:    s.responder,
+		TenantID:         in.TenantID,
+		Run:              &run,
+		Graph:            graph,
+		Vars:             vars,
+		Inbound:          in.Body,
+		ResumeNodeID:     run.CurrentNodeID, // the node we suspended at owns the reply
+		Ticket:           in.Ticket,
+		Contact:          in.Contact,
+		Retriever:        s.retriever,
+		Responder:        s.responder,
+		AssistantRuntime: s.assistantRuntime,
+		Starter:          s,
 	}
 	if err := s.interpreter.Run(ctx, st); err != nil {
 		log.Printf("[FlowSkeleton] resume failed run=%s: %v", run.ID, err)

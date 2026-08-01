@@ -20,13 +20,13 @@ func NewAssistantRouterController() *AssistantRouterController { return &Assista
 
 func toRouterOptionResponse(o models.AssistantRouterOption) gin.H {
 	return gin.H{
-		"id":                 o.ID,
-		"routerAssistantId":  o.RouterAssistantID,
-		"label":              o.Label,
-		"order":              o.Order,
-		"targetAssistantId":  o.TargetAssistantID,
-		"createdAt":          o.CreatedAt,
-		"updatedAt":          o.UpdatedAt,
+		"id":                o.ID,
+		"routerAssistantId": o.RouterAssistantID,
+		"label":             o.Label,
+		"order":             o.Order,
+		"targetAssistantId": o.TargetAssistantID,
+		"createdAt":         o.CreatedAt,
+		"updatedAt":         o.UpdatedAt,
 	}
 }
 

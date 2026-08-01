@@ -81,6 +81,17 @@ type ExecState struct {
 	// knowledge base and decides continue/resolved/handoff. Nil when no agent
 	// service is wired (the agent executor then advances).
 	Responder AgentResponder
+
+	// AssistantRuntime drives the synthetic "assistant" node — implemented by
+	// the "Assistentes de IA" plugin, injected to avoid a flow↔plugins import
+	// cycle (ADR 0027). Nil when the plugin isn't wired (the assistant
+	// executor then advances).
+	AssistantRuntime AssistantRuntime
+
+	// Starter lets AssistantRuntime hand off from this run to another Flow's
+	// FlowRun for the same ticket (router delegation, "flow" mode). Always the
+	// owning Skeleton in production.
+	Starter FlowStarter
 }
 
 // NodeExecutor runs a single node type. Implementations are stateless and
@@ -147,6 +158,7 @@ func DefaultExecutorRegistry() *ExecutorRegistry {
 	r.Register(knowledgeExecutor{})
 	r.Register(agentExecutor{})
 	r.Register(quickAnswerExecutor{})
+	r.Register(assistantExecutor{})
 	return r
 }
 

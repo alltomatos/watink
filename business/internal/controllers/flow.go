@@ -127,7 +127,9 @@ func (fc *FlowController) List(c *gin.Context) {
 	}
 
 	var flows []models.Flow
-	if err := db.Preload("Whatsapp").Where("\"tenantId\" = ?", tenantID).Find(&flows).Error; err != nil {
+	// internal=false: hide plugin-generated synthetic Flows (Assistentes de
+	// IA, ADR 0027) from the normal listing — they are not user-authored.
+	if err := db.Preload("Whatsapp").Where("\"tenantId\" = ? AND internal = false", tenantID).Find(&flows).Error; err != nil {
 		utils.RespondWithInternalError(c, err, "Failed to fetch flows")
 		return
 	}
