@@ -19,7 +19,9 @@ type instanceStatsResponse struct {
 	Connections      int64  `json:"connections"`
 	MessagesSent     int64  `json:"messagesSent"`
 	MessagesReceived int64  `json:"messagesReceived"`
-	SchemaVersion    string `json:"schemaVersion"`
+	GitCommit        string `json:"gitCommit"`
+	GitBranch        string `json:"gitBranch"`
+	DbEngine         string `json:"dbEngine"`
 	Admins           []struct {
 		TenantName string `json:"tenantName"`
 		OwnerEmail string `json:"ownerEmail"`
@@ -29,7 +31,7 @@ type instanceStatsResponse struct {
 func TestInstanceStats_SemDados_DevolveZeros(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := testutil.NewTestDB(t)
-	ctrl := NewPluginManagerInternalController(db)
+	ctrl := NewPluginManagerInternalController(db, BuildInfo{GitCommit: "abc1234", GitBranch: "develop", GitCommitDate: "2026-08-01T00:00:00Z"})
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -45,12 +47,15 @@ func TestInstanceStats_SemDados_DevolveZeros(t *testing.T) {
 	assert.Equal(t, int64(0), result.MessagesSent)
 	assert.Equal(t, int64(0), result.MessagesReceived)
 	assert.Len(t, result.Admins, 0)
+	assert.Equal(t, "abc1234", result.GitCommit)
+	assert.Equal(t, "develop", result.GitBranch)
+	assert.Equal(t, "PostgreSQL", result.DbEngine)
 }
 
 func TestInstanceStats_SomaTodosOsTenants(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := testutil.NewTestDB(t)
-	ctrl := NewPluginManagerInternalController(db)
+	ctrl := NewPluginManagerInternalController(db, BuildInfo{GitCommit: "abc1234", GitBranch: "develop", GitCommitDate: "2026-08-01T00:00:00Z"})
 
 	tenantA := models.Tenant{ID: uuid.New(), Name: "Tenant A"}
 	require.NoError(t, db.Create(&tenantA).Error)

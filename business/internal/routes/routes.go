@@ -20,14 +20,14 @@ type RouteRabbitMQ interface {
 	domain.KnowledgeJobPublisher
 }
 
-func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *application.Container, s3Store domain.ObjectStore) {
+func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *application.Container, s3Store domain.ObjectStore, build controllers.BuildInfo) {
 	db := container.DB
 	messageController := controllers.NewMessageController(rabbitMQ, container.Broadcast, container.SessionService)
 	systemController := controllers.NewSystemController(container.SystemRepo, rabbitMQ)
 	setupService := services.NewSetupService(container.DB)
 	setupController := controllers.NewSetupController(setupService)
 	saasInternalController := controllers.NewSaaSInternalController(db, setupService)
-	pluginManagerInternalController := controllers.NewPluginManagerInternalController(db)
+	pluginManagerInternalController := controllers.NewPluginManagerInternalController(db, build)
 	registerController := controllers.NewRegisterController(saasclient.NewFromEnv(), saasclient.NewCaptchaVerifierFromEnv())
 	userController := controllers.NewUserController(container.UserRepo, container.PlanLimitSvc)
 	queueController := controllers.NewQueueController()

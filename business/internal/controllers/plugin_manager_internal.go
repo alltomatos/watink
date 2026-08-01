@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/alltomatos/watinkdev/business/internal/models"
@@ -11,6 +10,16 @@ import (
 	"gorm.io/gorm"
 )
 
+// BuildInfo é a versão real do binário rodando -- os mesmos GitCommit/
+// GitBranch/GitCommitDate setados via -ldflags no build (Dockerfile.business)
+// e já expostos publicamente em GET /api/v1/about. Injetado por main.go
+// (única fonte de verdade desses valores, package main) via SetupRoutes.
+type BuildInfo struct {
+	GitCommit     string
+	GitBranch     string
+	GitCommitDate string
+}
+
 // PluginManagerInternalController serve o grupo /internal/plugin-manager —
 // API interna consumida EXCLUSIVAMENTE pelo plugin-manager local (via
 // X-Internal-Token), que repassa esses números no `counters` do heartbeat
@@ -18,11 +27,12 @@ import (
 // tenants da instância) — o Hub não conhece cada tenant em separado (ADR 0003),
 // só a instância como um todo.
 type PluginManagerInternalController struct {
-	db *gorm.DB
+	db    *gorm.DB
+	build BuildInfo
 }
 
-func NewPluginManagerInternalController(db *gorm.DB) *PluginManagerInternalController {
-	return &PluginManagerInternalController{db: db}
+func NewPluginManagerInternalController(db *gorm.DB, build BuildInfo) *PluginManagerInternalController {
+	return &PluginManagerInternalController{db: db, build: build}
 }
 
 type instanceStatsAdmin struct {
@@ -75,9 +85,12 @@ func (ctrl *PluginManagerInternalController) InstanceStats(c *gin.Context) {
 		admins = append(admins, instanceStatsAdmin(row))
 	}
 
-	schemaVersion := os.Getenv("APP_VERSION")
-	if schemaVersion == "" {
-		schemaVersion = "dev"
+	// dbVersion é a versão real do servidor Postgres -- não existe tabela de
+	// migration dedicada (GORM AutoMigrate puro), então isto é o dado
+	// concreto mais próximo de "versão do banco" que existe de fato.
+	var dbVersion string
+	if err := ctrl.db.Raw("SHOW server_version").Scan(&dbVersion).Error; err != nil {
+		dbVersion = "unknown"
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -85,7 +98,11 @@ func (ctrl *PluginManagerInternalController) InstanceStats(c *gin.Context) {
 		"connections":      connections,
 		"messagesSent":     messagesSent,
 		"messagesReceived": messagesReceived,
-		"schemaVersion":    schemaVersion,
+		"gitCommit":        ctrl.build.GitCommit,
+		"gitBranch":        ctrl.build.GitBranch,
+		"gitCommitDate":    ctrl.build.GitCommitDate,
+		"dbEngine":         "PostgreSQL",
+		"dbVersion":        dbVersion,
 		"admins":           admins,
 		"collectedAt":      time.Now().UTC(),
 	})

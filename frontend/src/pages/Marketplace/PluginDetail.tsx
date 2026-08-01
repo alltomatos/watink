@@ -186,6 +186,11 @@ const PluginDetail: React.FC = () => {
     setCheckoutOpen(false);
   };
 
+  // Sempre tenta ativar direto primeiro -- o backend (/plugins/:slug/activate)
+  // já checa a licença real (GetLicense): se o Hub liberou o plugin pro
+  // gratuitamente (admin grant) ou a compra já foi confirmada, ativa nesta
+  // mesma chamada, sem passar por pagamento algum. O checkout pago só é uma
+  // consequência de 402 (genuinamente sem licença), nunca o caminho padrão.
   const handleActivate = async () => {
     if (!plugin) return;
     setActivating(true);
@@ -196,9 +201,15 @@ const PluginDetail: React.FC = () => {
     } catch (err) {
       const axiosErr = err as AxiosError<PluginActivateUnlicensedResponse>;
       const body = axiosErr.response?.data;
-      if (axiosErr.response?.status === 402 && body?.checkoutRequested) {
-        toast.info(body.message || "Licença solicitada — aguardando confirmação, tentando novamente...");
-        pollForActivation(plugin.slug, 0);
+      if (axiosErr.response?.status === 402) {
+        if (plugin.type === "pro") {
+          // Genuinamente sem licença (nem admin grant, nem compra prévia) --
+          // só agora faz sentido oferecer o checkout pago interativo.
+          setCheckoutOpen(true);
+        } else {
+          toast.info(body?.message || "Licença solicitada — aguardando confirmação, tentando novamente...");
+          pollForActivation(plugin.slug, 0);
+        }
       } else {
         toast.error(body?.message || "Erro na ativação");
       }
@@ -267,10 +278,7 @@ const PluginDetail: React.FC = () => {
                         Desativar
                       </Button>
                     ) : (
-                      <Button
-                        onClick={() => (plugin.type === "pro" ? setCheckoutOpen(true) : handleActivate())}
-                        disabled={activating}
-                      >
+                      <Button onClick={() => void handleActivate()} disabled={activating}>
                         Ativar Plugin
                       </Button>
                     )}
