@@ -7,6 +7,8 @@ import LoggedInLayout from "../layout";
 import PageLoader from "../components/PageLoader";
 
 const Dashboard = lazy(() => import("../pages/Dashboard"));
+const Assistants = lazy(() => import("../pages/Assistants"));
+const AssistantCreator = lazy(() => import("../pages/Assistants/AssistantCreator"));
 const Pipelines = lazy(() => import("../pages/Pipelines"));
 const PipelineCreator = lazy(() => import("../pages/Pipelines/PipelineCreator"));
 const PipelineBoard = lazy(() => import("../pages/Pipelines/PipelineBoard"));
@@ -63,6 +65,9 @@ const PrivateRoutes = () => {
  <Suspense fallback={<PageLoader />}>
      <RouterRoutes>
      <Route path="/" element={<PrivateRoute isPrivate><Dashboard /></PrivateRoute>} />
+     <Route path="/assistants" element={<PrivateRoute isPrivate><Assistants /></PrivateRoute>} />
+     <Route path="/assistants/new" element={<PrivateRoute isPrivate><AssistantCreator /></PrivateRoute>} />
+     <Route path="/assistants/:assistantId/edit" element={<PrivateRoute isPrivate><AssistantCreator /></PrivateRoute>} />
      <Route path="/pipelines" element={<PrivateRoute isPrivate><Pipelines /></PrivateRoute>} />
      <Route path="/pipelines/new" element={<PrivateRoute isPrivate><PipelineCreator /></PrivateRoute>} />
      <Route path="/pipelines/:pipelineId/edit" element={<PrivateRoute isPrivate><PipelineCreator /></PrivateRoute>} />

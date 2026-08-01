@@ -164,6 +164,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		pluginManager := plugins.NewPluginManagerWithRegistry(db, protected, group, pluginRegistry, container.Broadcast, rabbitMQ)
 		pluginManager.Register(&plugins.HelpdeskPlugin{})
 		pluginManager.Register(&plugins.WebchatPlugin{})
+		pluginManager.Register(&plugins.AssistantPlugin{})
 
 		// Auth
 		protected.DELETE("/auth/logout", authController.Logout)
