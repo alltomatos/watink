@@ -40,9 +40,15 @@ func (r *AssistantRuntime) Execute(ctx context.Context, st *flow.ExecState, assi
 		return r.executeFlow(ctx, st, a)
 	case models.AssistantModeRouter:
 		return r.executeRouter(ctx, st, a)
+	case models.AssistantModePersona:
+		var cfg models.AssistantPersonaConfig
+		if len(a.Config) > 0 {
+			_ = json.Unmarshal(a.Config, &cfg)
+		}
+		return r.executePersona(ctx, st, a, cfg)
 	default:
-		// persona/pipeline runtime lands in later issues (#433/#435) —
-		// degrade gracefully rather than pretend to handle it.
+		// pipeline runtime lands in a later issue (#435) — degrade
+		// gracefully rather than pretend to handle it.
 		return flow.Outcome{Kind: flow.OutcomeAdvance, Detail: "assistant: modo " + a.Mode + " ainda não implementado"}, nil
 	}
 }
