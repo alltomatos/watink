@@ -90,6 +90,12 @@ jobs:
             git fetch origin develop
             git reset --hard origin/develop
             docker compose -p app -f docker-compose.prod.yml --env-file .env build --pull
+            # pull explícito: serviços `image:`-only (plugin-manager, proprietário,
+            # nunca `build:` — ver CLAUDE.md) não são cobertos pelo --pull acima,
+            # que só reprocessa base images de serviços com `build:`. Sem isto,
+            # `up -d` nunca atualiza plugin-manager mesmo com :latest novo no
+            # Docker Hub, porque o pull_policy default só busca imagem ausente.
+            docker compose -p app -f docker-compose.prod.yml --env-file .env pull
             docker compose -p app -f docker-compose.prod.yml --env-file .env up -d
 
   smoke-tests:
