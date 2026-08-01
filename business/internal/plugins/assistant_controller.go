@@ -3,6 +3,7 @@ package plugins
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -13,7 +14,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 // AssistantController manages the "Assistentes de IA" plugin's core entity.
@@ -176,17 +176,32 @@ func validateAssistantConfig(mode string, raw json.RawMessage) error {
 }
 
 // assertConnectionAvailable enforces the "one active Assistant per
-// connection" default rule with a transactional lock (SELECT ... FOR UPDATE)
-// to avoid a race between two concurrent creations targeting the same
-// connection. Skipped when the connection is unset (nil = any connection) or
-// AllowMultipleOnConnection=true. excludeID lets Update ignore itself.
+// connection" default rule. Skipped when the connection is unset (nil = any
+// connection) or AllowMultipleOnConnection=true. excludeID lets Update
+// ignore itself.
+//
+// Serialization uses a Postgres transaction-scoped ADVISORY LOCK keyed by
+// (tenantId, whatsappId) — NOT "SELECT ... FOR UPDATE" on the count query.
+// Two reasons a row lock cannot do this job: (1) Postgres rejects a locking
+// clause combined with an aggregate ("FOR UPDATE is not allowed with
+// aggregate functions") — count(*) FOR UPDATE simply errors; (2) even
+// row-level locking only serializes against EXISTING rows, so with zero
+// Assistants currently on the connection (the common case: the very first
+// one being created) there is nothing to lock and two concurrent creates
+// would both observe count=0. An advisory lock serializes on the KEY itself,
+// with or without a matching row, which is exactly what this invariant
+// needs. Released automatically at transaction end (pg_advisory_xact_lock).
 func assertConnectionAvailable(tx *gorm.DB, tenantID interface{}, whatsappID *int, allowMultiple bool, active bool, excludeID int) error {
 	if whatsappID == nil || allowMultiple || !active {
 		return nil
 	}
+	lockKey := fmt.Sprintf("%v:%d", tenantID, *whatsappID)
+	if err := tx.Exec(`SELECT pg_advisory_xact_lock(hashtext(?))`, lockKey).Error; err != nil {
+		return err
+	}
+
 	var count int64
 	err := tx.Model(&models.Assistant{}).
-		Clauses(clause.Locking{Strength: "UPDATE"}).
 		Where(`"tenantId" = ? AND "whatsappId" = ? AND active = true AND "allowMultipleOnConnection" = false AND id <> ?`,
 			tenantID, *whatsappID, excludeID).
 		Count(&count).Error
