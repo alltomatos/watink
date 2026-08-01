@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/alltomatos/watinkdev/business/internal/flow"
 	"github.com/alltomatos/watinkdev/business/internal/models"
 	"github.com/alltomatos/watinkdev/business/pkg/auth"
 	"github.com/alltomatos/watinkdev/business/pkg/utils"
@@ -117,6 +118,10 @@ func validateAssistantStrings(c *gin.Context, in assistantInput) bool {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return false
 		}
+	}
+	if !flow.ValidTriggerOperators[in.TriggerOperator] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "triggerOperator inválido: use contains, equals, starts_with, ends_with ou regex"})
+		return false
 	}
 	return true
 }

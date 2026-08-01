@@ -190,14 +190,15 @@ func (fc *FlowController) Create(c *gin.Context) {
 	whatsappID := req.WhatsAppID
 
 	flow := models.Flow{
-		Name:         flowName,
-		Nodes:        req.Nodes,
-		Edges:        req.Edges,
-		Active:       req.Active,
-		WhatsAppID:   whatsappID,
-		TriggerType:  proj.Type,
-		TriggerValue: proj.Value,
-		TenantID:     tenantID,
+		Name:            flowName,
+		Nodes:           req.Nodes,
+		Edges:           req.Edges,
+		Active:          req.Active,
+		WhatsAppID:      whatsappID,
+		TriggerType:     proj.Type,
+		TriggerValue:    proj.Value,
+		TriggerOperator: proj.Operator,
+		TenantID:        tenantID,
 	}
 
 	if err := db.Create(&flow).Error; err != nil {
@@ -332,6 +333,7 @@ func (fc *FlowController) Update(c *gin.Context) {
 		proj := projectFlowTrigger(effNodes, effEdges)
 		updates["triggerType"] = proj.Type
 		updates["triggerValue"] = proj.Value
+		updates["triggerOperator"] = proj.Operator
 		// A conexão NÃO vem mais do nó de gatilho — é o editor (toolbar) quem define
 		// o whatsappId do fluxo (ver bloco de presença acima).
 	}

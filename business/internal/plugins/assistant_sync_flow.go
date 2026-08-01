@@ -35,15 +35,17 @@ func syntheticGraph(a models.Assistant) ([]byte, []byte, error) {
 		Value    string `json:"value"`
 	}
 	type triggerData struct {
-		TriggerType string      `json:"triggerType"`
-		WhatsAppID  *string     `json:"whatsappId"`
-		Conditions  []condition `json:"conditions"`
+		TriggerType     string      `json:"triggerType"`
+		WhatsAppID      *string     `json:"whatsappId"`
+		Conditions      []condition `json:"conditions"`
+		TriggerOperator string      `json:"triggerOperator"`
 	}
 
 	td := triggerData{WhatsAppID: whatsappID}
 	if a.TriggerType == "keyword" && strings.TrimSpace(a.TriggerValue) != "" {
 		td.TriggerType = "keyword"
-		td.Conditions = []condition{{Field: "lastInput", Operator: "contains", Value: a.TriggerValue}}
+		td.TriggerOperator = a.TriggerOperator
+		td.Conditions = []condition{{Field: "lastInput", Operator: a.TriggerOperator, Value: a.TriggerValue}}
 	} else {
 		td.TriggerType = "any"
 	}
@@ -77,16 +79,15 @@ func syntheticGraph(a models.Assistant) ([]byte, []byte, error) {
 }
 
 // assistantFlowTrigger projects the Assistant's trigger fields onto the flat
-// (type,value) columns the runtime's matchTriggers reads — mirrors
-// flow.ProjectTrigger's "keyword" case (case-insensitive contains). Operators
-// other than contains land in a later issue (flow/trigger.go matcher
-// extension); until then a non-contains operator degrades to match-any,
-// never silently matching the wrong thing.
-func assistantFlowTrigger(a models.Assistant) (triggerType, triggerValue string) {
-	if a.TriggerType == "keyword" && a.TriggerOperator == "contains" && strings.TrimSpace(a.TriggerValue) != "" {
-		return flow.TriggerWhatsAppMessage, strings.ToLower(strings.TrimSpace(a.TriggerValue))
+// (type,value,operator) columns the runtime's matchTriggers reads (extended
+// operator matcher — Issue #434). An operator outside
+// flow.ValidTriggerOperators degrades to match-any rather than silently
+// matching the wrong thing.
+func assistantFlowTrigger(a models.Assistant) (triggerType, triggerValue, triggerOperator string) {
+	if a.TriggerType == "keyword" && strings.TrimSpace(a.TriggerValue) != "" && flow.ValidTriggerOperators[a.TriggerOperator] {
+		return flow.TriggerWhatsAppMessage, strings.TrimSpace(a.TriggerValue), a.TriggerOperator
 	}
-	return flow.TriggerWhatsAppMessage, ""
+	return flow.TriggerWhatsAppMessage, "", ""
 }
 
 // syncSyntheticFlow upserts the Assistant's synthetic Flow to reflect its
@@ -99,28 +100,29 @@ func syncSyntheticFlow(db *gorm.DB, tenantID uuid.UUID, a models.Assistant) erro
 	if err != nil {
 		return err
 	}
-	triggerType, triggerValue := assistantFlowTrigger(a)
+	triggerType, triggerValue, triggerOperator := assistantFlowTrigger(a)
 
 	var existing models.Flow
 	name := syntheticFlowName(a.ID)
 	err = db.Where(`"tenantId" = ? AND name = ? AND internal = true`, tenantID, name).First(&existing).Error
 
 	fields := map[string]interface{}{
-		"name":         name,
-		"nodes":        datatypes.JSON(nodesJSON),
-		"edges":        datatypes.JSON(edgesJSON),
-		"triggerType":  triggerType,
-		"triggerValue": triggerValue,
-		"whatsappId":   a.WhatsAppID,
-		"active":       a.Active,
-		"internal":     true,
+		"name":            name,
+		"nodes":           datatypes.JSON(nodesJSON),
+		"edges":           datatypes.JSON(edgesJSON),
+		"triggerType":     triggerType,
+		"triggerValue":    triggerValue,
+		"triggerOperator": triggerOperator,
+		"whatsappId":      a.WhatsAppID,
+		"active":          a.Active,
+		"internal":        true,
 	}
 
 	if err == gorm.ErrRecordNotFound {
 		newFlow := models.Flow{
 			Name: name, TenantID: tenantID, Internal: true,
 			Nodes: datatypes.JSON(nodesJSON), Edges: datatypes.JSON(edgesJSON),
-			TriggerType: triggerType, TriggerValue: triggerValue,
+			TriggerType: triggerType, TriggerValue: triggerValue, TriggerOperator: triggerOperator,
 			WhatsAppID: a.WhatsAppID, Active: a.Active,
 		}
 		return db.Create(&newFlow).Error
