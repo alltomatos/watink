@@ -1,0 +1,17 @@
+.github
+.claude
+.devcontainer
+.husky
+node_modules
+**/node_modules
+frontend/dist
+frontend/build
+business/tmp
+engine-go/tmp
+docs
+e2e
+images
+.env
+.env.*
+!.env.example
+!.env.production.example
