@@ -44,6 +44,9 @@ func (ap *AssistantPlugin) OnActivate(core sdk.WatinkCore) error {
 	core.RegisterRoute("PUT", "/ai-gateways/:id", gc.Update)
 	core.RegisterRoute("DELETE", "/ai-gateways/:id", gc.Delete)
 
+	registerAssistantPipelineEvents(core, core.GetDB())
+	registerAssistantIdleSweep(core, core.GetDB())
+
 	return nil
 }
 

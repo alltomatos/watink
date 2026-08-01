@@ -145,5 +145,6 @@ func allModels() []interface{} {
 		&models.Assistant{},
 		&models.AssistantRouterOption{},
 		&models.AiGateway{},
+		&models.AssistantProactiveLog{},
 	}
 }

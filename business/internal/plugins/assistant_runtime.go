@@ -46,11 +46,34 @@ func (r *AssistantRuntime) Execute(ctx context.Context, st *flow.ExecState, assi
 			_ = json.Unmarshal(a.Config, &cfg)
 		}
 		return r.executePersona(ctx, st, a, cfg)
+	case models.AssistantModePipeline:
+		var cfg models.AssistantPipelineConfig
+		if len(a.Config) > 0 {
+			_ = json.Unmarshal(a.Config, &cfg)
+		}
+		return r.executePipeline(ctx, st, a, cfg)
 	default:
-		// pipeline runtime lands in a later issue (#435) — degrade
-		// gracefully rather than pretend to handle it.
-		return flow.Outcome{Kind: flow.OutcomeAdvance, Detail: "assistant: modo " + a.Mode + " ainda não implementado"}, nil
+		return flow.Outcome{Kind: flow.OutcomeAdvance, Detail: "assistant: modo desconhecido"}, nil
 	}
+}
+
+// executePipeline handles an INBOUND message on a pipeline-mode Assistant's
+// connection (proactive pushes go through handlePipelineEvent/
+// sweepIdleDeals instead — those never touch the FlowBuilder runtime). When
+// RespondsAfterProactive is off, the Assistant is notification-only: any
+// reply from the contact falls through to the human queue (advance, no
+// conversational handling here). When on, it reuses the SAME persona
+// pipeline (executePersona) with the config's embedded persona fields.
+func (r *AssistantRuntime) executePipeline(ctx context.Context, st *flow.ExecState, a models.Assistant, cfg models.AssistantPipelineConfig) (flow.Outcome, error) {
+	if !cfg.RespondsAfterProactive {
+		return flow.Outcome{Kind: flow.OutcomeAdvance, Detail: "assistant(pipeline): notificação apenas, sem resposta ativa"}, nil
+	}
+	personaCfg := models.AssistantPersonaConfig{
+		Persona: cfg.Persona, KnowledgeBaseID: cfg.KnowledgeBaseID, MaxTurns: cfg.MaxTurns,
+		AiGatewayID: cfg.AiGatewayID, RagFallbackBehavior: cfg.RagFallbackBehavior,
+		RagFallbackMessage: cfg.RagFallbackMessage,
+	}
+	return r.executePersona(ctx, st, a, personaCfg)
 }
 
 // executeFlow delegates the conversation 100% to the configured Flow —
