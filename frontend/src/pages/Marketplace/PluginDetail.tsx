@@ -4,6 +4,7 @@ import { useParams, useNavigate, useLocation } from "react-router";
 import type { AxiosError } from "axios";
 import { ArrowLeft, CheckCircle, ChevronLeft, ChevronRight, Loader2, Puzzle } from "lucide-react";
 import { toast } from "react-toastify";
+import DOMPurify from "dompurify";
 
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { Can } from "../../components/Can";
@@ -316,9 +317,12 @@ const PluginDetail: React.FC = () => {
           <Card className="rounded-2xl shadow-[0px_4px_20px_rgba(0,0,0,0.08)]">
             <CardContent className="pt-6 space-y-4">
               <h3 className="font-semibold text-lg">Sobre este plugin</h3>
-              <p className="text-muted-foreground whitespace-pre-line">
-                {plugin.longDescription || plugin.description || FALLBACK_DESCRIPTION}
-              </p>
+              <div
+                className="text-muted-foreground whitespace-pre-line [&_h2]:text-foreground [&_h2]:font-semibold [&_h2]:text-base [&_h2]:mt-4 [&_h2]:mb-1 [&_h3]:text-foreground [&_h3]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_strong]:text-foreground [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mt-1"
+                dangerouslySetInnerHTML={{
+                  __html: DOMPurify.sanitize(plugin.longDescription || plugin.description || FALLBACK_DESCRIPTION),
+                }}
+              />
             </CardContent>
           </Card>
         </PageContent>
