@@ -67,6 +67,10 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		Engines: container.SessionService,
 	}))
 	flowRuntime := flow.NewSkeleton(container.DB, flowChannels, container.RedisSvc)
+	// Wires the "Assistentes de IA" plugin's runtime into the synthetic Flow's
+	// "assistant" node (ADR 0027) — set post-construction since the
+	// implementation lives in the plugins package (DI pura, no global).
+	flowRuntime.SetAssistantRuntime(plugins.NewAssistantRuntime(container.DB))
 	flowController := controllers.NewFlowController(flowRuntime)
 	quickAnswerController := controllers.NewQuickAnswerController(rabbitMQ, container.Broadcast, db, container.SessionService)
 	versionController := controllers.NewVersionController(container.VersionRepo)
@@ -161,9 +165,10 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		// RegisterPublicRoute (e.g. the helpdesk public share link, no login).
 		// Reuses pluginRegistry (above) so gating is the exact same license x
 		// allocation cross the marketplace endpoints above already use.
-		pluginManager := plugins.NewPluginManagerWithRegistry(db, protected, group, pluginRegistry, container.Broadcast, rabbitMQ)
+		pluginManager := plugins.NewPluginManagerWithRegistry(db, protected, group, pluginRegistry, container.Broadcast, rabbitMQ, container.RedisSvc)
 		pluginManager.Register(&plugins.HelpdeskPlugin{})
 		pluginManager.Register(&plugins.WebchatPlugin{})
+		pluginManager.Register(&plugins.AssistantPlugin{})
 
 		// Auth
 		protected.DELETE("/auth/logout", authController.Logout)

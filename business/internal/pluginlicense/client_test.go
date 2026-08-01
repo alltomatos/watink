@@ -218,3 +218,50 @@ func TestNewClient_BaseURLIsHardcoded(t *testing.T) {
 		t.Errorf("expected default TTL %v, got %v", defaultTTLSecs*time.Second, c.ttl)
 	}
 }
+
+// TestFetchLicenses_SendsInternalTokenHeader prova que o Client envia o
+// segredo compartilhado (PLUGIN_MANAGER_INTERNAL_TOKEN) como X-Internal-Token
+// em toda chamada — fecha o vetor de "responder falso plantado no lugar do
+// plugin-manager real" descrito na revisão de segurança (a URL já era fixa,
+// mas a chamada em si não provava nada ao destino).
+func TestFetchLicenses_SendsInternalTokenHeader(t *testing.T) {
+	var gotHeader string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotHeader = r.Header.Get(internalSecretHeader)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(licensesResponse{Licenses: map[string]LicenseInfo{}})
+	}))
+	defer srv.Close()
+
+	c := newTestClient(srv.URL, 60*time.Second)
+	c.internalSecret = "s3cr3t"
+
+	if _, err := c.fetchLicenses(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotHeader != "s3cr3t" {
+		t.Errorf("expected %s=%q, got %q", internalSecretHeader, "s3cr3t", gotHeader)
+	}
+}
+
+// TestFetchLicenses_OmitsHeaderWhenSecretUnconfigured preserva compat com
+// deploys que ainda não setaram PLUGIN_MANAGER_INTERNAL_TOKEN.
+func TestFetchLicenses_OmitsHeaderWhenSecretUnconfigured(t *testing.T) {
+	var gotHeader string
+	sawHeader := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotHeader, sawHeader = r.Header.Get(internalSecretHeader), r.Header.Get(internalSecretHeader) != ""
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(licensesResponse{Licenses: map[string]LicenseInfo{}})
+	}))
+	defer srv.Close()
+
+	c := newTestClient(srv.URL, 60*time.Second)
+
+	if _, err := c.fetchLicenses(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sawHeader {
+		t.Errorf("expected no %s header, got %q", internalSecretHeader, gotHeader)
+	}
+}

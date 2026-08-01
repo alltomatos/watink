@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -38,12 +39,21 @@ var optOutWords = map[string]struct{}{
 // app.current_tenant), so every query carries WHERE "tenantId" MANUALLY and
 // writes use Session(NewDB:true).
 type Skeleton struct {
-	db          *gorm.DB
-	registry    *ChannelRegistry
-	redis       domain.RedisService
-	interpreter *Interpreter
-	retriever   Retriever
-	responder   AgentResponder
+	db               *gorm.DB
+	registry         *ChannelRegistry
+	redis            domain.RedisService
+	interpreter      *Interpreter
+	retriever        Retriever
+	responder        AgentResponder
+	assistantRuntime AssistantRuntime
+}
+
+// SetAssistantRuntime wires the "Assistentes de IA" plugin's runtime after
+// construction (the plugin manager, which owns the implementation, is built
+// after the Skeleton in routes.go — DI pura, no global). Nil is the default
+// (no plugin active): the assistant executor then advances gracefully.
+func (s *Skeleton) SetAssistantRuntime(ar AssistantRuntime) {
+	s.assistantRuntime = ar
 }
 
 // NewSkeleton builds the skeleton with an injected DB, the outbound channel
@@ -172,10 +182,9 @@ func (s *Skeleton) RouteInboundTicket(ctx context.Context, in InboundContext) {
 func (s *Skeleton) matchTriggers(ctx context.Context, tenantID uuid.UUID, body string, connectionID int) []models.Flow {
 	normalized := strings.TrimSpace(strings.ToLower(body))
 
-	var flows []models.Flow
+	var candidates []models.Flow
 	q := s.db.WithContext(ctx).
-		Where(`"tenantId" = ? AND active = ? AND "triggerType" = ? AND (lower("triggerValue") = ? OR "triggerValue" = '')`,
-			tenantID, true, TriggerWhatsAppMessage, normalized)
+		Where(`"tenantId" = ? AND active = ? AND "triggerType" = ?`, tenantID, true, TriggerWhatsAppMessage)
 	// Connection-scoped triggers: a flow bound to a connection ("whatsappId" set)
 	// only fires for inbound on THAT connection; an unbound flow (NULL "whatsappId")
 	// fires for any connection. This is what makes an "agent bound to a connection"
@@ -184,14 +193,49 @@ func (s *Skeleton) matchTriggers(ctx context.Context, tenantID uuid.UUID, body s
 	if connectionID > 0 {
 		q = q.Where(`("whatsappId" IS NULL OR "whatsappId" = ?)`, connectionID)
 	}
-	err := q.Find(&flows).Error
-	if err != nil {
+	if err := q.Find(&candidates).Error; err != nil {
 		log.Printf("[FlowSkeleton] trigger match query failed for tenant %s: %v", tenantID, err)
 		return nil
 	}
 
+	// Matched in Go (not SQL) so the operator set (contains/starts_with/
+	// ends_with/regex) can grow without hand-rolled dynamic SQL per operator.
+	// Dataset per tenant is small (dozens of flows), so this is not a hot path.
+	flows := make([]models.Flow, 0, len(candidates))
+	for _, f := range candidates {
+		if f.TriggerValue == "" || matchesTriggerValue(f.TriggerOperator, f.TriggerValue, normalized) {
+			flows = append(flows, f)
+		}
+	}
+
 	s.warnFirstContactGap(ctx, tenantID)
 	return flows
+}
+
+// matchesTriggerValue applies the Flow's keyword operator against the
+// already-trimmed-lowercased inbound body. An empty/unrecognized operator is
+// "equals" — the historical (pre-operator) behavior, preserved so existing
+// Flows keep matching exactly as before. regex matches the lowercased body
+// against the lowercased pattern (a known limitation for patterns relying on
+// case-sensitive classes — documented in ValidTriggerOperators).
+func matchesTriggerValue(operator, value, normalizedBody string) bool {
+	v := strings.ToLower(strings.TrimSpace(value))
+	switch operator {
+	case "contains":
+		return strings.Contains(normalizedBody, v)
+	case "starts_with":
+		return strings.HasPrefix(normalizedBody, v)
+	case "ends_with":
+		return strings.HasSuffix(normalizedBody, v)
+	case "regex":
+		re, err := regexp.Compile(v)
+		if err != nil {
+			return false
+		}
+		return re.MatchString(normalizedBody)
+	default: // "equals", ""
+		return normalizedBody == v
+	}
 }
 
 // warnFirstContactGap logs (best-effort) when the tenant has an active
@@ -273,15 +317,17 @@ func (s *Skeleton) StartFlow(ctx context.Context, in InboundContext, f models.Fl
 	}
 
 	st := &ExecState{
-		TenantID:  in.TenantID,
-		Run:       &run,
-		Graph:     graph,
-		Vars:      buildVars(in),
-		Inbound:   in.Body, // carry the triggering body for the first menu/switch
-		Ticket:    in.Ticket,
-		Contact:   in.Contact,
-		Retriever: s.retriever,
-		Responder: s.responder,
+		TenantID:         in.TenantID,
+		Run:              &run,
+		Graph:            graph,
+		Vars:             buildVars(in),
+		Inbound:          in.Body, // carry the triggering body for the first menu/switch
+		Ticket:           in.Ticket,
+		Contact:          in.Contact,
+		Retriever:        s.retriever,
+		Responder:        s.responder,
+		AssistantRuntime: s.assistantRuntime,
+		Starter:          s,
 	}
 	return s.interpreter.Run(ctx, st)
 }
@@ -335,14 +381,16 @@ func (s *Skeleton) StartFlowForContact(ctx context.Context, tenantID uuid.UUID, 
 	}
 
 	st := &ExecState{
-		TenantID:  tenantID,
-		Run:       &run,
-		Graph:     graph,
-		Vars:      vars,
-		Inbound:   "",
-		Contact:   contact,
-		Retriever: s.retriever,
-		Responder: s.responder,
+		TenantID:         tenantID,
+		Run:              &run,
+		Graph:            graph,
+		Vars:             vars,
+		Inbound:          "",
+		Contact:          contact,
+		Retriever:        s.retriever,
+		Responder:        s.responder,
+		AssistantRuntime: s.assistantRuntime,
+		Starter:          s,
 	}
 	return s.interpreter.Run(ctx, st)
 }
@@ -396,16 +444,18 @@ func (s *Skeleton) resume(ctx context.Context, in InboundContext, run models.Flo
 	}
 
 	st := &ExecState{
-		TenantID:     in.TenantID,
-		Run:          &run,
-		Graph:        graph,
-		Vars:         vars,
-		Inbound:      in.Body,
-		ResumeNodeID: run.CurrentNodeID, // the node we suspended at owns the reply
-		Ticket:       in.Ticket,
-		Contact:      in.Contact,
-		Retriever:    s.retriever,
-		Responder:    s.responder,
+		TenantID:         in.TenantID,
+		Run:              &run,
+		Graph:            graph,
+		Vars:             vars,
+		Inbound:          in.Body,
+		ResumeNodeID:     run.CurrentNodeID, // the node we suspended at owns the reply
+		Ticket:           in.Ticket,
+		Contact:          in.Contact,
+		Retriever:        s.retriever,
+		Responder:        s.responder,
+		AssistantRuntime: s.assistantRuntime,
+		Starter:          s,
 	}
 	if err := s.interpreter.Run(ctx, st); err != nil {
 		log.Printf("[FlowSkeleton] resume failed run=%s: %v", run.ID, err)

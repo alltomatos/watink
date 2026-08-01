@@ -34,14 +34,36 @@ type triggerNodeData struct {
 		Operator string `json:"operator"`
 		Value    string `json:"value"`
 	} `json:"conditions"`
+	// TriggerOperator carries an explicit operator authored outside the
+	// conditions[] builder (e.g. the Assistants plugin's synthetic trigger
+	// node — see assistant_sync_flow.go). When set, it wins over whatever
+	// operator a condition[] entry might also carry.
+	TriggerOperator string `json:"triggerOperator"`
 }
 
-// TriggerProjection is the flat (type,value,connection) tuple written to the Flow
-// columns. WhatsAppID binds the flow to a connection (nil = any connection).
+// TriggerProjection is the flat (type,value,operator,connection) tuple
+// written to the Flow columns. WhatsAppID binds the flow to a connection
+// (nil = any connection). Operator is one of ValidTriggerOperators — empty
+// defaults to "equals" (matchTriggers' historical behavior, preserved for
+// backward compatibility with flows created before the operator existed).
 type TriggerProjection struct {
 	Type       string
 	Value      string
+	Operator   string
 	WhatsAppID *int
+}
+
+// ValidTriggerOperators is the closed set of keyword-match operators the
+// runtime's matchTriggers understands (ADR 0027 follow-up: extends the
+// matcher beyond exact-equals for the Assistants plugin, benefiting every
+// Flow). "" (absent) is treated as "equals" for backward compatibility.
+var ValidTriggerOperators = map[string]bool{
+	"":            true,
+	"equals":      true,
+	"contains":    true,
+	"starts_with": true,
+	"ends_with":   true,
+	"regex":       true,
 }
 
 // ProjectTrigger walks the graph, finds the entry/trigger node and projects its
@@ -78,7 +100,8 @@ func ProjectTrigger(g FlowGraph) TriggerProjection {
 		// keyword (a contains/equals condition on the last input); fall back to
 		// match-any when no keyword is configured.
 		kw := extractKeyword(d)
-		return TriggerProjection{Type: TriggerWhatsAppMessage, Value: kw, WhatsAppID: connID}
+		op := extractOperator(d)
+		return TriggerProjection{Type: TriggerWhatsAppMessage, Value: kw, Operator: op, WhatsAppID: connID}
 	default:
 		// Unknown trigger type (time/webhook/action) — not a message trigger,
 		// so it is not projected onto the message-match columns.
@@ -118,6 +141,27 @@ func extractKeyword(d triggerNodeData) string {
 		}
 	}
 	return ""
+}
+
+// extractOperator resolves the keyword-match operator: an explicit
+// TriggerOperator on the node data wins; otherwise the first condition's
+// Operator; otherwise "" (= "equals", backward-compatible default). An
+// unrecognized operator degrades to "" rather than propagating garbage into
+// the Flow column.
+func extractOperator(d triggerNodeData) string {
+	op := strings.TrimSpace(d.TriggerOperator)
+	if op == "" {
+		for _, c := range d.Conditions {
+			if strings.TrimSpace(c.Value) != "" {
+				op = strings.TrimSpace(c.Operator)
+				break
+			}
+		}
+	}
+	if !ValidTriggerOperators[op] {
+		return ""
+	}
+	return op
 }
 
 // parseConnID turns the trigger node's connection id (a string from the frontend

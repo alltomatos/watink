@@ -481,6 +481,7 @@ const messages = {
       mainDrawer: {
         listItems: {
           dashboard: "Estatísticas",
+          assistants: "Assistentes de IA",
           pipelines: "Pipelines",
           connections: "Conexões",
           tickets: "Chats",
