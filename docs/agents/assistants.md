@@ -79,3 +79,29 @@ plugin.
 - Configurações → Agentes de IA só aparece com o plugin ativo; CRUD de `AiGateway` nunca
   retorna `ApiKey` em texto plano.
 - `go build`/`go test`/`npm run lint`/`npm run typecheck` verdes; OpenAPI regenerado.
+
+## Estado de verificação (Issue #437 — hardening)
+
+Automatizado e verde neste ambiente:
+- `go build ./...`, `go vet ./...`, `go fmt ./...` — limpos em todo o backend.
+- `npm run typecheck`, `npm run lint`, `npm run build` — limpos em todo o frontend.
+- Suíte de testes unitários (sem dependência de Postgres) das Issues #429–#435: CRUD
+  encoding/validação, leak-check de segredos, fail-closed de cifra, matcher de trigger
+  (5 operadores + regex inválido), cron/leader-lock, domain event bus, roteador (matching
+  numérico/label), histórico de persona, `closedLikeStatus` — todos passando.
+- OpenAPI regenerado (`swag init`) após cada issue que tocou rotas.
+
+Não verificado neste ambiente (sem Postgres/Redis/RabbitMQ/dev server disponíveis na sandbox
+de implementação — limitação já sinalizada desde a Issue #429, não uma lacuna nova):
+- Testes de integração que dependem de banco (`testutil.NewTestDB`) — incluindo os já
+  existentes no repo antes deste trabalho (`registry_test.go`, `interpreter_test.go`,
+  `client_test.go`, `proxy_handlers_test.go`), que falham por ausência de conexão, não por
+  regressão introduzida aqui.
+- Verificação manual end-to-end dos 4 modos (criar Assistant, trocar mensagem real via
+  WhatsApp, confirmar Flow sintético, testar bloqueio de segunda criação na mesma conexão,
+  confirmar visibilidade condicional de Configurações → Agentes de IA) — requer ambiente
+  rodando (`docker compose -f docker-compose.dev.yml up`) e deve ser feita antes do merge.
+
+**Ação recomendada antes do merge para produção:** rodar a suíte completa com Postgres
+disponível (`docker compose` ou `TEST_DATABASE_URL`) e executar o roteiro de verificação
+manual acima.
