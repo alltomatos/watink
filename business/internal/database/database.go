@@ -82,6 +82,9 @@ func Migrate() {
 		&models.Protocol{},
 		&models.ProtocolLog{},
 		&models.ProtocolAttachment{},
+		&models.Assistant{},
+		&models.AssistantRouterOption{},
+		&models.AiGateway{},
 	)
 
 	if err != nil {
@@ -278,6 +281,11 @@ func addCustomIndexes() error {
 		// Proxy pool reads are tenant-scoped and filter by status (active pool,
 		// isolated list) for assignment and the anti-ban isolation guard.
 		`CREATE INDEX IF NOT EXISTS idx_proxies_tenant_status ON "Proxies" ("tenantId", "status")`,
+		// Assistants: connection-scoped lookups (the "one active Assistant per
+		// connection" rule) and the router option list/target join.
+		`CREATE INDEX IF NOT EXISTS idx_assistants_tenant_whatsapp ON "Assistants" ("tenantId", "whatsappId")`,
+		`CREATE INDEX IF NOT EXISTS idx_assistant_router_options_tenant_router ON "AssistantRouterOptions" ("tenantId", "routerAssistantId")`,
+		`CREATE INDEX IF NOT EXISTS idx_ai_gateways_tenant ON "AiGateways" ("tenantId")`,
 		// Clients (CRM, ADR 0023): most Contacts have no Client, so a partial
 		// index on the non-null subset keeps the "resolve Client from Contact"
 		// lookup and the reverse "Contacts of a Client" join cheap.

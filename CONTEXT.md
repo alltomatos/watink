@@ -113,7 +113,7 @@ _Avoid_: banir proxy, desativar proxy
 **ProxyMode**: Como uma conexão usa proxy: `none` (IP do servidor), `single` (um proxy fixo) ou `group` (tira do ProxyGroup com rotação).
 _Avoid_: tipo de proxy, modo de conexão
 
-**omniroute**: Gateway OpenAI-compatível do tenant (`aiCustomBaseURL`) que roteia chat, embeddings, rerank e web-search para múltiplos provedores. Endpoint único de IA para o `business` e o `watink-knowledge`.
+**omniroute**: Gateway OpenAI-compatível do tenant (`aiCustomBaseURL`) que roteia chat, embeddings, rerank e web-search para múltiplos provedores. Endpoint único de IA para o `business` e o `watink-knowledge` — usado por embeddings/Retrieval RAG do core. Distinto de **AiGateway** (plugin "Assistentes de IA"): este é plural e plugin-scoped, usado só para completions dos Assistants.
 _Avoid_: gateway (genérico), proxy de LLM, OpenRouter
 
 **aiEmbeddingModel**: Setting do tenant (Agente de IA) com o nome do modelo de embedding roteado pelo omniroute (ex.: `openrouter/nvidia/llama-nemotron-embed-vl-1b-v2:free`, 2048 dims). Determina a dimensão do `halfvec`.
@@ -269,6 +269,14 @@ _Avoid_: instalação de plugin (ambíguo), ativação como sinônimo de licenç
 
 **degradeMode**: Comportamento na expiração da licença `pro`, declarado no **manifesto do plugin**: `readonly` (vê dados, bloqueia escrita) ou `blocked` (402). Por plugin, não global. Reativa os estados `StatusReadOnly`/`StatusBlocked` do SDK.
 _Avoid_: fallback, modo offline, degradação (genérico)
+
+**Assistant**: Entidade de domínio do plugin "Assistentes de IA" — automação conversacional configurável por conexão, com 4 modos: `pipeline` (reage a eventos de um Pipeline com mensagem proativa), `flow` (delega a conversa a um Flow do FlowBuilder), `persona` (conversa multi-turno via Agent Runtime + RAG), `router` (apresenta menu e delega a sub-Assistants na mesma conexão). Plugin `pro`, ativado por tenant no Marketplace. Distinto de **Agent node** (nó dentro de um Flow) — Assistant é a "entrada standalone" do Agent Runtime prevista no ADR 0020, plugável fora do grafo.
+_Avoid_: atendente, bot, chatbot (reservados a **User**/**Flow**)
+
+**AssistantRouterOption**: Opção de menu de um Assistant em modo `router` — `label`, `order`, `targetAssistantId` (FK para outro Assistant na MESMA conexão). Tabela relacional (não JSON), mesmo precedente de **PipelineStage**.
+
+**AiGateway**: Provedor de IA cadastrado dentro do plugin "Assistentes de IA" (Configurações → Agentes de IA, visível só com o plugin ativo) — `name`, `provider`, `apiKey` (cifrado at-rest, `cryptobox`), `baseUrl` opcional, `model`. Cada Assistant em modo `persona` (ou `pipeline` com resposta ativa) escolhe um `AiGateway` para completions. Distinto de **omniroute**: `omniroute` é o endpoint único core-wide usado por embeddings/Retrieval RAG (sempre-ligado, uma config por tenant); `AiGateway` é plural, plugin-scoped, e serve só a geração de resposta dos Assistants.
+_Avoid_: gateway (genérico), confundir com omniroute
 
 
 ## Entity Relationships (Canonical)

@@ -7,7 +7,8 @@
 - [x] **Epic 2**: Refatoração DI & organização de pacotes (Backend Go) | ✅ Concluída
 - [x] **Epic 4**: Qualidade residual — 56 `no-explicit-any` eliminados em 21 arquivos (GAP-ANY) | ✅ Concluída jun/2026 PR #166
 - [x] **Epic 5**: Decomposição de God-Files Frontend (GAP-Q/GAP-S) — 20+ god-files eliminados | ✅ Concluída jun/2026
-- [x] **Epic 6**: Cobertura de Testes Frontend (GAP-R/GAP-T) — 65/65 testes verdes | ✅ Concluída jun/2026 PR #100
+- [x] **Epic 6**: Cobertura de Testes Frontend (GAP-R/GAP-T) — 65/65 testes verdes | ✅ Concluída jun/2026
+- [ ] **Epic 7**: Plugin "Assistentes de IA" (Assistant) — 4 modos (pipeline/flow/persona/router), AiGateway, Flow sintético + extensão SDK | 🔧 Planejada — ver `docs/agents/assistants.md`, ADR 0027, plano em `C:\Users\ronaldo\.claude\plans\grill-feature-with-docs-vamos-planejar-memoized-key.md` PR #100
 
 ## Milestones
 
