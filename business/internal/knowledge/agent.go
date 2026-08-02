@@ -170,6 +170,15 @@ func agentMinScore(db *gorm.DB, tenantID uuid.UUID) float64 {
 	if db == nil {
 		return defaultAgentMinScore
 	}
+	// Session(NewDB:true): callers may hand in a db already scoped by
+	// auth.GetScoped to a DIFFERENT table (e.g. the Assistants "Test" button
+	// passes its Assistants-scoped db straight through) — reusing that
+	// db.Statement.Schema for a Settings query makes GORM apply the wrong
+	// model's column/PK expectations ("column \"id\" does not exist"), the
+	// same reuse caveat documented across the codebase (knowledge_base_
+	// mutation.go, proxy modules). Found live testing the Assistant's Test
+	// button against a real KnowledgeBase.
+	db = db.Session(&gorm.Session{NewDB: true})
 	var setting struct{ Value string }
 	if err := db.Table("Settings").Select("value").
 		Where(`"tenantId" = ? AND key = ?`, tenantID, "aiKnowledgeMinScore").
@@ -187,6 +196,7 @@ func agentAIConfig(db *gorm.DB, tenantID uuid.UUID) (aiclient.Config, bool) {
 	if db == nil {
 		return aiclient.Config{}, false
 	}
+	db = db.Session(&gorm.Session{NewDB: true}) // see agentMinScore for why
 
 	type kv struct {
 		Key   string
