@@ -30,3 +30,31 @@ func (a *pluginLicenseClientAdapter) GetLicense(pluginSlug string) (LicenseInfo,
 		Exp:       info.Exp,
 	}, nil
 }
+
+// catalogClientAdapter adapts *pluginlicense.Client to CatalogFetcher, same
+// "thin adapter, no reverse import" pattern as pluginLicenseClientAdapter
+// above -- registry.go never imports pluginlicense types directly.
+type catalogClientAdapter struct {
+	client *pluginlicense.Client
+}
+
+// NewCatalogFetcher wraps a *pluginlicense.Client so it satisfies
+// CatalogFetcher. Used from main.go/routes.go to inject the real client
+// into NewPluginRegistry (DI pura via construtor) -- reuses the SAME
+// *pluginlicense.Client instance already passed to NewLicenseFetcher, no
+// new HTTP client/connection pool.
+func NewCatalogFetcher(client *pluginlicense.Client) CatalogFetcher {
+	return &catalogClientAdapter{client: client}
+}
+
+func (a *catalogClientAdapter) GetCatalog() ([]CatalogEntry, error) {
+	resp, err := a.client.GetCatalog()
+	if err != nil {
+		return nil, err
+	}
+	entries := make([]CatalogEntry, 0, len(resp.Plugins))
+	for _, p := range resp.Plugins {
+		entries = append(entries, CatalogEntry{Slug: p.Slug, Type: p.Type})
+	}
+	return entries, nil
+}

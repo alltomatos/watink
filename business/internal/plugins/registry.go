@@ -2,12 +2,37 @@ package plugins
 
 import (
 	"log"
+	"sync"
+	"time"
 
 	"github.com/alltomatos/watinkdev/business/internal/models"
 	"github.com/alltomatos/watinkdev/business/pkg/sdk"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
+
+// CatalogEntry é a fatia mínima do catálogo (Hub, via plugin-manager) que
+// este pacote precisa — só slug+type. Mantido local (não importa
+// pluginlicense.CatalogPlugin) pelo mesmo motivo do LicenseInfo acima:
+// evitar acoplamento reverso, só a interface CatalogFetcher é exposta.
+type CatalogEntry struct {
+	Slug string
+	Type string
+}
+
+// CatalogFetcher é a fatia do pluginlicense.Client que PluginRegistry
+// precisa pra saber se um plugin é Type=free -- ver NewCatalogFetcher em
+// license_adapter.go.
+type CatalogFetcher interface {
+	GetCatalog() ([]CatalogEntry, error)
+}
+
+// freeSlugsCacheTTL evita bater no plugin-manager (que por sua vez cacheia
+// o Hub por ~20s) a cada chamada de rota gateada -- GetStatus roda em TODA
+// requisição de plugin, não só na ativação. TTL curto o bastante pra uma
+// troca pro<->free no Console refletir em runtime rápido, sem virar um
+// round-trip de rede síncrono por request.
+const freeSlugsCacheTTL = 30 * time.Second
 
 // LicenseFetcher is the small interface PluginRegistry needs from
 // pluginlicense.Client — only GetLicense. Kept separate from the concrete
@@ -34,13 +59,58 @@ type LicenseInfo struct {
 type PluginRegistry struct {
 	db      *gorm.DB
 	license LicenseFetcher
+	catalog CatalogFetcher
+
+	freeSlugsMu       sync.RWMutex
+	freeSlugs         map[string]bool
+	freeSlugsCachedAt time.Time
 }
 
 // NewPluginRegistry builds the registry via constructor injection (DI pura)
-// — db and license client are always passed in, never resolved through a
-// global/service locator.
-func NewPluginRegistry(db *gorm.DB, license LicenseFetcher) *PluginRegistry {
-	return &PluginRegistry{db: db, license: license}
+// — db, license and catalog clients are always passed in, never resolved
+// through a global/service locator. catalog may be nil (some test
+// constructions) -- IsFreePlugin then always returns false, same fail-safe
+// as license-fetch errors.
+func NewPluginRegistry(db *gorm.DB, license LicenseFetcher, catalog CatalogFetcher) *PluginRegistry {
+	return &PluginRegistry{db: db, license: license, catalog: catalog}
+}
+
+// IsFreePlugin reports whether pluginSlug is catalogued as Type=free (Hub
+// is the authority, ADR 0024/0001 do Hub — nunca o manifesto Go embarcado,
+// que pode ficar desatualizado se o Tipo for trocado depois no Console).
+// Cacheia o catálogo por freeSlugsCacheTTL porque GetStatus roda em toda
+// requisição de rota de plugin. Fail-safe: catalog nil, erro de rede ou
+// slug ausente do catálogo -> false (segue o caminho normal de licença).
+func (r *PluginRegistry) IsFreePlugin(pluginSlug string) bool {
+	if r.catalog == nil {
+		return false
+	}
+
+	r.freeSlugsMu.RLock()
+	fresh := time.Since(r.freeSlugsCachedAt) < freeSlugsCacheTTL
+	slugs := r.freeSlugs
+	r.freeSlugsMu.RUnlock()
+
+	if !fresh {
+		entries, err := r.catalog.GetCatalog()
+		if err != nil {
+			log.Printf("[plugins] falha ao consultar catálogo para checar Type=free (fail-safe: trata como pro): %v", err)
+		} else {
+			next := make(map[string]bool, len(entries))
+			for _, e := range entries {
+				if e.Type == "free" {
+					next[e.Slug] = true
+				}
+			}
+			r.freeSlugsMu.Lock()
+			r.freeSlugs = next
+			r.freeSlugsCachedAt = time.Now()
+			slugs = next
+			r.freeSlugsMu.Unlock()
+		}
+	}
+
+	return slugs[pluginSlug]
 }
 
 // GetStatus crosses allocation x license for (tenantId, pluginSlug):
@@ -65,6 +135,14 @@ func (r *PluginRegistry) GetStatus(tenantID uuid.UUID, pluginSlug string) sdk.Pl
 	}
 	if !allocated {
 		return sdk.StatusBlocked
+	}
+
+	// Plugin free não toca o Hub (nunca recebe token) -- checar licença
+	// aqui devolveria sempre "unlicensed" e bloquearia toda rota do plugin
+	// mesmo já alocado/ativado. A alocação acima já é o único gate real
+	// para free; a licença só se aplica a pro.
+	if r.IsFreePlugin(pluginSlug) {
+		return sdk.StatusActive
 	}
 
 	info, err := r.license.GetLicense(pluginSlug)

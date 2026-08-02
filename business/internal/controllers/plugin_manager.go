@@ -158,6 +158,18 @@ func (pc *PluginController) Installed(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"active": active, "statuses": statuses})
 }
 
+// isFreePlugin delega a pc.registry (mesmo cache de ~30s usado pelo
+// gating de rota em RegisterRoute -> GetStatus, ver registry.go). Fail-safe
+// para false quando registry é nil (algumas construções de teste) --
+// na dúvida, segue o caminho normal de licença (pro), nunca o de "sempre
+// ativo".
+func (pc *PluginController) isFreePlugin(slug string) bool {
+	if pc.registry == nil {
+		return false
+	}
+	return pc.registry.IsFreePlugin(slug)
+}
+
 // @Summary      Ativar plugin
 // @Description  Ativa/aloca um plugin para o tenant atual. 402 se sem licença válida (dispara checkout best-effort junto ao Hub via plugin-manager) ou se o teto de tenants foi atingido.
 // @Tags         plugins
@@ -178,7 +190,22 @@ func (pc *PluginController) Activate(c *gin.Context) {
 		return
 	}
 
-	info, err := pc.license.GetLicense(slug)
+	// Plugin free NUNCA toca o Hub (docs/agents/plugins.md, CLAUDE.md
+	// "Módulo: Plugins") -- o Hub não emite token pra ele, então
+	// pc.license.GetLicense(slug) devolveria sempre "unlicensed" (nenhum
+	// token cacheado pelo plugin-manager) e cairia no checkout, que o Hub
+	// rejeita com 422 pra Type=free (checkout.Handler exige Type=pro). O
+	// Type vem do catálogo (autoridade do Hub) via pmProxy -- nunca do
+	// manifesto Go embarcado, que pode ficar desatualizado se o Tipo for
+	// trocado depois no Console (Hub agora permite editar Type num plugin
+	// já existente).
+	var info plugins.LicenseInfo
+	var err error
+	if pc.isFreePlugin(slug) {
+		info = plugins.LicenseInfo{Status: "active", TenantCap: 0}
+	} else {
+		info, err = pc.license.GetLicense(slug)
+	}
 	// Sem licença válida (indeterminado, unlicensed, blocked, readonly) nunca
 	// autoriza uma NOVA ativação -- só "active" libera crescimento (ADR 0024,
 	// fail-closed).
