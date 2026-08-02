@@ -49,7 +49,8 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 	// PluginInstallations allocation table.
 	pluginLicenseClient := pluginlicense.NewClient()
 	pluginLicenseFetcher := plugins.NewLicenseFetcher(pluginLicenseClient)
-	pluginRegistry := plugins.NewPluginRegistry(db, pluginLicenseFetcher)
+	pluginCatalogFetcher := plugins.NewCatalogFetcher(pluginLicenseClient)
+	pluginRegistry := plugins.NewPluginRegistry(db, pluginLicenseFetcher, pluginCatalogFetcher)
 	pluginController := controllers.NewPluginController(container.PlanLimitSvc, db, pluginRegistry, pluginLicenseFetcher, pluginLicenseClient)
 	authController := controllers.NewAuthController(container.UserRepo)
 	settingController := controllers.NewSettingController(container.SettingRepo, container.Broadcast)

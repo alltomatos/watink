@@ -277,7 +277,7 @@ func TestPluginController_Activate_LicensedGrantsAllocation(t *testing.T) {
 	fetcher := &fakeLicenseFetcher{info: map[string]plugins.LicenseInfo{
 		"helpdesk": {Status: "active", TenantCap: 0},
 	}}
-	registry := plugins.NewPluginRegistry(db, fetcher)
+	registry := plugins.NewPluginRegistry(db, fetcher, nil)
 	ctrl := NewPluginController(&mockPlanLimitSvc{}, db, registry, fetcher, nil)
 
 	c, w := newTestPluginContext("POST", "/plugins/helpdesk/activate", nil, db, tenantID)
@@ -293,13 +293,56 @@ func TestPluginController_Activate_LicensedGrantsAllocation(t *testing.T) {
 	require.NotNil(t, inst.ActivatedAt)
 }
 
+// fakeFreeCatalog is a local test double for plugins.CatalogFetcher —
+// per project convention, not a package-level mock.
+type fakeFreeCatalog struct {
+	entries []plugins.CatalogEntry
+}
+
+func (f *fakeFreeCatalog) GetCatalog() ([]plugins.CatalogEntry, error) {
+	return f.entries, nil
+}
+
+// TestPluginController_Activate_FreePlugin_SkipsCheckoutAndGrantsAllocation
+// covers the bug this test suite would otherwise have missed: a Type=free
+// plugin never receives a Hub token, so the license fetcher legitimately
+// reports "unlicensed" for it -- without the free-plugin shortcut,
+// Activate would 402 into a checkout the Hub itself rejects (422, checkout
+// requires Type=pro). Free must activate straight from allocation, no
+// license/checkout round-trip at all.
+func TestPluginController_Activate_FreePlugin_SkipsCheckoutAndGrantsAllocation(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	tenantID := uuid.New()
+	fetcher := &fakeLicenseFetcher{info: map[string]plugins.LicenseInfo{
+		"assistant": {Status: "unlicensed"},
+	}}
+	catalog := &fakeFreeCatalog{entries: []plugins.CatalogEntry{{Slug: "assistant", Type: "free"}}}
+	registry := plugins.NewPluginRegistry(db, fetcher, catalog)
+	// pmProxy nil on purpose -- proves Checkout is never called for a free
+	// plugin (a non-nil proxy with checkoutErr set would still pass, but a
+	// nil proxy makes it impossible for the test to pass via the checkout
+	// path by accident).
+	ctrl := NewPluginController(&mockPlanLimitSvc{}, db, registry, fetcher, nil)
+
+	c, w := newTestPluginContext("POST", "/plugins/assistant/activate", nil, db, tenantID)
+	c.Params = gin.Params{{Key: "slug", Value: "assistant"}}
+
+	ctrl.Activate(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var inst models.PluginInstallation
+	require.NoError(t, db.Where(`"tenantId" = ? AND "pluginId" = ?`, tenantID, "assistant").First(&inst).Error)
+	assert.True(t, inst.Active)
+}
+
 func TestPluginController_Activate_Unlicensed_NilProxy_Returns402(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	tenantID := uuid.New()
 	fetcher := &fakeLicenseFetcher{info: map[string]plugins.LicenseInfo{
 		"helpdesk": {Status: "unlicensed"},
 	}}
-	registry := plugins.NewPluginRegistry(db, fetcher)
+	registry := plugins.NewPluginRegistry(db, fetcher, nil)
 	// pmProxy nil -- preserves the old behaviour: no checkout attempt at all.
 	ctrl := NewPluginController(&mockPlanLimitSvc{}, db, registry, fetcher, nil)
 
@@ -327,7 +370,7 @@ func TestPluginController_Activate_Unlicensed_ChecksOutSuccessfully_Returns402Wi
 	fetcher := &fakeLicenseFetcher{info: map[string]plugins.LicenseInfo{
 		"helpdesk": {Status: "unlicensed"},
 	}}
-	registry := plugins.NewPluginRegistry(db, fetcher)
+	registry := plugins.NewPluginRegistry(db, fetcher, nil)
 	proxy := &fakePMProxy{} // checkoutErr nil -> Checkout succeeds
 	ctrl := NewPluginController(&mockPlanLimitSvc{}, db, registry, fetcher, proxy)
 
@@ -357,7 +400,7 @@ func TestPluginController_Activate_Unlicensed_CheckoutFails_Returns402WithReques
 	fetcher := &fakeLicenseFetcher{info: map[string]plugins.LicenseInfo{
 		"helpdesk": {Status: "unlicensed"},
 	}}
-	registry := plugins.NewPluginRegistry(db, fetcher)
+	registry := plugins.NewPluginRegistry(db, fetcher, nil)
 	proxy := &fakePMProxy{checkoutErr: errors.New("plugin-manager indisponível")}
 	ctrl := NewPluginController(&mockPlanLimitSvc{}, db, registry, fetcher, proxy)
 
@@ -394,7 +437,7 @@ func TestPluginController_Activate_TenantCapReached_Returns402(t *testing.T) {
 	fetcher := &fakeLicenseFetcher{info: map[string]plugins.LicenseInfo{
 		"helpdesk": {Status: "active", TenantCap: 1},
 	}}
-	registry := plugins.NewPluginRegistry(db, fetcher)
+	registry := plugins.NewPluginRegistry(db, fetcher, nil)
 	ctrl := NewPluginController(&mockPlanLimitSvc{}, db, registry, fetcher, nil)
 
 	c, w := newTestPluginContext("POST", "/plugins/helpdesk/activate", nil, db, tenantB)
@@ -423,7 +466,7 @@ func TestPluginController_Activate_Idempotent_ReactivatesWithoutDuplicating(t *t
 	fetcher := &fakeLicenseFetcher{info: map[string]plugins.LicenseInfo{
 		"helpdesk": {Status: "active", TenantCap: 1},
 	}}
-	registry := plugins.NewPluginRegistry(db, fetcher)
+	registry := plugins.NewPluginRegistry(db, fetcher, nil)
 	ctrl := NewPluginController(&mockPlanLimitSvc{}, db, registry, fetcher, nil)
 
 	c, w := newTestPluginContext("POST", "/plugins/helpdesk/activate", nil, db, tenantID)
@@ -484,7 +527,7 @@ func TestPluginController_Installed_ReturnsAllocatedWithRealStatus(t *testing.T)
 		"helpdesk": {Status: "active"},
 		"webchat":  {Status: "blocked"},
 	}}
-	registry := plugins.NewPluginRegistry(db, fetcher)
+	registry := plugins.NewPluginRegistry(db, fetcher, nil)
 	ctrl := NewPluginController(&mockPlanLimitSvc{}, db, registry, fetcher, nil)
 
 	c, w := newTestPluginContext("GET", "/plugins/installed", nil, db, tenantID)
