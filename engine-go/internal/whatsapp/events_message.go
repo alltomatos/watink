@@ -53,6 +53,7 @@ func (s *WhatsAppService) handleMessageEvent(client *whatsmeow.Client, id int, t
 	}
 
 	isGroup := v.Info.IsGroup || v.Info.Chat.Server == types.GroupServer
+	mentionedJIDs := extractMentionedJIDs(v.Message)
 	chatJID := v.Info.Chat.String()
 	// Strip the device suffix (sender:NN) from the participant.
 	senderJID := v.Info.Sender.ToNonAD().String()
@@ -129,6 +130,7 @@ func (s *WhatsAppService) handleMessageEvent(client *whatsmeow.Client, id int, t
 			"isGroup":       isGroup,
 			"isCommunity":   isCommunity,
 			"isSubGroup":    isSubGroup,
+			"mentionedJids": mentionedJIDs,
 			"mimetype":      content.mimeType,
 			// Media is NOT downloaded on receipt (keeps the event loop real-time).
 			// Ship the embedded JPEG thumbnail + serialized proto for on-demand DL.

@@ -2434,53 +2434,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/knowledge-bases/{knowledgeBaseId}/sources": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "knowledge-base"
-                ],
-                "summary": "Adicionar fonte na base",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID da base",
-                        "name": "knowledgeBaseId",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Dados da fonte",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
         "/knowledge-bases/{knowledgeBaseId}/sources/{sourceId}": {
             "delete": {
                 "security": [

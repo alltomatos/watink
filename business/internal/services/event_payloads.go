@@ -57,9 +57,15 @@ type MessagePayload struct {
 	IsGroup       bool   `json:"isGroup"`
 	IsCommunity   bool   `json:"isCommunity"`
 	IsSubGroup    bool   `json:"isSubGroup"`
-	MediaUrl      string `json:"mediaUrl"`
-	MediaData     string `json:"mediaData"`
-	Mimetype      string `json:"mimetype"`
+	// MentionedJids carries the @-mentioned JIDs from the message's WhatsApp
+	// ContextInfo (engine-go, extractMentionedJIDs) — used to decide whether
+	// an Assistant configured to only respond when mentioned in a group
+	// should reply or just observe. Not persisted; consumed in-memory by
+	// flow.InboundContext for the duration of this inbound pass.
+	MentionedJids []string `json:"mentionedJids"`
+	MediaUrl      string   `json:"mediaUrl"`
+	MediaData     string   `json:"mediaData"`
+	Mimetype      string   `json:"mimetype"`
 	// Thumbnail (base64 JPEG) and MediaProto (base64 serialized media message)
 	// power on-demand media download: media is not fetched on receipt, only when
 	// the operator clicks the download button.

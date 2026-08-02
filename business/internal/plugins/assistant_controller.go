@@ -48,6 +48,7 @@ func toAssistantResponse(a models.Assistant) gin.H {
 		"closingMessage":            a.ClosingMessage,
 		"stopOnHumanReply":          a.StopOnHumanReply,
 		"ignoreGroups":              a.IgnoreGroups,
+		"groupsMode":                a.GroupsMode,
 		"active":                    a.Active,
 		"createdAt":                 a.CreatedAt,
 		"updatedAt":                 a.UpdatedAt,
@@ -105,6 +106,7 @@ type assistantInput struct {
 	ClosingMessage            *string         `json:"closingMessage"`
 	StopOnHumanReply          *bool           `json:"stopOnHumanReply"`
 	IgnoreGroups              *bool           `json:"ignoreGroups"`
+	GroupsMode                string          `json:"groupsMode"`
 	Active                    *bool           `json:"active"`
 }
 
@@ -252,6 +254,14 @@ func (ac *AssistantController) Create(c *gin.Context) {
 	if triggerType == "" {
 		triggerType = "any"
 	}
+	groupsMode := in.GroupsMode
+	if groupsMode == "" {
+		groupsMode = models.AssistantGroupsModeLegacy
+	}
+	if !models.ValidAssistantGroupsModes[groupsMode] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "groupsMode inválido: use legacy ou selective"})
+		return
+	}
 
 	a := models.Assistant{
 		TenantID: tenantID, Name: in.Name, Description: in.Description,
@@ -261,7 +271,7 @@ func (ac *AssistantController) Create(c *gin.Context) {
 		SessionExpiryMinutes: in.SessionExpiryMinutes, TypingDelayMs: in.TypingDelayMs,
 		DebounceSeconds: in.DebounceSeconds, EndKeyword: in.EndKeyword,
 		ExpiryMessage: in.ExpiryMessage, ClosingMessage: in.ClosingMessage,
-		StopOnHumanReply: stopOnHumanReply, IgnoreGroups: ignoreGroups, Active: active,
+		StopOnHumanReply: stopOnHumanReply, IgnoreGroups: ignoreGroups, GroupsMode: groupsMode, Active: active,
 	}
 
 	err := db.Transaction(func(tx *gorm.DB) error {
@@ -321,6 +331,14 @@ func (ac *AssistantController) Update(c *gin.Context) {
 	if in.IgnoreGroups != nil {
 		ignoreGroups = *in.IgnoreGroups
 	}
+	groupsMode := existing.GroupsMode
+	if in.GroupsMode != "" {
+		groupsMode = in.GroupsMode
+	}
+	if !models.ValidAssistantGroupsModes[groupsMode] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "groupsMode inválido: use legacy ou selective"})
+		return
+	}
 
 	fields := map[string]interface{}{
 		"name": in.Name, "description": in.Description,
@@ -330,7 +348,7 @@ func (ac *AssistantController) Update(c *gin.Context) {
 		"sessionExpiryMinutes": in.SessionExpiryMinutes, "typingDelayMs": in.TypingDelayMs,
 		"debounceSeconds": in.DebounceSeconds, "endKeyword": in.EndKeyword,
 		"expiryMessage": in.ExpiryMessage, "closingMessage": in.ClosingMessage,
-		"stopOnHumanReply": stopOnHumanReply, "ignoreGroups": ignoreGroups, "active": active,
+		"stopOnHumanReply": stopOnHumanReply, "ignoreGroups": ignoreGroups, "groupsMode": groupsMode, "active": active,
 	}
 
 	// Session(NewDB:true): db já foi usado acima em Where/First(&existing) —

@@ -43,6 +43,36 @@ func extractMessageContent(msg *waProto.Message) mediaContent {
 	return c
 }
 
+// extractMentionedJIDs returns the @-mentioned JIDs carried in a message's
+// ContextInfo, across every message type that can have mentions (a plain
+// text reply is a Conversation with no ContextInfo — only ExtendedTextMessage
+// and caption-bearing media types carry one). Used to decide whether an
+// Assistant configured to only respond when mentioned in a group should
+// reply or just observe.
+func extractMentionedJIDs(msg *waProto.Message) []string {
+	if ext := msg.GetExtendedTextMessage(); ext != nil {
+		if jids := ext.GetContextInfo().GetMentionedJID(); len(jids) > 0 {
+			return jids
+		}
+	}
+	if img := msg.GetImageMessage(); img != nil {
+		if jids := img.GetContextInfo().GetMentionedJID(); len(jids) > 0 {
+			return jids
+		}
+	}
+	if video := msg.GetVideoMessage(); video != nil {
+		if jids := video.GetContextInfo().GetMentionedJID(); len(jids) > 0 {
+			return jids
+		}
+	}
+	if doc := msg.GetDocumentMessage(); doc != nil {
+		if jids := doc.GetContextInfo().GetMentionedJID(); len(jids) > 0 {
+			return jids
+		}
+	}
+	return nil
+}
+
 func encodeThumb(b []byte) string {
 	if len(b) == 0 {
 		return ""

@@ -3,11 +3,13 @@ package plugins
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strconv"
 	"strings"
 
 	"github.com/alltomatos/watinkdev/business/internal/flow"
 	"github.com/alltomatos/watinkdev/business/internal/models"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -34,14 +36,32 @@ func (r *AssistantRuntime) Execute(ctx context.Context, st *flow.ExecState, assi
 	if !a.Active {
 		return flow.Outcome{Kind: flow.OutcomeAdvance, Detail: "assistant: inativo"}, nil
 	}
-	// IgnoreGroups was persisted (Create/Update) and shown in the UI toggle
-	// but never enforced anywhere in the dispatch path — found live in
-	// homolog: an Assistant with ignoreGroups=true kept answering real
-	// WhatsApp group messages. Checked once here, at the single entry point
-	// every Mode (persona/pipeline/flow/router) funnels through, so no mode
-	// can bypass it individually.
-	if a.IgnoreGroups && st.Contact != nil && st.Contact.IsGroup {
-		return flow.Outcome{Kind: flow.OutcomeAdvance, Detail: "assistant: ignora grupos"}, nil
+	// Group handling. IgnoreGroups was persisted (Create/Update) and shown in
+	// the UI toggle but never enforced anywhere in the dispatch path — found
+	// live in homolog: an Assistant with ignoreGroups=true kept answering
+	// real WhatsApp group messages. Checked once here, at the single entry
+	// point every Mode (persona/pipeline/flow/router) funnels through, so no
+	// mode can bypass it individually.
+	if st.Contact != nil && st.Contact.IsGroup {
+		if a.GroupsMode == models.AssistantGroupsModeSelective {
+			// Per-group opt-in: invisible by default (Active=false), the UI
+			// activates specific groups explicitly. An active group still
+			// only gets a REPLY when the Assistant is @-mentioned — anything
+			// else is "observing" (the message is saved/visible in the
+			// ticket as normal; only the automated reply is skipped).
+			active, err := r.groupActive(st.TenantID, a.ID, st.Contact.ID)
+			if err != nil {
+				return flow.Outcome{}, err
+			}
+			if !active {
+				return flow.Outcome{Kind: flow.OutcomeAdvance, Detail: "assistant: grupo não ativado"}, nil
+			}
+			if !r.isMentioned(a, st.MentionedJIDs) {
+				return flow.Outcome{Kind: flow.OutcomeAdvance, Detail: "assistant: grupo ativo, mas sem menção — apenas observando"}, nil
+			}
+		} else if a.IgnoreGroups {
+			return flow.Outcome{Kind: flow.OutcomeAdvance, Detail: "assistant: ignora grupos"}, nil
+		}
 	}
 
 	switch a.Mode {
@@ -161,6 +181,47 @@ func (r *AssistantRuntime) delegateTo(ctx context.Context, st *flow.ExecState, t
 		Contact:  st.Contact,
 	}
 	return st.Starter.StartFlow(ctx, in, target)
+}
+
+// groupActive reports whether a group Contact has been explicitly activated
+// for this Assistant (AssistantGroup.Active) — absent row means inactive
+// (the UI default: every group starts under "Inativo" until switched).
+func (r *AssistantRuntime) groupActive(tenantID uuid.UUID, assistantID, contactID int) (bool, error) {
+	var g models.AssistantGroup
+	err := r.db.Where(`"tenantId" = ? AND "assistantId" = ? AND "contactId" = ?`, tenantID, assistantID, contactID).
+		First(&g).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	return g.Active, nil
+}
+
+// isMentioned reports whether the Assistant's own connection number appears
+// among the message's @-mentioned JIDs. WhatsApp JIDs are "<number>@server"
+// (occasionally with a device suffix) — comparing by number prefix, not
+// exact JID equality, tolerates that formatting. No connection bound (or no
+// mentions on the message) → not mentioned, fail closed (observe only).
+func (r *AssistantRuntime) isMentioned(a models.Assistant, mentionedJIDs []string) bool {
+	if a.WhatsAppID == nil || len(mentionedJIDs) == 0 {
+		return false
+	}
+	var wa models.Whatsapp
+	if err := r.db.Select("number").Where(`id = ? AND "tenantId" = ?`, *a.WhatsAppID, a.TenantID).First(&wa).Error; err != nil {
+		return false
+	}
+	number := strings.TrimSpace(wa.Number)
+	if number == "" {
+		return false
+	}
+	for _, jid := range mentionedJIDs {
+		if strings.HasPrefix(jid, number) {
+			return true
+		}
+	}
+	return false
 }
 
 func buildRouterMenu(options []models.AssistantRouterOption) string {

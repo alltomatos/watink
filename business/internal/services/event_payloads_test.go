@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
 )
 
@@ -206,7 +207,11 @@ func TestMessagePayload_JSONRoundtrip(t *testing.T) {
 			if err := json.Unmarshal(data, &got); err != nil {
 				t.Fatalf("unmarshal: %v", err)
 			}
-			if got != tc.input {
+			// MessagePayload now carries MentionedJids ([]string) — a slice
+			// field makes the struct non-comparable with ==, so this one
+			// case needs reflect.DeepEqual (every other payload type in this
+			// file is still plain-comparable and keeps using ==).
+			if !reflect.DeepEqual(got, tc.input) {
 				t.Errorf("got %+v, want %+v", got, tc.input)
 			}
 		})
@@ -232,7 +237,7 @@ func TestMessageReceivedPayload_JSONRoundtrip(t *testing.T) {
 	if err := json.Unmarshal(data, &got); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if got.SessionID != input.SessionID || got.Message != input.Message {
+	if got.SessionID != input.SessionID || !reflect.DeepEqual(got.Message, input.Message) {
 		t.Errorf("got %+v, want %+v", got, input)
 	}
 }
@@ -285,7 +290,7 @@ func TestHistorySyncPayload_JSONRoundtrip(t *testing.T) {
 				t.Errorf("got %+v, want %+v", got, tc.input)
 			}
 			for i := range got.Messages {
-				if got.Messages[i] != tc.input.Messages[i] {
+				if !reflect.DeepEqual(got.Messages[i], tc.input.Messages[i]) {
 					t.Errorf("Messages[%d]: got %+v, want %+v", i, got.Messages[i], tc.input.Messages[i])
 				}
 			}

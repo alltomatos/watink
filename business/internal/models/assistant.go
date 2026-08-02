@@ -40,6 +40,15 @@ type Assistant struct {
 	ClosingMessage       *string `gorm:"column:closingMessage" json:"closingMessage"`
 	StopOnHumanReply     bool    `gorm:"column:stopOnHumanReply;default:true" json:"stopOnHumanReply"`
 	IgnoreGroups         bool    `gorm:"column:ignoreGroups;default:true" json:"ignoreGroups"`
+	// GroupsMode selects how groups are handled, orthogonal to IgnoreGroups
+	// (kept unchanged for backward compat — see assistant_runtime_group_test.go):
+	//   "legacy"    (default) — IgnoreGroups alone decides (all-or-nothing).
+	//   "selective" — IgnoreGroups is bypassed; only groups with an Active
+	//                 AssistantGroup row are visible, and the Assistant only
+	//                 REPLIES when @-mentioned in the group (otherwise it
+	//                 just observes — the message is still saved/visible in
+	//                 the ticket, only the automated reply is skipped).
+	GroupsMode string `gorm:"column:groupsMode;default:'legacy'" json:"groupsMode"`
 
 	Active    bool      `gorm:"default:true" json:"active"`
 	CreatedAt time.Time `gorm:"column:createdAt" json:"createdAt"`

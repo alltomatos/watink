@@ -217,12 +217,13 @@ func (el *EventListener) processMessage(ctx context.Context, p MessagePayload, r
 	// (WHERE "tenantId" manual). EnvID = inbound message id (redelivery dedup).
 	if el.flowSkeleton != nil {
 		el.flowSkeleton.RouteInboundTicket(ctx, flow.InboundContext{
-			TenantID: tenantID,
-			Body:     p.Body,
-			FromMe:   p.FromMe,
-			EnvID:    p.ID,
-			Ticket:   result.Ticket,
-			Contact:  result.Contact,
+			TenantID:      tenantID,
+			Body:          p.Body,
+			FromMe:        p.FromMe,
+			EnvID:         p.ID,
+			Ticket:        result.Ticket,
+			Contact:       result.Contact,
+			MentionedJIDs: p.MentionedJids,
 		})
 	}
 

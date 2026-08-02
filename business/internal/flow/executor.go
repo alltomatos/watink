@@ -67,6 +67,12 @@ type ExecState struct {
 	Ticket  *domain.Ticket
 	Contact *domain.Contact
 
+	// MentionedJIDs are the @-mentioned JIDs on the message that triggered/
+	// resumed this pass (from InboundContext) — used by AssistantRuntime to
+	// decide whether to reply or just observe in a group. Empty on resumes
+	// driven by non-message events and on 1:1 conversations (irrelevant there).
+	MentionedJIDs []string
+
 	Registry *ChannelRegistry
 
 	// DB is used for the ticket-handoff executor (manual WHERE "tenantId",
