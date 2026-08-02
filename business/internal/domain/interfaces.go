@@ -206,6 +206,9 @@ type KnowledgeJobPublisher interface {
 // ObjectStore persiste/recupera arquivos de fontes (S3-compatível).
 type ObjectStore interface {
 	Upload(ctx context.Context, key string, r io.Reader, size int64, contentType string) error
+	// Download retrieves a previously uploaded object — used by the ingestion
+	// worker to read a source file's bytes for parsing. Caller must Close().
+	Download(ctx context.Context, key string) (io.ReadCloser, error)
 	// Describe returns the non-sensitive store configuration (no credentials).
 	Describe() map[string]any
 }
