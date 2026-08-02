@@ -331,7 +331,12 @@ func (ac *AssistantController) Update(c *gin.Context) {
 		"stopOnHumanReply": stopOnHumanReply, "ignoreGroups": ignoreGroups, "active": active,
 	}
 
-	err := db.Transaction(func(tx *gorm.DB) error {
+	// Session(NewDB:true): db já foi usado acima em Where/First(&existing) —
+	// reusar sem isolar aqui carrega o Statement dessa query pra dentro da
+	// transação, e assertConnectionAvailable's tx.Model(&models.Assistant{})
+	// duplica a referência à tabela ("table name \"Assistants\" specified
+	// more than once", SQLSTATE 42712 — reproduzido ao vivo em homolog).
+	err := db.Session(&gorm.Session{NewDB: true}).Transaction(func(tx *gorm.DB) error {
 		if err := assertConnectionAvailable(tx, tenantID, in.WhatsAppID, in.AllowMultipleOnConnection, active, id); err != nil {
 			return err
 		}
@@ -352,7 +357,7 @@ func (ac *AssistantController) Update(c *gin.Context) {
 		utils.RespondWithInternalError(c, err, "UpdateAssistant")
 		return
 	}
-	_ = db.Where(`id = ? AND "tenantId" = ?`, id, tenantID).First(&existing).Error
+	_ = db.Session(&gorm.Session{NewDB: true}).Where(`id = ? AND "tenantId" = ?`, id, tenantID).First(&existing).Error
 	c.JSON(http.StatusOK, toAssistantResponse(existing))
 }
 
