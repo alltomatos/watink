@@ -108,6 +108,18 @@ services:
       - INTERNAL_TOKEN=${INTERNAL_TOKEN}
       - PLUGIN_MANAGER_INTERNAL_TOKEN=${PLUGIN_MANAGER_INTERNAL_TOKEN}
       - DOCS_PUBLIC=false
+      # Object store da Base de Conhecimento (upload/download de fontes de
+      # arquivo). Antes desta config, docker-compose.prod.yml não tinha
+      # MinIO/S3 nenhum e o upload de arquivo respondia "object store não
+      # configurado" em produção — lacuna pré-existente, independente do
+      # RAG nativo, mas que ficou mais visível com o RAG passando a existir
+      # em prod (ver ADR 0028).
+      - S3_ENDPOINT=minio:9000
+      - S3_BUCKET=watink-knowledge
+      - S3_ACCESS_KEY=${MINIO_ROOT_USER}
+      - S3_SECRET_KEY=${MINIO_ROOT_PASSWORD}
+      - S3_USE_SSL=false
+      - S3_REGION=us-east-1
     depends_on:
       postgres:
         condition: service_healthy
@@ -115,6 +127,12 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      # Sem "condition: service_healthy" de propósito: o business degrada
+      # graciosamente sem MinIO (s3Store fica nil, só upload de arquivo é
+      # afetado) — não faz sentido travar o atendimento WhatsApp inteiro
+      # esperando o object store ficar saudável.
+      minio:
+        condition: service_started
     volumes:
       - uploads_data:/root/public
     healthcheck:
@@ -177,6 +195,21 @@ services:
     networks: [watink_net]
     restart: unless-stopped
 
+  # Object store da Base de Conhecimento (upload/download de arquivos de
+  # fontes). Sem porta pública — só a rede interna do stack fala com ele; o
+  # `watink-business` é o único a acessá-lo (S3_* acima). Sem healthcheck
+  # explícito (ver comentário no depends_on do watink-business).
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+    networks: [watink_net]
+    restart: unless-stopped
+
   # Cloudflare Tunnel (Zero Trust) — publica o hostname público (homolog.watink.com
   # ou app.watink.com, conforme o ambiente/token) por HTTPS SEM abrir portas de
   # entrada na VPS. Conecta de saída ao edge da Cloudflare e o hostname público
@@ -204,4 +237,5 @@ volumes:
   redis_data:
   rabbitmq_data:
   uploads_data:
+  minio_data:
   plugin_manager_data:
