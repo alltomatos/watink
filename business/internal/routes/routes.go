@@ -306,18 +306,21 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		protected.POST("/quickAnswers/:quickAnswerId/send", quickAnswerController.Send)
 
 		// Knowledge Bases
-		protected.GET("/knowledge-bases", kbController.List)
-		protected.GET("/knowledge-bases/", kbController.List)
-		protected.GET("/knowledge-bases/:knowledgeBaseId", kbController.Show)
-		protected.POST("/knowledge-bases", kbController.Create)
-		protected.PUT("/knowledge-bases/:knowledgeBaseId", kbController.Update)
-		protected.DELETE("/knowledge-bases/:knowledgeBaseId", kbController.Delete)
-		protected.POST("/knowledge-bases/:knowledgeBaseId/sources", kbController.CreateSource)
-		protected.POST("/knowledge-bases/:knowledgeBaseId/sources/:sourceId/reingest", kbController.ReingestSource)
-		protected.DELETE("/knowledge-bases/:knowledgeBaseId/sources/:sourceId", kbController.DeleteSource)
+		// knowledgeBases:* — added retroactively (these routes shipped with no
+		// gate at all, contrary to ADR 0022's "no new write route ships
+		// ungated" invariant); see Seed() for the matching Permission rows.
+		protected.GET("/knowledge-bases", auth.RequirePermission("knowledgeBases", "read"), kbController.List)
+		protected.GET("/knowledge-bases/", auth.RequirePermission("knowledgeBases", "read"), kbController.List)
+		protected.GET("/knowledge-bases/:knowledgeBaseId", auth.RequirePermission("knowledgeBases", "read"), kbController.Show)
+		protected.POST("/knowledge-bases", auth.RequirePermission("knowledgeBases", "manage"), kbController.Create)
+		protected.PUT("/knowledge-bases/:knowledgeBaseId", auth.RequirePermission("knowledgeBases", "manage"), kbController.Update)
+		protected.DELETE("/knowledge-bases/:knowledgeBaseId", auth.RequirePermission("knowledgeBases", "manage"), kbController.Delete)
+		protected.POST("/knowledge-bases/:knowledgeBaseId/sources", auth.RequirePermission("knowledgeBases", "manage"), kbController.CreateSource)
+		protected.POST("/knowledge-bases/:knowledgeBaseId/sources/:sourceId/reingest", auth.RequirePermission("knowledgeBases", "manage"), kbController.ReingestSource)
+		protected.DELETE("/knowledge-bases/:knowledgeBaseId/sources/:sourceId", auth.RequirePermission("knowledgeBases", "manage"), kbController.DeleteSource)
 		// Inspeção read-only do conhecimento vetorizado (chunks + playground de recuperação).
-		protected.GET("/knowledge-bases/:knowledgeBaseId/sources/:sourceId/chunks", kbInspectController.Chunks)
-		protected.POST("/knowledge-bases/:knowledgeBaseId/query", kbInspectController.Query)
+		protected.GET("/knowledge-bases/:knowledgeBaseId/sources/:sourceId/chunks", auth.RequirePermission("knowledgeBases", "read"), kbInspectController.Chunks)
+		protected.POST("/knowledge-bases/:knowledgeBaseId/query", auth.RequirePermission("knowledgeBases", "read"), kbInspectController.Query)
 
 		// Self-service do próprio perfil — SEM RequirePermission: todo usuário
 		// autenticado edita o próprio nome/email/senha/whatsapp (o gate users:*

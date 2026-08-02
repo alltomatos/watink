@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	"fmt"
 	"mime/multipart"
 	"net/http"
@@ -154,12 +155,35 @@ func (kbc *KnowledgeBaseController) Delete(c *gin.Context) {
 // @Success      200              {object}  map[string]interface{}
 // @Security     BearerAuth
 // @Router       /knowledge-bases/{knowledgeBaseId}/sources [post]
+// maxSourceUploadBytes caps a knowledge-base file upload — previously
+// unbounded (no MaxBytesReader, no MaxMultipartMemory override), despite the
+// docs promising a cap that was never implemented. 50MB comfortably covers a
+// large PDF/DOCX/XLSX without risking memory pressure from an unbounded body.
+const maxSourceUploadBytes = 50 << 20
+
 func (kbc *KnowledgeBaseController) CreateSource(c *gin.Context) {
 	db, tenantID, ok := auth.GetScoped(c, "KnowledgeBases")
 	if !ok {
 		return
 	}
 	knowledgeBaseID := c.Param("knowledgeBaseId")
+
+	// Must wrap the body before any PostForm/FormFile call — those trigger
+	// ParseMultipartForm internally, which would otherwise read an unbounded
+	// body before this limit had a chance to apply. Parsing explicitly here
+	// (instead of letting the first PostForm call do it implicitly) lets us
+	// return a clear 413 instead of PostForm silently returning empty fields
+	// and the request failing downstream with a confusing "invalid sourceType".
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxSourceUploadBytes)
+	if err := c.Request.ParseMultipartForm(32 << 20); err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "arquivo excede o limite de 50MB"})
+			return
+		}
+		// Not a multipart body at all (e.g. plain JSON) — let ShouldBind/
+		// PostForm below produce their usual validation errors.
+	}
 
 	var kb models.KnowledgeBase
 	if err := db.Where("id = ? AND \"tenantId\" = ?", knowledgeBaseID, tenantID).First(&kb).Error; err != nil {
