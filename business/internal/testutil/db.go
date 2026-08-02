@@ -144,6 +144,7 @@ func allModels() []interface{} {
 		&models.IzapiaConfig{},
 		&models.Assistant{},
 		&models.AssistantRouterOption{},
+		&models.AssistantGroup{},
 		&models.AiGateway{},
 		&models.AssistantProactiveLog{},
 	}
