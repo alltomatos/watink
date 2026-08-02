@@ -32,6 +32,7 @@ func (ap *AssistantPlugin) OnActivate(core sdk.WatinkCore) error {
 	core.RegisterRoute("PUT", "/assistants/:id", ac.Update)
 	core.RegisterRoute("DELETE", "/assistants/:id", ac.Delete)
 	core.RegisterRoute("POST", "/assistants/:id/duplicate", ac.Duplicate)
+	core.RegisterRoute("POST", "/assistants/:id/test", ac.Test)
 
 	core.RegisterRoute("GET", "/assistants/:id/router-options", rc.List)
 	core.RegisterRoute("POST", "/assistants/:id/router-options", rc.Create)
@@ -43,6 +44,7 @@ func (ap *AssistantPlugin) OnActivate(core sdk.WatinkCore) error {
 	core.RegisterRoute("GET", "/ai-gateways/:id", gc.Get)
 	core.RegisterRoute("PUT", "/ai-gateways/:id", gc.Update)
 	core.RegisterRoute("DELETE", "/ai-gateways/:id", gc.Delete)
+	core.RegisterRoute("POST", "/ai-gateways/:id/test", gc.Test)
 
 	registerAssistantPipelineEvents(core, core.GetDB())
 	registerAssistantIdleSweep(core, core.GetDB())

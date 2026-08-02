@@ -12,6 +12,7 @@ import (
 	"github.com/alltomatos/watinkdev/business/pkg/auth"
 	"github.com/alltomatos/watinkdev/business/pkg/utils"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -356,6 +357,134 @@ func (ac *AssistantController) Update(c *gin.Context) {
 }
 
 // Delete removes an Assistant and any router options where it is the router.
+// testAssistantDefaultMessage mirrors testGatewayDefaultMessage's intent —
+// short, cheap, distinctive enough to spot a truncated/wrong reply.
+const testAssistantDefaultMessage = "Olá, isso é um teste. Pode responder normalmente?"
+
+// Test runs a REAL turn against the Assistant, mode-aware — never fakes a
+// reply for a mode that doesn't generate one:
+//   - persona (and pipeline with respondsAfterProactive): calls the SAME
+//     watink-knowledge Agent Runtime endpoint used in production
+//     (flow.HTTPAgentClient.Respond), with the Assistant's real persona +
+//     knowledge base. No ticket/FlowRun needed — this bypasses WhatsApp
+//     delivery entirely and just returns the reply text.
+//   - router: no LLM call at all — returns the exact menu text the
+//     Assistant would send on first contact (deterministic, real).
+//   - flow: delegates 100% to another Flow — there's no text reply to
+//     generate here without running that Flow, so this reports that
+//     honestly instead of faking success.
+func (ac *AssistantController) Test(c *gin.Context) {
+	db, tenantID, ok := auth.GetScoped(c, "Assistants")
+	if !ok {
+		return
+	}
+	id, _ := strconv.Atoi(c.Param("id"))
+	var a models.Assistant
+	if err := db.Where(`id = ? AND "tenantId" = ?`, id, tenantID).First(&a).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "assistant não encontrado"})
+		return
+	}
+
+	var body struct {
+		Message string `json:"message"`
+	}
+	_ = c.ShouldBindJSON(&body)
+	message := body.Message
+	if message == "" {
+		message = testAssistantDefaultMessage
+	}
+	if _, err := utils.ValidateStringField(message, "message", 2000); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	switch a.Mode {
+	case models.AssistantModeRouter:
+		var options []models.AssistantRouterOption
+		// Session(NewDB:true): db já vem encadeado do GetScoped acima (usado
+		// em First(&a) logo antes) — reusar sem isolar aqui acumula condições
+		// do primeiro Where/First e a segunda query casa a tabela errada
+		// (CLAUDE.md "Multitenancy no core", armadilhas.md).
+		if err := db.Session(&gorm.Session{NewDB: true}).Where(`"routerAssistantId" = ? AND "tenantId" = ?`, a.ID, tenantID).
+			Order(`"order" ASC`).Find(&options).Error; err != nil {
+			utils.RespondWithInternalError(c, err, "TestAssistantRouter")
+			return
+		}
+		if len(options) == 0 {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "assistant router sem opções cadastradas"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"mode": models.AssistantModeRouter, "reply": buildRouterMenu(options)})
+		return
+
+	case models.AssistantModeFlow:
+		c.JSON(http.StatusOK, gin.H{
+			"mode":     models.AssistantModeFlow,
+			"testable": false,
+			"message":  "Modo Flow delega a conversa inteira a outro fluxo — não há resposta de texto própria para testar aqui. Teste o fluxo alvo diretamente no FlowBuilder.",
+		})
+		return
+
+	case models.AssistantModePersona:
+		var cfg models.AssistantPersonaConfig
+		if len(a.Config) > 0 {
+			_ = json.Unmarshal(a.Config, &cfg)
+		}
+		ac.testPersona(c, tenantID, cfg, message)
+		return
+
+	case models.AssistantModePipeline:
+		var cfg models.AssistantPipelineConfig
+		if len(a.Config) > 0 {
+			_ = json.Unmarshal(a.Config, &cfg)
+		}
+		if !cfg.RespondsAfterProactive {
+			c.JSON(http.StatusOK, gin.H{
+				"mode":     models.AssistantModePipeline,
+				"testable": false,
+				"message":  "Este assistant só notifica proativamente (respondsAfterProactive desligado) — não há resposta de texto própria para testar.",
+			})
+			return
+		}
+		ac.testPersona(c, tenantID, models.AssistantPersonaConfig{
+			Persona: cfg.Persona, KnowledgeBaseID: cfg.KnowledgeBaseID, MaxTurns: cfg.MaxTurns,
+			AiGatewayID: cfg.AiGatewayID, RagFallbackBehavior: cfg.RagFallbackBehavior,
+			RagFallbackMessage: cfg.RagFallbackMessage,
+		}, message)
+		return
+
+	default:
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "modo desconhecido"})
+	}
+}
+
+// testPersona is the shared real-call path for persona (and
+// respondsAfterProactive pipeline) — same flow.HTTPAgentClient the
+// production runtime uses (assistant_persona.go), single-turn, no history.
+func (ac *AssistantController) testPersona(c *gin.Context, tenantID uuid.UUID, cfg models.AssistantPersonaConfig, message string) {
+	if cfg.KnowledgeBaseID == nil || *cfg.KnowledgeBaseID == 0 {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "configure uma Base de Conhecimento para testar este assistant"})
+		return
+	}
+
+	responder := flow.NewHTTPAgentClientFromEnv()
+	reply, err := responder.Respond(c.Request.Context(), tenantID, *cfg.KnowledgeBaseID, cfg.Persona, nil, message)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"mode":       models.AssistantModePersona,
+		"testable":   true,
+		"success":    true,
+		"reply":      reply.Reply,
+		"action":     reply.Action,
+		"confidence": reply.Confidence,
+		"citations":  reply.Citations,
+	})
+}
+
 func (ac *AssistantController) Delete(c *gin.Context) {
 	db, tenantID, ok := auth.GetScoped(c, "Assistants")
 	if !ok {
