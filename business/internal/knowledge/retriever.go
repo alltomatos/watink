@@ -18,6 +18,15 @@ import (
 // topK*overFetchFactor first, filters by score, then truncates to topK.
 const overFetchFactor = 3
 
+// maxTopK bounds topK before it drives a slice allocation and a SQL LIMIT.
+// topK arrives from external input (POST /knowledge-bases/:id/query and the
+// agent/knowledge FlowBuilder nodes) — without a ceiling, a caller sending an
+// excessive value turns directly into an excessive make([]T, 0, topK)
+// allocation (CodeQL: "slice memory allocation with excessive size value")
+// and an oversized LIMIT. 50 is far above any real UI/flow use (topK=6 is
+// the default).
+const maxTopK = 50
+
 type chunkCandidate struct {
 	Content  string  `gorm:"column:content"`
 	SourceID int     `gorm:"column:sourceId"`
@@ -42,9 +51,7 @@ func NewPgVectorRetriever(db *gorm.DB) *PgVectorRetriever {
 }
 
 func (r *PgVectorRetriever) Retrieve(ctx context.Context, tenantID uuid.UUID, kbID, topK int, minScore float64, query string) ([]flow.RetrievedChunk, error) {
-	if topK <= 0 {
-		topK = 6
-	}
+	topK = clampTopK(topK)
 
 	cfg, ok := tenantEmbedConfig(r.db, tenantID)
 	if !ok {
@@ -105,6 +112,17 @@ func (r *PgVectorRetriever) Retrieve(ctx context.Context, tenantID uuid.UUID, kb
 		}
 	}
 	return chunks, nil
+}
+
+// clampTopK bounds topK to (0, maxTopK], defaulting to 6 when unset/negative.
+func clampTopK(topK int) int {
+	if topK <= 0 {
+		return 6
+	}
+	if topK > maxTopK {
+		return maxTopK
+	}
+	return topK
 }
 
 // vectorLiteral renders a []float32 as a pgvector literal ("[0.1,0.2,...]"),
