@@ -74,6 +74,11 @@ func TestAssistantRuntime_Execute_GroupsAllowedWhenIgnoreGroupsFalse(t *testing.
 		Active: true, IgnoreGroups: false,
 	}
 	require.NoError(t, db.Create(&a).Error)
+	// IgnoreGroups has `gorm:"default:true"` — GORM omits a Go zero value
+	// (false) from the INSERT and lets Postgres apply the column default
+	// instead, so Create(&a) above actually persists true regardless of the
+	// struct literal. Force it explicitly to test the false case for real.
+	require.NoError(t, db.Model(&a).Update("ignoreGroups", false).Error)
 
 	r := NewAssistantRuntime(db)
 	st := &flow.ExecState{
