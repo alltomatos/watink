@@ -34,6 +34,15 @@ func (r *AssistantRuntime) Execute(ctx context.Context, st *flow.ExecState, assi
 	if !a.Active {
 		return flow.Outcome{Kind: flow.OutcomeAdvance, Detail: "assistant: inativo"}, nil
 	}
+	// IgnoreGroups was persisted (Create/Update) and shown in the UI toggle
+	// but never enforced anywhere in the dispatch path — found live in
+	// homolog: an Assistant with ignoreGroups=true kept answering real
+	// WhatsApp group messages. Checked once here, at the single entry point
+	// every Mode (persona/pipeline/flow/router) funnels through, so no mode
+	// can bypass it individually.
+	if a.IgnoreGroups && st.Contact != nil && st.Contact.IsGroup {
+		return flow.Outcome{Kind: flow.OutcomeAdvance, Detail: "assistant: ignora grupos"}, nil
+	}
 
 	switch a.Mode {
 	case models.AssistantModeFlow:
