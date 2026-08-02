@@ -537,6 +537,13 @@ func (ac *AssistantController) Delete(c *gin.Context) {
 		if err := tx.Where(`"routerAssistantId" = ? AND "tenantId" = ?`, id, tenantID).Delete(&models.AssistantRouterOption{}).Error; err != nil {
 			return err
 		}
+		// AssistantGroup has a FK to Assistant with no cascade — found live
+		// in homolog: deleting an Assistant with any group visibility row
+		// failed with a foreign key violation (23503) because this delete
+		// was missing, same class of bug as the router options above.
+		if err := tx.Where(`"assistantId" = ? AND "tenantId" = ?`, id, tenantID).Delete(&models.AssistantGroup{}).Error; err != nil {
+			return err
+		}
 		if err := deleteSyntheticFlow(tx, tenantID, id); err != nil {
 			return err
 		}
