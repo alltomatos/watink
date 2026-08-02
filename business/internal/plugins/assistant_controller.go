@@ -470,7 +470,18 @@ func (ac *AssistantController) testPersona(c *gin.Context, tenantID uuid.UUID, c
 	responder := flow.NewHTTPAgentClientFromEnv()
 	reply, err := responder.Respond(c.Request.Context(), tenantID, *cfg.KnowledgeBaseID, cfg.Persona, nil, message)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"success": false, "error": err.Error()})
+		// 200 (não 502/504) de propósito: esta é uma resposta de "resultado
+		// de teste" válida, não um erro de transporte da nossa API — usar um
+		// status 5xx aqui faz o Cloudflare (na frente do domínio) substituir
+		// o corpo JSON pela página de erro genérica dele, escondendo a
+		// mensagem real (watink-knowledge indisponível, timeout etc.) do
+		// usuário. O cliente decide sucesso/falha pelo campo "success".
+		c.JSON(http.StatusOK, gin.H{
+			"mode":     models.AssistantModePersona,
+			"testable": true,
+			"success":  false,
+			"error":    err.Error(),
+		})
 		return
 	}
 

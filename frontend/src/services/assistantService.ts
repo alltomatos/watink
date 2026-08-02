@@ -72,13 +72,22 @@ export const duplicateAssistant = async (id: number): Promise<Assistant> => {
 
 export interface AssistantTestResult {
     mode: AssistantMode;
+    /** false = modo não gera resposta de texto própria (flow/pipeline sem
+     * respondsAfterProactive); `message` explica por quê. Nunca presente
+     * junto de `success`. */
     testable?: boolean;
     message?: string;
+    /** Presente quando testable !== false — resultado real da chamada. */
     success?: boolean;
     reply?: string;
     action?: string;
     confidence?: number;
     citations?: number[];
+    /** Motivo da falha quando success === false (chave inválida, serviço
+     * indisponível etc.) — sempre 200 no transporte, nunca 5xx (ver
+     * AssistantController.testPersona: um 5xx aqui faz o Cloudflare
+     * substituir o corpo pela página de erro genérica dele). */
+    error?: string;
 }
 
 /** Dispara um turno REAL contra o assistant (ver AssistantController.Test no

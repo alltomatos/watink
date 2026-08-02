@@ -297,7 +297,7 @@ const AssistantCreator: React.FC = () => {
             const message =
                 (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
                 "Erro ao testar assistente";
-            setTestResult({ mode, success: false, message });
+            setTestResult({ mode, success: false, error: message });
         } finally {
             setTesting(false);
         }
@@ -743,7 +743,7 @@ const AssistantCreator: React.FC = () => {
                                 ) : (
                                     <div className="flex items-start gap-2 text-sm text-destructive">
                                         <XCircle className="h-4 w-4 mt-0.5 shrink-0" />
-                                        <span>{testResult.message ?? "Falha ao testar o assistente."}</span>
+                                        <span>{testResult.error ?? "Falha ao testar o assistente."}</span>
                                     </div>
                                 )}
                             </div>

@@ -249,7 +249,12 @@ func (ac *AiGatewayController) Test(c *gin.Context) {
 	}, []aiclient.Message{{Role: "user", Content: message}})
 	elapsedMs := time.Since(started).Milliseconds()
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{
+		// 200 (não 502) de propósito: resultado de teste válido, não erro de
+		// transporte da nossa API — um status 5xx aqui faz o Cloudflare (na
+		// frente do domínio) substituir o corpo JSON pela página de erro
+		// genérica dele, escondendo a mensagem real (chave inválida, modelo
+		// errado etc.). O cliente decide sucesso/falha por "success".
+		c.JSON(http.StatusOK, gin.H{
 			"success": false,
 			"error":   err.Error(),
 		})
