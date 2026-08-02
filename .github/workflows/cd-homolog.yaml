@@ -79,7 +79,7 @@ jobs:
 
     steps:
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.HOMOLOG_SSH_HOST }}
           username: ${{ secrets.HOMOLOG_SSH_USER }}
