@@ -97,6 +97,13 @@ func (s *RabbitMQService) PublishKnowledgeJob(routingKey string, payload interfa
 	return s.publishWithTrace("knowledge.jobs", routingKey, payload)
 }
 
+// PublishKnowledgeEvent publishes a status event (ingestion progress/result)
+// to the knowledge.events exchange — consumed by KnowledgeStatusListener to
+// update the Source and by the ingestion worker's own status reporting.
+func (s *RabbitMQService) PublishKnowledgeEvent(routingKey string, payload interface{}) error {
+	return s.publishWithTrace("knowledge.events", routingKey, payload)
+}
+
 func (s *RabbitMQService) publishWithTrace(exchange, routingKey string, payload interface{}) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -150,6 +157,36 @@ func (s *RabbitMQService) ConsumeEvents(queueName string, routingKeys []string, 
 // the knowledge status stream.
 func (s *RabbitMQService) ConsumeKnowledgeEvents(queueName string, routingKeys []string, handler func(amqp.Delivery) error) error {
 	if err := s.declareQueueWithDLQ(queueName, "knowledge.events", routingKeys); err != nil {
+		return err
+	}
+
+	msgs, err := s.channel.Consume(queueName, "", false, false, false, false, nil)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		for d := range msgs {
+			if err := handler(d); err != nil {
+				s.handleFailedMessage(d, err)
+			} else {
+				if err := d.Ack(false); err != nil {
+					log.Printf("[RabbitMQ] Ack failed: %v", err)
+				}
+			}
+		}
+	}()
+
+	return nil
+}
+
+// ConsumeKnowledgeJobs binds a queue to the knowledge.jobs exchange (with DLQ)
+// and dispatches each delivery to handler — the native Go ingestion worker's
+// entry point, replacing the watink-knowledge Python consumer. Unlike the old
+// service (which never declared a DLQ on this queue), a job that keeps
+// failing lands in the dead-letter queue instead of vanishing.
+func (s *RabbitMQService) ConsumeKnowledgeJobs(queueName string, routingKeys []string, handler func(amqp.Delivery) error) error {
+	if err := s.declareQueueWithDLQ(queueName, "knowledge.jobs", routingKeys); err != nil {
 		return err
 	}
 

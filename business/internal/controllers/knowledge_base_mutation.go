@@ -280,21 +280,27 @@ func (kbc *KnowledgeBaseController) CreateSource(c *gin.Context) {
 		source.ObjectKey = objectKey
 
 		if kbc.publisher != nil {
-			_ = kbc.publisher.PublishKnowledgeJob(
+			if err := kbc.publisher.PublishKnowledgeJob(
 				fmt.Sprintf("knowledge.%s.ingest", tenantID.String()),
 				map[string]interface{}{
 					"tenantId": tenantID.String(), "knowledgeBaseId": kb.ID, "sourceId": source.ID,
 					"type": "file", "payload": map[string]interface{}{"objectKey": objectKey, "fileName": source.FileName},
-				})
+				}); err != nil {
+				// Publish failed — the source must not sit in "pending" forever
+				// with no job ever dispatched. Surface it immediately instead of
+				// silently discarding the error (the old fire-and-forget `_ =`).
+				markSourceError(db, &source, "falha ao enfileirar job de ingestão")
+			}
 		}
 
 		c.JSON(http.StatusOK, source)
 		return
 	}
 
-	// For text/url sources, dispatch an ingestion job to watink-knowledge. The
-	// microservice chunks/embeds the text (or scrapes the URL via Firecrawl first)
-	// and reports status back via knowledge.events (handled by KnowledgeStatusListener).
+	// For text/url sources, dispatch an ingestion job to the native ingestion
+	// worker (internal/knowledge), which chunks/embeds the text (or fetches the
+	// URL) and reports status back via knowledge.events (handled by
+	// KnowledgeStatusListener).
 	if kbc.publisher != nil && (sourceType == "text" || sourceType == "url") {
 		payload := map[string]interface{}{}
 		if sourceType == "text" {
@@ -302,12 +308,14 @@ func (kbc *KnowledgeBaseController) CreateSource(c *gin.Context) {
 		} else {
 			payload["url"] = urlValue
 		}
-		_ = kbc.publisher.PublishKnowledgeJob(
+		if err := kbc.publisher.PublishKnowledgeJob(
 			fmt.Sprintf("knowledge.%s.ingest", tenantID.String()),
 			map[string]interface{}{
 				"tenantId": tenantID.String(), "knowledgeBaseId": kb.ID, "sourceId": source.ID,
 				"type": sourceType, "payload": payload,
-			})
+			}); err != nil {
+			markSourceError(db, &source, "falha ao enfileirar job de ingestão")
+		}
 	}
 
 	c.JSON(http.StatusOK, source)
@@ -359,8 +367,14 @@ func (kbc *KnowledgeBaseController) ReingestSource(c *gin.Context) {
 		jobType = "url"
 		payload = map[string]interface{}{"url": src.URL}
 	case "text":
-		c.JSON(http.StatusBadRequest, gin.H{"error": "fontes de texto não podem ser reprocessadas (conteúdo não é armazenado)"})
-		return
+		// RawContent is persisted by the ingestion worker on first success —
+		// unlike the old Python service, text sources are now reprocessable.
+		if strings.TrimSpace(src.RawContent) == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "fonte de texto sem conteúdo salvo para reprocessar"})
+			return
+		}
+		jobType = "text"
+		payload = map[string]interface{}{"text": src.RawContent}
 	default:
 		// pdf/docx/csv/xlsx/md/file → o worker trata todos como "file" via objectKey.
 		if strings.TrimSpace(src.ObjectKey) == "" {
@@ -384,12 +398,16 @@ func (kbc *KnowledgeBaseController) ReingestSource(c *gin.Context) {
 		return
 	}
 
-	_ = kbc.publisher.PublishKnowledgeJob(
+	if err := kbc.publisher.PublishKnowledgeJob(
 		fmt.Sprintf("knowledge.%s.ingest", tenantID.String()),
 		map[string]interface{}{
 			"tenantId": tenantID.String(), "knowledgeBaseId": src.KnowledgeBaseID, "sourceId": src.ID,
 			"type": jobType, "payload": payload,
-		})
+		}); err != nil {
+		markSourceError(db, &src, "falha ao enfileirar job de reingest")
+		c.JSON(http.StatusOK, src)
+		return
+	}
 
 	src.Status = "pending"
 	src.LastError = ""
