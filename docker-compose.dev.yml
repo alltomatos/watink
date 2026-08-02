@@ -96,6 +96,12 @@ services:
       - AI_BASEURL_HOST_REWRITE=host.docker.internal
       - KNOWLEDGE_SERVICE_URL=http://watink-knowledge:8085
       - INTERNAL_TOKEN=${INTERNAL_TOKEN:-dev_internal_token_change_in_prod}
+      # KNOWLEDGE_MODE: "native" usa o RAG em Go embutido no business
+      # (internal/knowledge — sem o microsserviço watink-knowledge); qualquer
+      # outro valor (ou ausente) mantém o comportamento atual, chamando
+      # watink-knowledge via HTTP. Troque para "native" só depois de validar
+      # em dev — rollback é instantâneo (mudar a env, sem rebuild).
+      - KNOWLEDGE_MODE=${KNOWLEDGE_MODE:-http}
       # Token do control plane Watink SaaS (Trilha A, docs/integration-core.md §1).
       # Fail-closed: vazio → /api/v1/internal/saas/* responde 503 e nada muda para
       # quem não usa o SaaS. Segredo distinto do INTERNAL_TOKEN (blast radius
