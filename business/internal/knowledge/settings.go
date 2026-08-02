@@ -19,6 +19,9 @@ func tenantEmbedConfig(db *gorm.DB, tenantID uuid.UUID) (EmbedConfig, bool) {
 	if db == nil {
 		return EmbedConfig{}, false
 	}
+	// Session(NewDB:true): defensive, matching agent.go's agentMinScore —
+	// callers may hand in a db already scoped to a different table.
+	db = db.Session(&gorm.Session{NewDB: true})
 
 	var settings []models.Setting
 	db.Where(`"tenantId" = ? AND key IN ?`, tenantID, []string{
