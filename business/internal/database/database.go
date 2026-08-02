@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/alltomatos/watinkdev/business/internal/knowledge"
 	"github.com/alltomatos/watinkdev/business/internal/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -101,6 +102,10 @@ func Migrate() {
 	}
 
 	addClientAddressGeography()
+
+	// KBChunk (halfvec/HNSW) is not GORM-modelable, same reasoning as
+	// addCustomIndexes()/PostGIS above — raw idempotent DDL, best-effort.
+	knowledge.EnsureSchema(DB)
 
 	fmt.Println("Database migration completed")
 	Seed()
