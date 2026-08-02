@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/alltomatos/watinkdev/business/internal/flow"
+	"github.com/alltomatos/watinkdev/business/internal/knowledge"
 	"github.com/alltomatos/watinkdev/business/internal/models"
 	"github.com/alltomatos/watinkdev/business/pkg/auth"
 	"github.com/alltomatos/watinkdev/business/pkg/utils"
@@ -435,7 +437,7 @@ func (ac *AssistantController) Test(c *gin.Context) {
 		if len(a.Config) > 0 {
 			_ = json.Unmarshal(a.Config, &cfg)
 		}
-		ac.testPersona(c, tenantID, cfg, message)
+		ac.testPersona(c, db, tenantID, cfg, message)
 		return
 
 	case models.AssistantModePipeline:
@@ -451,7 +453,7 @@ func (ac *AssistantController) Test(c *gin.Context) {
 			})
 			return
 		}
-		ac.testPersona(c, tenantID, models.AssistantPersonaConfig{
+		ac.testPersona(c, db, tenantID, models.AssistantPersonaConfig{
 			Persona: cfg.Persona, KnowledgeBaseID: cfg.KnowledgeBaseID, MaxTurns: cfg.MaxTurns,
 			AiGatewayID: cfg.AiGatewayID, RagFallbackBehavior: cfg.RagFallbackBehavior,
 			RagFallbackMessage: cfg.RagFallbackMessage,
@@ -464,15 +466,20 @@ func (ac *AssistantController) Test(c *gin.Context) {
 }
 
 // testPersona is the shared real-call path for persona (and
-// respondsAfterProactive pipeline) — same flow.HTTPAgentClient the
+// respondsAfterProactive pipeline) — same Agent Runtime implementation the
 // production runtime uses (assistant_persona.go), single-turn, no history.
-func (ac *AssistantController) testPersona(c *gin.Context, tenantID uuid.UUID, cfg models.AssistantPersonaConfig, message string) {
+// Builds the responder via knowledge.BuildRetrieverAndResponder so this "Test"
+// button respects KNOWLEDGE_MODE like every other RAG entry point — it used
+// to hardcode flow.NewHTTPAgentClientFromEnv(), silently bypassing the switch
+// (found testing the native RAG pipeline live: the button kept calling the
+// decommissioned watink-knowledge service even with KNOWLEDGE_MODE=native).
+func (ac *AssistantController) testPersona(c *gin.Context, db *gorm.DB, tenantID uuid.UUID, cfg models.AssistantPersonaConfig, message string) {
 	if cfg.KnowledgeBaseID == nil || *cfg.KnowledgeBaseID == 0 {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "configure uma Base de Conhecimento para testar este assistant"})
 		return
 	}
 
-	responder := flow.NewHTTPAgentClientFromEnv()
+	_, responder := knowledge.BuildRetrieverAndResponder(os.Getenv(knowledge.ModeEnvVar), db)
 	reply, err := responder.Respond(c.Request.Context(), tenantID, *cfg.KnowledgeBaseID, cfg.Persona, nil, message)
 	if err != nil {
 		// 200 (não 502/504) de propósito: esta é uma resposta de "resultado
