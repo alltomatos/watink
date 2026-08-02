@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { toast } from "react-toastify";
-import { ChevronDown, ChevronUp, Save } from "lucide-react";
+import { ChevronDown, ChevronUp, Save, PlayCircle, Loader2, CheckCircle2, XCircle, Info } from "lucide-react";
 import { PageLayout, PageHeader, PageContent } from "@/components/ui/page-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,12 +17,21 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import api from "../../services/api";
 import {
     Assistant,
     AssistantMode,
+    AssistantTestResult,
     createAssistant,
     getAssistant,
+    testAssistant,
     updateAssistant,
 } from "../../services/assistantService";
 import { listAiGateways, AiGateway } from "../../services/aiGatewayService";
@@ -59,6 +68,10 @@ const AssistantCreator: React.FC = () => {
 
     const [saving, setSaving] = useState(false);
     const [showAdvanced, setShowAdvanced] = useState(false);
+    const [testing, setTesting] = useState(false);
+    const [testDialogOpen, setTestDialogOpen] = useState(false);
+    const [testMessage, setTestMessage] = useState("");
+    const [testResult, setTestResult] = useState<AssistantTestResult | null>(null);
 
     const [whatsapps, setWhatsapps] = useState<WhatsappOption[]>([]);
     const [flows, setFlows] = useState<FlowOption[]>([]);
@@ -267,16 +280,47 @@ const AssistantCreator: React.FC = () => {
         }
     };
 
+    const openTestDialog = () => {
+        setTestResult(null);
+        setTestMessage("");
+        setTestDialogOpen(true);
+    };
+
+    const handleRunTest = async () => {
+        if (!assistantId) return;
+        setTesting(true);
+        setTestResult(null);
+        try {
+            const result = await testAssistant(Number(assistantId), testMessage.trim() || undefined);
+            setTestResult(result);
+        } catch (err) {
+            const message =
+                (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+                "Erro ao testar assistente";
+            setTestResult({ mode, success: false, message });
+        } finally {
+            setTesting(false);
+        }
+    };
+
     return (
         <PageLayout>
             <PageHeader
                 title={isEditing ? "Editar Assistente" : "Novo Assistente"}
                 description="Configure a conexão, o gatilho e o comportamento do assistente"
             >
-                <Button onClick={handleSave} disabled={saving}>
-                    <Save className="mr-2 h-4 w-4" />
-                    {saving ? "Salvando..." : "Salvar"}
-                </Button>
+                <div className="flex gap-2">
+                    {isEditing && (
+                        <Button variant="outline" onClick={openTestDialog}>
+                            <PlayCircle className="mr-2 h-4 w-4" />
+                            Testar Bot
+                        </Button>
+                    )}
+                    <Button onClick={handleSave} disabled={saving}>
+                        <Save className="mr-2 h-4 w-4" />
+                        {saving ? "Salvando..." : "Salvar"}
+                    </Button>
+                </div>
             </PageHeader>
 
             <PageContent>
@@ -645,6 +689,73 @@ const AssistantCreator: React.FC = () => {
                     </Card>
                 </div>
             </PageContent>
+
+            <Dialog open={testDialogOpen} onOpenChange={setTestDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Testar Bot — {name || "Assistente"}</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-3">
+                        <div className="flex flex-col gap-1.5">
+                            <Label>Mensagem de teste</Label>
+                            <Textarea
+                                value={testMessage}
+                                onChange={(e) => setTestMessage(e.target.value)}
+                                placeholder="Olá, isso é um teste. Pode responder normalmente?"
+                                rows={2}
+                            />
+                        </div>
+                        <Button onClick={handleRunTest} disabled={testing}>
+                            {testing ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Testando...
+                                </>
+                            ) : (
+                                <>
+                                    <PlayCircle className="mr-2 h-4 w-4" /> Enviar teste
+                                </>
+                            )}
+                        </Button>
+
+                        {testResult && (
+                            <div className="rounded-xl border p-3 flex flex-col gap-2">
+                                {testResult.testable === false ? (
+                                    <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                                        <Info className="h-4 w-4 mt-0.5 shrink-0" />
+                                        <span>{testResult.message}</span>
+                                    </div>
+                                ) : testResult.success ? (
+                                    <>
+                                        <div className="flex items-center gap-2 text-sm font-medium text-green-600">
+                                            <CheckCircle2 className="h-4 w-4" /> Resposta real do assistente
+                                        </div>
+                                        <p className="text-sm whitespace-pre-wrap bg-muted/40 rounded-lg p-3">
+                                            {testResult.reply}
+                                        </p>
+                                        {testResult.action && (
+                                            <p className="text-xs text-muted-foreground">
+                                                Ação do modelo: <span className="font-medium">{testResult.action}</span>
+                                                {typeof testResult.confidence === "number" &&
+                                                    ` · confiança ${(testResult.confidence * 100).toFixed(0)}%`}
+                                            </p>
+                                        )}
+                                    </>
+                                ) : (
+                                    <div className="flex items-start gap-2 text-sm text-destructive">
+                                        <XCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                                        <span>{testResult.message ?? "Falha ao testar o assistente."}</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setTestDialogOpen(false)}>
+                            Fechar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </PageLayout>
     );
 };

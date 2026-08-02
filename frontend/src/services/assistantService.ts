@@ -70,6 +70,26 @@ export const duplicateAssistant = async (id: number): Promise<Assistant> => {
     return data;
 };
 
+export interface AssistantTestResult {
+    mode: AssistantMode;
+    testable?: boolean;
+    message?: string;
+    success?: boolean;
+    reply?: string;
+    action?: string;
+    confidence?: number;
+    citations?: number[];
+}
+
+/** Dispara um turno REAL contra o assistant (ver AssistantController.Test no
+ * backend) — mode-aware: persona/pipeline chamam o Agent Runtime de
+ * verdade, router devolve o menu real, flow explica que delega a outro
+ * fluxo. Nunca finge sucesso. */
+export const testAssistant = async (id: number, message?: string): Promise<AssistantTestResult> => {
+    const { data } = await api.post(`/assistants/${id}/test`, message ? { message } : {});
+    return data;
+};
+
 export const listRouterOptions = async (assistantId: number): Promise<AssistantRouterOption[]> => {
     const { data } = await api.get(`/assistants/${assistantId}/router-options`);
     return Array.isArray(data) ? data : [];
