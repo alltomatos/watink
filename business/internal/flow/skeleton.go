@@ -48,6 +48,26 @@ type Skeleton struct {
 	assistantRuntime AssistantRuntime
 }
 
+// SetRetriever overrides the RAG retriever after construction — used to swap
+// in the native in-process implementation (internal/knowledge.PgVectorRetriever)
+// per KNOWLEDGE_MODE, without changing NewSkeleton's default (HTTP, calling the
+// watink-knowledge service) or any consumer of the Retriever interface. A nil
+// argument is a no-op, so callers can pass through an optional override freely.
+func (s *Skeleton) SetRetriever(r Retriever) {
+	if r != nil {
+		s.retriever = r
+	}
+}
+
+// SetResponder overrides the Agent Runtime responder after construction — same
+// KNOWLEDGE_MODE swap-in as SetRetriever, for the agent node/Assistants persona
+// mode. A nil argument is a no-op.
+func (s *Skeleton) SetResponder(r AgentResponder) {
+	if r != nil {
+		s.responder = r
+	}
+}
+
 // SetAssistantRuntime wires the "Assistentes de IA" plugin's runtime after
 // construction (the plugin manager, which owns the implementation, is built
 // after the Skeleton in routes.go — DI pura, no global). Nil is the default
