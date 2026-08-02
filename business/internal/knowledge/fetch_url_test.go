@@ -87,7 +87,7 @@ func TestFetchURL_SSRFBlocksLoopback(t *testing.T) {
 	// dialer must refuse it regardless of what the URL host resolves to.
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 
 	go func() {
 		_ = http.Serve(ln, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
