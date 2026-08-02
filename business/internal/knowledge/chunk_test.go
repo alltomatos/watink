@@ -50,3 +50,37 @@ func TestChunkText_EmptyInput(t *testing.T) {
 	chunks := ChunkText("", "")
 	assert.Empty(t, chunks)
 }
+
+// A single blank-line-free blob (e.g. minified JSON, a raw OpenAPI spec) has
+// no paragraph breaks for packParagraphs to flush on — without a hard split,
+// this produced one arbitrarily large chunk that blew past a real embedding
+// provider's token ceiling in production (a 27k-char OpenAPI JSON source).
+func TestChunkText_HardSplitsOversizedSingleParagraph(t *testing.T) {
+	text := strings.Repeat("a", chunkMaxChars*3)
+	chunks := ChunkText(text, "")
+	require.Greater(t, len(chunks), 1)
+	for _, c := range chunks {
+		// +2 tolerance: packParagraphs appends a trailing "\n\n" separator
+		// after the last paragraph in a chunk (pre-existing behavior,
+		// unrelated to this fix) — the invariant that matters is "nowhere
+		// near the original 27k-char blob", not an exact byte count.
+		assert.LessOrEqual(t, len(c.Text), chunkMaxChars+2, "no chunk should exceed chunkMaxChars")
+	}
+}
+
+func TestSplitOversized_PrefersWhitespaceBoundary(t *testing.T) {
+	text := strings.Repeat("palavra ", 400) // well over chunkMaxChars, has spaces
+	pieces := splitOversized(text, chunkMaxChars)
+	require.Greater(t, len(pieces), 1)
+	for _, p := range pieces {
+		assert.LessOrEqual(t, len(p), chunkMaxChars)
+		assert.False(t, strings.HasPrefix(p, " "))
+	}
+}
+
+func TestSplitOversized_HardCutsWhenNoWhitespace(t *testing.T) {
+	text := strings.Repeat("x", chunkMaxChars*2) // no whitespace at all
+	pieces := splitOversized(text, chunkMaxChars)
+	require.Len(t, pieces, 2)
+	assert.Len(t, pieces[0], chunkMaxChars)
+}
