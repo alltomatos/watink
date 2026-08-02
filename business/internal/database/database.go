@@ -85,6 +85,7 @@ func Migrate() {
 		&models.ProtocolAttachment{},
 		&models.Assistant{},
 		&models.AssistantRouterOption{},
+		&models.AssistantGroup{},
 		&models.AiGateway{},
 		&models.AssistantProactiveLog{},
 	)

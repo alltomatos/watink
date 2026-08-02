@@ -42,6 +42,19 @@ const (
 	AssistantModeRouter   = "router"
 )
 
+// AssistantGroupsMode enumerates the valid values of Assistant.GroupsMode.
+const (
+	AssistantGroupsModeLegacy    = "legacy"
+	AssistantGroupsModeSelective = "selective"
+)
+
+// ValidAssistantGroupsModes is the allow-list used by the controller to
+// validate GroupsMode on Create/Update, same pattern as ValidAssistantModes.
+var ValidAssistantGroupsModes = map[string]bool{
+	AssistantGroupsModeLegacy:    true,
+	AssistantGroupsModeSelective: true,
+}
+
 // ValidAssistantModes is the allow-list used by controllers to validate
 // Assistant.Mode on Create/Update.
 var ValidAssistantModes = map[string]bool{

@@ -36,6 +36,7 @@ import {
 } from "../../services/assistantService";
 import { listAiGateways, AiGateway } from "../../services/aiGatewayService";
 import AssistantRouterOptions from "./AssistantRouterOptions";
+import AssistantGroupsDialog from "./AssistantGroupsDialog";
 
 interface WhatsappOption {
     id: number;
@@ -98,6 +99,8 @@ const AssistantCreator: React.FC = () => {
     const [closingMessage, setClosingMessage] = useState("");
     const [stopOnHumanReply, setStopOnHumanReply] = useState(true);
     const [ignoreGroups, setIgnoreGroups] = useState(true);
+    const [groupsMode, setGroupsMode] = useState<"legacy" | "selective">("legacy");
+    const [groupsDialogOpen, setGroupsDialogOpen] = useState(false);
 
     // Modo flow
     const [flowId, setFlowId] = useState<string>("");
@@ -159,6 +162,7 @@ const AssistantCreator: React.FC = () => {
                 setClosingMessage(a.closingMessage ?? "");
                 setStopOnHumanReply(a.stopOnHumanReply);
                 setIgnoreGroups(a.ignoreGroups);
+                setGroupsMode(a.groupsMode ?? "legacy");
 
                 const cfg = (a.config ?? {}) as Record<string, unknown>;
                 if (a.mode === "flow") setFlowId(cfg.flowId ? String(cfg.flowId) : "");
@@ -256,6 +260,7 @@ const AssistantCreator: React.FC = () => {
                 closingMessage: closingMessage || null,
                 stopOnHumanReply,
                 ignoreGroups,
+                groupsMode,
                 active,
             };
 
@@ -336,7 +341,7 @@ const AssistantCreator: React.FC = () => {
                                     <Label>Conexão</Label>
                                     <Select value={whatsappId} onValueChange={setWhatsappId}>
                                         <SelectTrigger>
-                                            <SelectValue placeholder="Qualquer conexão" />
+                                            <SelectValue placeholder="Selecione" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {whatsapps.map((w) => (
@@ -678,10 +683,49 @@ const AssistantCreator: React.FC = () => {
                                             <p className="text-sm font-medium">Parar assistente quando eu responder</p>
                                             <Switch checked={stopOnHumanReply} onCheckedChange={setStopOnHumanReply} />
                                         </div>
-                                        <div className="flex items-center justify-between rounded-xl border p-3">
-                                            <p className="text-sm font-medium">Ignorar grupos</p>
-                                            <Switch checked={ignoreGroups} onCheckedChange={setIgnoreGroups} />
+                                        {groupsMode === "legacy" && (
+                                            <div className="flex items-center justify-between rounded-xl border p-3">
+                                                <p className="text-sm font-medium">Ignorar grupos</p>
+                                                <Switch checked={ignoreGroups} onCheckedChange={setIgnoreGroups} />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="flex flex-col gap-1.5 rounded-xl border p-3">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-sm font-medium">Selecionar grupos específicos</p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Em vez de ignorar/permitir todos os grupos de uma vez,
+                                                    escolha quais grupos o assistente enxerga. Um grupo ativo
+                                                    só recebe resposta automática quando o assistente é
+                                                    mencionado — fora isso, ele só observa.
+                                                </p>
+                                            </div>
+                                            <Switch
+                                                checked={groupsMode === "selective"}
+                                                onCheckedChange={(checked) =>
+                                                    setGroupsMode(checked ? "selective" : "legacy")
+                                                }
+                                            />
                                         </div>
+                                        {groupsMode === "selective" && (
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                className="self-start mt-1"
+                                                disabled={!isEditing}
+                                                onClick={() => setGroupsDialogOpen(true)}
+                                            >
+                                                Configurar grupos
+                                            </Button>
+                                        )}
+                                        {groupsMode === "selective" && !isEditing && (
+                                            <p className="text-xs text-muted-foreground">
+                                                Salve o assistente primeiro para configurar os grupos.
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -756,6 +800,14 @@ const AssistantCreator: React.FC = () => {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {isEditing && (
+                <AssistantGroupsDialog
+                    assistantId={Number(assistantId)}
+                    open={groupsDialogOpen}
+                    onOpenChange={setGroupsDialogOpen}
+                />
+            )}
         </PageLayout>
     );
 };

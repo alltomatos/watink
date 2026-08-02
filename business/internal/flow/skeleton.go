@@ -98,6 +98,11 @@ type InboundContext struct {
 	EnvID    string
 	Ticket   *domain.Ticket
 	Contact  *domain.Contact
+	// MentionedJIDs carries the @-mentioned JIDs from the WhatsApp message
+	// (engine-go's extractMentionedJIDs), threaded through to ExecState so
+	// an Assistant configured to only respond when mentioned in a group can
+	// tell a direct mention apart from ambient group chatter.
+	MentionedJIDs []string
 }
 
 // RouteInbound is the legacy (no-ticket) trigger-match + log path, preserved for
@@ -344,6 +349,7 @@ func (s *Skeleton) StartFlow(ctx context.Context, in InboundContext, f models.Fl
 		Inbound:          in.Body, // carry the triggering body for the first menu/switch
 		Ticket:           in.Ticket,
 		Contact:          in.Contact,
+		MentionedJIDs:    in.MentionedJIDs,
 		Retriever:        s.retriever,
 		Responder:        s.responder,
 		AssistantRuntime: s.assistantRuntime,
@@ -472,6 +478,7 @@ func (s *Skeleton) resume(ctx context.Context, in InboundContext, run models.Flo
 		ResumeNodeID:     run.CurrentNodeID, // the node we suspended at owns the reply
 		Ticket:           in.Ticket,
 		Contact:          in.Contact,
+		MentionedJIDs:    in.MentionedJIDs,
 		Retriever:        s.retriever,
 		Responder:        s.responder,
 		AssistantRuntime: s.assistantRuntime,
