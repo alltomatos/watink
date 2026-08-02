@@ -169,6 +169,44 @@ func TestAssistantController_Test_PersonaMode_NoKnowledgeBase_Returns422(t *test
 	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }
 
+// TestAssistantController_Update_WhatsappBoundActive_DoesNotDuplicateTable
+// is a regression test for a bug reproduced live in homolog: PUT
+// /assistants/:id on an Assistant bound to a connection returned 500
+// ("table name \"Assistants\" specified more than once", SQLSTATE 42712).
+// Root cause: Update() reused the GetScoped-chained `db` (already carrying
+// a Where/First from the "load existing" step) as the base of
+// db.Transaction(...) without Session(NewDB:true) — the stale Statement
+// leaked into the transaction. Toggling active on/off from the Assistants
+// list (the new quick-toggle) is exactly the flow that hit this.
+func TestAssistantController_Update_WhatsappBoundActive_DoesNotDuplicateTable(t *testing.T) {
+	db := setupPluginTestDB(t)
+	tenantID := uuid.New()
+	whatsappID := 1
+	cfg, _ := json.Marshal(models.AssistantPersonaConfig{Persona: "Vendedor", AiGatewayID: 1, RagFallbackBehavior: models.RagFallbackHandoff})
+	a := models.Assistant{
+		TenantID: tenantID, Name: "Bound", Mode: models.AssistantModePersona, TriggerType: "any",
+		TriggerOperator: "contains", WhatsAppID: &whatsappID, AllowMultipleOnConnection: false,
+		Active: true, Config: datatypes.JSON(cfg),
+	}
+	require.NoError(t, db.Create(&a).Error)
+	ac := NewAssistantController()
+
+	body := map[string]interface{}{
+		"name": "Bound", "whatsappId": whatsappID, "allowMultipleOnConnection": false,
+		"mode": models.AssistantModePersona, "config": json.RawMessage(cfg),
+		"triggerType": "any", "triggerOperator": "contains", "active": false,
+	}
+	c, w := newHandlerTestContext(t, http.MethodPut, "/assistants/x", body, db, tenantID)
+	c.Params = gin.Params{{Key: "id", Value: itoa(a.ID)}}
+
+	ac.Update(c)
+
+	assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	var updated models.Assistant
+	require.NoError(t, db.Where("id = ?", a.ID).First(&updated).Error)
+	assert.False(t, updated.Active)
+}
+
 func TestAssistantController_Test_PipelineMode_NotifyOnly_ReportsNotTestable(t *testing.T) {
 	db := setupPluginTestDB(t)
 	tenantID := uuid.New()
