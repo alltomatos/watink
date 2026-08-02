@@ -14,6 +14,14 @@ A mentoria de design da Base de Conhecimento revisou três pontos desta ADR. O n
 
 > As menções abaixo a `vector(1536)`/`text-embedding-3-small`/`vector_cosine_ops`/per-tenant embedding ficam como **registro histórico** — valem as decisões desta seção de Atualização.
 
+## Atualização — 2026-08-02 (ADR 0028)
+
+O **ADR 0028** internaliza o RAG no core Go, superando o ADR 0018 (onde o RAG passou a rodar). O schema pgvector desta ADR **permanece em vigor**, com dois ajustes:
+
+- `KBChunk` ganha **FK real com `ON DELETE CASCADE`** para `KnowledgeBases`/`KnowledgeBaseSources` — a ausência de FK permitia chunks órfãos sobreviverem à deleção da fonte/base e continuarem sendo citados.
+- `KBChunk` ganha coluna `metadata JSONB` (heading/ordinal do chunk), para citações mais precisas que "fonte N".
+- O retrieval passa a usar `SET LOCAL hnsw.iterative_scan` e over-fetch com filtro de `minScore` **antes** do corte final — correção de um bug de recall onde o filtro de tenant descartava candidatos após a varredura do índice HNSW.
+
 ## Contexto
 A Fase 2 do FlowBuilder introduz o nó `knowledge`: dado um turno do contato, o runtime recupera trechos relevantes de uma base de conhecimento do tenant e responde via LLM ancorado nesses trechos (RAG — retrieval-augmented generation). Isso exige um *vector store* tenant-scoped onde os documentos do tenant são fatiados em chunks, embeddados e indexados para busca por similaridade semântica.
 

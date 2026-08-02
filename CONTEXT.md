@@ -74,19 +74,19 @@ _Avoid_: Label, marca, categoria
 **Protocol**: Registro formal de atendimento no Helpdesk. Vincula-se a um Contact e opcionalmente a um Ticket.
 _Avoid_: Atendimento, registro, chamado helpdesk
 
-**KnowledgeBase**: Coleção nomeada de fontes (KnowledgeBaseSource) vetorizadas para RAG, consumida pelos nós `knowledge`/`agent` do FlowBuilder e (futuro) por Agentes standalone. Ingestão e retrieval rodam no microsserviço `watink-knowledge`; metadados (base/fontes) ficam no `business`. Tenant-scoped.
+**KnowledgeBase**: Coleção nomeada de fontes (KnowledgeBaseSource) vetorizadas para RAG, consumida pelos nós `knowledge`/`agent` do FlowBuilder e pelo plugin Assistants (modo `persona`). Ingestão e retrieval rodam nativamente no `business` (`internal/knowledge/`, ADR 0028); metadados (base/fontes) também ficam no `business`. Tenant-scoped.
 _Avoid_: FAQ, wiki, documentação
 
-**KnowledgeBaseSource**: Fonte de conteúdo de uma KnowledgeBase — `type` ∈ {text, file, url, website, git}. Carrega o lifecycle de ingestão (`status`, `lastError`, `chunkCount`, `lastIngestedAt`) e o controle de atualização (`updatable`, `refreshSchedule` cron, `nextRefreshAt`). Arquivos ficam no S3 Storage Driver.
+**KnowledgeBaseSource**: Fonte de conteúdo de uma KnowledgeBase — `type` ∈ {text, file, url}. Carrega o lifecycle de ingestão (`status`, `lastError`, `chunkCount`, `lastIngestedAt`), o hash de conteúdo (`contentHash`, evita reembedding desnecessário), o texto persistido para fontes `text` (`rawContent`, habilita reingest), e o controle de atualização (`updatable`, `refreshSchedule` cron, `nextRefreshAt` — campos existem, refresh agendado ainda não tem consumidor). Arquivos ficam no S3 Storage Driver.
 _Avoid_: source (isolado), documento, fonte de dados
 
-**watink-knowledge (Knowledge Service)**: Microsserviço Python/FastAPI que executa ingestão e Retrieval RAG. Stateless por chamada — o estado (FlowRun, turn-taking) permanece no `business` (Go). Fala com o `business` por AMQP (ingestão assíncrona + eventos de status) e HTTP interno (retrieval/agent). Só na rede interna do Swarm; nunca exposto à internet.
+**watink-knowledge (Knowledge Service)**: Nome do antigo microsserviço Python/FastAPI que executava ingestão e Retrieval RAG (ADR 0018, superado pelo ADR 0028). Em descomissionamento — o RAG agora roda nativamente no `business` (`internal/knowledge/`). O termo pode aparecer em `KNOWLEDGE_MODE=http` (modo de transição/rollback) e em código/infra ainda não removidos.
 _Avoid_: RAG service (genérico), serviço de IA, knowledge backend
 
-**Ingestion pipeline**: Fluxo `fetch → parse/scrape → chunk → embed → store` que transforma uma KnowledgeBaseSource em KBChunks pesquisáveis. Assíncrono (worker AMQP), idempotente por fonte, com lifecycle de status (`pending→fetching→processing→ready|error`).
+**Ingestion pipeline**: Fluxo `fetch → parse → chunk → embed → store` que transforma uma KnowledgeBaseSource em KBChunks pesquisáveis. Roda em `internal/knowledge/ingest_worker.go`, consumindo AMQP `knowledge.ingest` no próprio processo `business` (não mais um worker separado); idempotente por fonte via hash de conteúdo, com lifecycle de status `pending→processing→ready|error` e um reconciler cron para fontes presas.
 _Avoid_: ingest (isolado), pipeline (genérico), processamento de fonte
 
-**Agent Runtime**: Núcleo único de raciocínio LLM (loop pensa→recupera→responde) com Retrieval RAG como tool e guardrails compartilhados. Exposto de duas formas: o **Agent node** (dentro de um flow) e o **Agente standalone** (futuro). Vive no `watink-knowledge`; o `business` orquestra o turn-taking.
+**Agent Runtime**: Núcleo único de raciocínio LLM (loop pensa→recupera→responde) com Retrieval RAG como tool e guardrails compartilhados. Exposto de três formas: o **Agent node** (dentro de um flow), o **Assistant persona** (plugin "Assistentes de IA") e, no futuro, um Agente standalone. Implementado em `internal/knowledge/agent.go` (`GoAgentResponder`); o `business` orquestra o turn-taking.
 _Avoid_: agente (genérico), bot de IA, LLM loop
 
 **Agent node**: Nó do FlowBuilder que entrega a conversa ao Agent Runtime — atendimento autônomo multi-turno sobre uma KnowledgeBase, suspendendo/retomando em `waiting_message` até resolver ou fazer handoff. Distinto do Knowledge node.
@@ -95,7 +95,7 @@ _Avoid_: nó de IA, nó LLM, chatbot node
 **Knowledge node**: Nó do FlowBuilder que faz **um** lookup RAG controlado (recupera → responde/sugere/busca → avança). `responseMode`: `auto`|`suggest`|`search`. Distinto do Agent node (multi-turno autônomo).
 _Avoid_: nó RAG, nó de conhecimento (genérico)
 
-**S3 Storage Driver**: Abstração S3-compatível (MinIO no dev; R2/AWS S3 em produção) para guardar arquivos de fontes. Config global de sistema (superadmin); isolamento por subpasta `{tenantId}/{kbId}/{sourceId}/`. O `business` faz upload; o `watink-knowledge` baixa para parsing.
+**S3 Storage Driver**: Abstração S3-compatível (MinIO no dev; R2/AWS S3 em produção) para guardar arquivos de fontes. Config global de sistema (superadmin); isolamento por subpasta `{tenantId}/{kbId}/{sourceId}/`. O `business` faz upload e download (`domain.ObjectStore`) — o próprio `IngestWorker` baixa o arquivo para parsing.
 _Avoid_: object store (genérico), bucket, file storage
 
 **Proxy (conexão / anti-ban)**: Proxy de saída (`http`/`socks5`) atrelado a uma conexão WhatsApp, dando a ela um IP próprio para mitigar o sinal de REDE/IP do anti-ban. Senha cifrada at-rest. Distinto do **omniroute** (gateway de IA) e do proxy reverso de infra/SSE.
@@ -113,7 +113,7 @@ _Avoid_: banir proxy, desativar proxy
 **ProxyMode**: Como uma conexão usa proxy: `none` (IP do servidor), `single` (um proxy fixo) ou `group` (tira do ProxyGroup com rotação).
 _Avoid_: tipo de proxy, modo de conexão
 
-**omniroute**: Gateway OpenAI-compatível do tenant (`aiCustomBaseURL`) que roteia chat, embeddings, rerank e web-search para múltiplos provedores. Endpoint único de IA para o `business` e o `watink-knowledge` — usado por embeddings/Retrieval RAG do core. Distinto de **AiGateway** (plugin "Assistentes de IA"): este é plural e plugin-scoped, usado só para completions dos Assistants.
+**omniroute**: Gateway OpenAI-compatível do tenant (`aiCustomBaseURL`) que roteia chat, embeddings, rerank e web-search para múltiplos provedores. Endpoint único de IA para o `business` — usado por `pkg/aiclient` (chat) e `internal/knowledge` (embeddings/Retrieval RAG). Distinto de **AiGateway** (plugin "Assistentes de IA"): este é plural e plugin-scoped, usado só para completions dos Assistants.
 _Avoid_: gateway (genérico), proxy de LLM, OpenRouter
 
 **aiEmbeddingModel**: Setting do tenant (Agente de IA) com o nome do modelo de embedding roteado pelo omniroute (ex.: `openrouter/nvidia/llama-nemotron-embed-vl-1b-v2:free`, 2048 dims). Determina a dimensão do `halfvec`.
@@ -234,10 +234,10 @@ _Avoid_: target, lead de campanha, contato de envio
 **CampaignSuppression**: Lista de exclusão (opt-out) obrigatória para Campaigns — contatos que NÃO devem receber disparos. Consultada antes de materializar CampaignRecipients. O opt-out (PARAR/STOP/SAIR) também aborta FlowRuns ativos.
 _Avoid_: blacklist, denylist, unsubscribe list, lista negra
 
-**KBChunk**: Fragmento indexado de uma KnowledgeBase para Retrieval RAG. Embedding em **`halfvec(2048)`** (HNSW `halfvec_cosine_ops`, pgvector ≥ 0.7), gerado via omniroute, com **`model`+`dim` gravados no chunk** (permite migração de modelo). Tenant-scoped por `WHERE "tenantId"` manual (RLS inerte no serviço).
+**KBChunk**: Fragmento indexado de uma KnowledgeBase para Retrieval RAG. Embedding em **`halfvec(2048)`** (HNSW `halfvec_cosine_ops`, pgvector ≥ 0.7), gerado via omniroute, com **`model`+`dim` gravados no chunk** (permite migração de modelo) e `metadata` (heading, para citação). FK `ON DELETE CASCADE` para `KnowledgeBases`/`KnowledgeBaseSources` — deletar a fonte/base remove os chunks. Tenant-scoped por `WHERE "tenantId"` manual (RLS inerte no worker).
 _Avoid_: chunk (isolado), embedding row, vector, pedaço de KB
 
-**Retrieval RAG**: Recuperação de KBChunks relevantes por similaridade vetorial (`halfvec` HNSW cosine) para fundamentar respostas de IA, tenant+KB-scoped. Guardrails: "responder só do contexto", citação obrigatória da fonte, e handoff humano em baixa confiança (nada acima do `minScore` → "não sei"). Gated por `aiKnowledgeEnabled` (espelha `aiPipelineEnabled`).
+**Retrieval RAG**: Recuperação de KBChunks relevantes por similaridade vetorial (`halfvec` HNSW cosine, com `hnsw.iterative_scan` para o filtro de tenant não starvar o índice) para fundamentar respostas de IA, tenant+KB-scoped. Guardrails: "responder só do contexto", citação obrigatória da fonte, e handoff humano em baixa confiança (nada acima do `minScore` → "não sei"). **Não há gate `aiKnowledgeEnabled`** — apesar de citado em versões antigas desta doc, esse toggle nunca foi implementado; não prometer.
 _Avoid_: busca semântica, RAG (isolado), context injection
 
 **warmupTier**: Nível de aquecimento/reputação de uma conexão WhatsApp, usado como peso na rotação Reputation-weighted LRU de Campaigns. Conexões mais aquecidas recebem maior volume; status real vem do cache de `session.status` (nunca do DB stale).
