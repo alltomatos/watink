@@ -207,6 +207,35 @@ func TestAssistantController_Update_WhatsappBoundActive_DoesNotDuplicateTable(t 
 	assert.False(t, updated.Active)
 }
 
+// TestAssistantRouterController_Create_SameConnection_Succeeds is a
+// regression test for a bug reproduced live in homolog: POST
+// /assistants/:id/router-options returned 400 "router ou target assistant
+// não encontrado" even for a valid router+target pair, because
+// sameConnection() reused the caller's already-queried `db` for a second
+// First() call without Session(NewDB:true) — same bug class fixed in
+// AssistantController.Update earlier in this session.
+func TestAssistantRouterController_Create_SameConnection_Succeeds(t *testing.T) {
+	db := setupPluginTestDB(t)
+	tenantID := uuid.New()
+	whatsappID := 1
+	router := models.Assistant{TenantID: tenantID, Name: "Roteador", Mode: models.AssistantModeRouter, TriggerType: "any", WhatsAppID: &whatsappID}
+	require.NoError(t, db.Create(&router).Error)
+	target := models.Assistant{TenantID: tenantID, Name: "Suporte", Mode: models.AssistantModePersona, TriggerType: "any", WhatsAppID: &whatsappID}
+	require.NoError(t, db.Create(&target).Error)
+	rc := NewAssistantRouterController()
+
+	body := map[string]interface{}{"label": "Suporte", "order": 0, "targetAssistantId": target.ID}
+	c, w := newHandlerTestContext(t, http.MethodPost, "/assistants/x/router-options", body, db, tenantID)
+	c.Params = gin.Params{{Key: "id", Value: itoa(router.ID)}}
+
+	rc.Create(c)
+
+	assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	var count int64
+	db.Model(&models.AssistantRouterOption{}).Where(`"routerAssistantId" = ?`, router.ID).Count(&count)
+	assert.Equal(t, int64(1), count)
+}
+
 func TestAssistantController_Test_PipelineMode_NotifyOnly_ReportsNotTestable(t *testing.T) {
 	db := setupPluginTestDB(t)
 	tenantID := uuid.New()
