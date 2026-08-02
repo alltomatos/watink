@@ -25,3 +25,15 @@ func TestPgVectorRetriever_NoEmbeddingConfig(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "ERR_NO_EMBEDDING_CONFIG")
 }
+
+// clampTopK must never let an externally-supplied topK (POST /query, flow
+// nodes) drive an unbounded slice/LIMIT allocation.
+func TestClampTopK(t *testing.T) {
+	assert.Equal(t, 6, clampTopK(0))
+	assert.Equal(t, 6, clampTopK(-1))
+	assert.Equal(t, 6, clampTopK(-1000000))
+	assert.Equal(t, 10, clampTopK(10))
+	assert.Equal(t, maxTopK, clampTopK(maxTopK))
+	assert.Equal(t, maxTopK, clampTopK(maxTopK+1))
+	assert.Equal(t, maxTopK, clampTopK(1<<30))
+}
