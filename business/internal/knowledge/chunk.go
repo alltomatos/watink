@@ -89,11 +89,44 @@ func splitParagraphs(text string) []string {
 	raw := regexp.MustCompile(`\n\s*\n`).Split(strings.TrimSpace(text), -1)
 	paragraphs := make([]string, 0, len(raw))
 	for _, p := range raw {
-		if t := strings.TrimSpace(p); t != "" {
-			paragraphs = append(paragraphs, t)
+		t := strings.TrimSpace(p)
+		if t == "" {
+			continue
 		}
+		// A "paragraph" here is blank-line-delimited text — for content with
+		// no blank lines at all (a minified JSON blob, a single huge line of
+		// markup, a raw API spec), the whole document is ONE paragraph.
+		// Without this hard split, packParagraphs below has nothing to flush
+		// on (its size check only fires between paragraphs) and would emit
+		// one arbitrarily large chunk — observed in production hitting a
+		// real embedding provider's token ceiling on an OpenAPI JSON source.
+		paragraphs = append(paragraphs, splitOversized(t, chunkMaxChars)...)
 	}
 	return paragraphs
+}
+
+// splitOversized hard-splits text longer than maxChars into maxChars-sized
+// pieces, breaking at the last whitespace before the limit when one exists
+// (avoids cutting mid-word for prose) and falling back to a hard cut
+// otherwise (JSON/minified content has no whitespace to break on).
+func splitOversized(text string, maxChars int) []string {
+	if len(text) <= maxChars {
+		return []string{text}
+	}
+
+	var pieces []string
+	for len(text) > maxChars {
+		cut := maxChars
+		if i := strings.LastIndexAny(text[:maxChars], " \t\n"); i > maxChars/2 {
+			cut = i
+		}
+		pieces = append(pieces, strings.TrimSpace(text[:cut]))
+		text = strings.TrimSpace(text[cut:])
+	}
+	if text != "" {
+		pieces = append(pieces, text)
+	}
+	return pieces
 }
 
 // packParagraphs greedily packs paragraphs into chunks up to maxChars,
