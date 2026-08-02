@@ -174,6 +174,9 @@ func Seed() {
 		{Resource: "pipelines", Action: "create", Description: "Criar Pipelines"},
 		{Resource: "pipelines", Action: "update", Description: "Editar Pipelines"},
 		{Resource: "pipelines", Action: "delete", Description: "Excluir Pipelines"},
+		// knowledgeBases (RAG)
+		{Resource: "knowledgeBases", Action: "read", Description: "Visualizar Bases de Conhecimento e testar recuperação"},
+		{Resource: "knowledgeBases", Action: "manage", Description: "Criar/editar/excluir Bases de Conhecimento e suas fontes"},
 		// flows
 		{Resource: "flows", Action: "read", Description: "Visualizar/gerenciar Flows (Automação)"},
 		{Resource: "flows", Action: "create", Description: "Criar Flows"},
