@@ -66,8 +66,8 @@ module.exports = {
 				message: "<Avatar> size must be one of 'xs' | 'sm' | 'md' | 'lg' | 'xl'.",
 			},
 			{
-				selector: "JSXOpeningElement[name.name='Button'] > JSXAttribute[name.name='variant'] > Literal[value!=/^(?:default|destructive|outline|secondary|ghost|link)$/]",
-				message: "<Button> variant must be one of 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link'.",
+				selector: "JSXOpeningElement[name.name='Button'] > JSXAttribute[name.name='variant'] > Literal[value!=/^(?:default|destructive|outline|secondary|ghost|destructive-ghost|link)$/]",
+				message: "<Button> variant must be one of 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'destructive-ghost' | 'link'.",
 			},
 			{
 				selector: "JSXOpeningElement[name.name='Button'] > JSXAttribute[name.name='size'] > Literal[value!=/^(?:default|sm|lg|icon)$/]",
