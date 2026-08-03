@@ -48,20 +48,22 @@ type Skeleton struct {
 	assistantRuntime AssistantRuntime
 }
 
-// SetRetriever overrides the RAG retriever after construction — used to swap
-// in the native in-process implementation (internal/knowledge.PgVectorRetriever)
-// per KNOWLEDGE_MODE, without changing NewSkeleton's default (HTTP, calling the
-// watink-knowledge service) or any consumer of the Retriever interface. A nil
-// argument is a no-op, so callers can pass through an optional override freely.
+// SetRetriever wires the RAG retriever (internal/knowledge.PgVectorRetriever,
+// built in main.go via knowledge.BuildRetrieverAndResponder) after
+// construction — flow doesn't import internal/knowledge directly (it would
+// cycle back, since knowledge already imports flow), so NewSkeleton starts
+// with a nil retriever and every real construction site sets it right after.
+// A nil argument is a no-op, so callers can pass through an optional override
+// freely; consumers (agent/knowledge executors) already nil-check before use.
 func (s *Skeleton) SetRetriever(r Retriever) {
 	if r != nil {
 		s.retriever = r
 	}
 }
 
-// SetResponder overrides the Agent Runtime responder after construction — same
-// KNOWLEDGE_MODE swap-in as SetRetriever, for the agent node/Assistants persona
-// mode. A nil argument is a no-op.
+// SetResponder wires the Agent Runtime responder after construction — same
+// pattern as SetRetriever, for the agent node/Assistants persona mode. A nil
+// argument is a no-op.
 func (s *Skeleton) SetResponder(r AgentResponder) {
 	if r != nil {
 		s.responder = r
@@ -85,7 +87,7 @@ func NewSkeleton(db *gorm.DB, registry *ChannelRegistry, redis domain.RedisServi
 	if db != nil {
 		ip = NewInterpreter(DefaultExecutorRegistry(), registry, db)
 	}
-	return &Skeleton{db: db, registry: registry, redis: redis, interpreter: ip, retriever: NewHTTPRetrieverFromEnv(), responder: NewHTTPAgentClientFromEnv()}
+	return &Skeleton{db: db, registry: registry, redis: redis, interpreter: ip}
 }
 
 // InboundContext carries everything the runtime needs to resume/start a run for

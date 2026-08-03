@@ -43,9 +43,9 @@ func NewEventListener(sessions domain.ChannelSessionRepository, messages domain.
 	return &EventListener{sessions: sessions, messages: messages, contacts: contacts, tickets: tickets, receiveMessage: rm, broadcast: domain.BroadcastOrNop(broadcast), db: db, flowSkeleton: skeleton}
 }
 
-// ConfigureKnowledge overrides the flow skeleton's RAG retriever/responder
-// (see flow.Skeleton.SetRetriever/SetResponder) — called from main.go right
-// after construction so the KNOWLEDGE_MODE switch applies to the real inbound
+// ConfigureKnowledge wires the flow skeleton's RAG retriever/responder (see
+// flow.Skeleton.SetRetriever/SetResponder) — called from main.go right after
+// construction so the native pgvector RAG applies to the real inbound
 // WhatsApp message path, not just the on-demand endpoints wired in routes.go.
 func (el *EventListener) ConfigureKnowledge(retriever flow.Retriever, responder flow.AgentResponder) {
 	el.flowSkeleton.SetRetriever(retriever)

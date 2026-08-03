@@ -94,14 +94,6 @@ services:
       # Dev: o gateway de IA (omniroute) roda no host em localhost:20128; de dentro
       # do container isso vira host.docker.internal (aiclient.rewriteDevHost).
       - AI_BASEURL_HOST_REWRITE=host.docker.internal
-      - KNOWLEDGE_SERVICE_URL=http://watink-knowledge:8085
-      - INTERNAL_TOKEN=${INTERNAL_TOKEN:-dev_internal_token_change_in_prod}
-      # KNOWLEDGE_MODE: "native" usa o RAG em Go embutido no business
-      # (internal/knowledge — sem o microsserviço watink-knowledge); qualquer
-      # outro valor (ou ausente) mantém o comportamento atual, chamando
-      # watink-knowledge via HTTP. Troque para "native" só depois de validar
-      # em dev — rollback é instantâneo (mudar a env, sem rebuild).
-      - KNOWLEDGE_MODE=${KNOWLEDGE_MODE:-http}
       # Token do control plane Watink SaaS (Trilha A, docs/integration-core.md §1).
       # Fail-closed: vazio → /api/v1/internal/saas/* responde 503 e nada muda para
       # quem não usa o SaaS. Segredo distinto do INTERNAL_TOKEN (blast radius
@@ -241,151 +233,6 @@ services:
     restart: on-failure
     stop_grace_period: 10s
 
-  watink-knowledge:
-    build:
-      context: ./watink-knowledge
-      dockerfile: Dockerfile.dev
-    container_name: watink-knowledge
-    ports:
-      - "8085:8085"
-    environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASS=${DB_PASS:-watink_secret_pass}
-      - DB_NAME=watink
-      - AMQP_URL=amqp://guest:guest@rabbitmq:5672
-      - INTERNAL_TOKEN=${INTERNAL_TOKEN:-dev_internal_token_change_in_prod}
-      - OMNIROUTE_HOST_REWRITE=host.docker.internal
-      # Embedding: dimensão do índice halfvec. EMBED_DIMENSIONS>0 envia `dimensions`
-      # no payload (truncagem MRL) — usado p/ encaixar modelos como qwen3-embedding
-      # (Ollama, nativo 2560) no índice halfvec(2048). 0 = não envia (nemotron 2048 nativo).
-      - EMBED_DIM=${EMBED_DIM:-2048}
-      - EMBED_DIMENSIONS=${EMBED_DIMENSIONS:-0}
-      # Firecrawl (web scraping de fontes `url`). Aponta para o serviço Firecrawl real
-      # (mesmo de produção). O self-hosted não exige key — FIRECRAWL_API_KEY é opcional.
-      - FIRECRAWL_URL=${FIRECRAWL_URL:-http://firecrawl:3002}
-      - FIRECRAWL_API_KEY=${FIRECRAWL_API_KEY:-}
-      - S3_ENDPOINT=minio:9000
-      - S3_BUCKET=watink-knowledge
-      - S3_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
-      - S3_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
-      - S3_USE_SSL=false
-      - S3_REGION=us-east-1
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-    volumes:
-      - ./watink-knowledge:/app
-    networks:
-      - watink_net
-    restart: unless-stopped
-
-  # ──────────────────────────────────────────────
-  # Firecrawl — scraper REAL para fontes `url` da Base de Conhecimento (RAG).
-  # Mesmo serviço que roda em produção (lá via Swarm; aqui via compose standalone).
-  # 100% imagens publicadas no GHCR (org `firecrawl`) — sem build-from-source.
-  # Infra DEDICADA (firecrawl-redis/rabbitmq/nuq-postgres) para NÃO colidir com o
-  # Redis (keyspace wbot:), o RabbitMQ (contratos wbot.<tenant>) e o Postgres do
-  # Watink. O watink-knowledge alcança em http://firecrawl:3002 (rede watink_net).
-  # Subir só este stack:  docker compose -f docker-compose.dev.yml up -d firecrawl
-  # ──────────────────────────────────────────────
-  firecrawl:
-    image: ghcr.io/firecrawl/firecrawl:2.10.14   # pin de versão (latest é mutável)
-    container_name: watink-firecrawl
-    command: ["node", "dist/src/harness.js", "--start-docker"]
-    ports:
-      - "3002:3002"   # API /v1/scrape (interno: firecrawl:3002)
-    environment:
-      - PORT=3002
-      - INTERNAL_PORT=3002
-      - HOST=0.0.0.0
-      - USE_DB_AUTHENTICATION=false          # self-host sem Supabase (bypass de auth)
-      - REDIS_URL=redis://firecrawl-redis:6379
-      - REDIS_RATE_LIMIT_URL=redis://firecrawl-redis:6379
-      - PLAYWRIGHT_MICROSERVICE_URL=http://firecrawl-playwright:3000/scrape
-      # Postgres da fila NUQ — o harness deriva NUQ_DATABASE_URL dos POSTGRES_*
-      # (POSTGRES_HOST != localhost). Issue #2384: harness.ts tem postgres/postgres
-      # hardcoded — manter exatamente assim, senão o worker crasha no boot.
-      - POSTGRES_HOST=firecrawl-nuq-postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_DB=postgres
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - NUQ_RABBITMQ_URL=amqp://guest:guest@firecrawl-rabbitmq:5672
-      - NUM_WORKERS_PER_QUEUE=4
-      - BULL_AUTH_KEY=${FIRECRAWL_BULL_AUTH_KEY:-CHANGEME}
-      - OPENAI_API_KEY=                       # opcional; scrape básico não precisa
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    depends_on:
-      firecrawl-redis:
-        condition: service_started
-      firecrawl-playwright:
-        condition: service_started
-      firecrawl-nuq-postgres:
-        condition: service_healthy
-      firecrawl-rabbitmq:
-        condition: service_healthy   # mitiga ECONNREFUSED 5672 no cold start (#2583)
-    networks:
-      - watink_net
-    restart: unless-stopped
-
-  firecrawl-playwright:
-    image: ghcr.io/firecrawl/playwright-service:latest
-    container_name: watink-firecrawl-playwright
-    environment:
-      - PORT=3000
-      - MAX_CONCURRENT_PAGES=4
-      - BLOCK_MEDIA=true
-    shm_size: 2gb   # Chromium crasha com /dev/shm padrão (64MB)
-    networks:
-      - watink_net
-    restart: unless-stopped
-
-  firecrawl-redis:
-    image: redis:alpine
-    container_name: watink-firecrawl-redis
-    command: ["redis-server", "--bind", "0.0.0.0"]
-    networks:
-      - watink_net
-    restart: unless-stopped
-
-  firecrawl-rabbitmq:
-    image: rabbitmq:3-management
-    container_name: watink-firecrawl-rabbitmq
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
-      interval: 5s
-      timeout: 10s
-      retries: 12
-    networks:
-      - watink_net
-    restart: unless-stopped
-
-  firecrawl-nuq-postgres:
-    image: ghcr.io/firecrawl/nuq-postgres:latest
-    container_name: watink-firecrawl-nuq-postgres
-    environment:
-      - POSTGRES_USER=postgres       # casar com o api (harness hardcoded, #2384)
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=postgres
-    # SEM `ports:` — NUNCA expor (vetor de cryptominer, #2528/#2384).
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 12
-    volumes:
-      - firecrawl_nuq_pgdata:/var/lib/postgresql/data
-    networks:
-      - watink_net
-    restart: unless-stopped
-
   # Ollama — embedding self-hosted para a Base de Conhecimento (RAG). OPT-IN:
   # só sobe com `docker compose --profile ollama up -d` (não no `up` padrão).
   # Alternativa ao embedding via omniroute/naga: local, grátis, privado, sem créditos.
@@ -436,7 +283,6 @@ volumes:
   engine_go_cache:
   business_go_mod:
   business_go_cache:
-  firecrawl_nuq_pgdata:
   ollama_models:
   minio_data:
   frontend_node_modules:

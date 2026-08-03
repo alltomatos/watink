@@ -115,13 +115,10 @@ func main() {
 		Engines: container.SessionService,
 	}))
 
-	// KNOWLEDGE_MODE selects the RAG implementation: "native" runs the
-	// in-process pgvector pipeline (internal/knowledge), anything else keeps
-	// calling the watink-knowledge microservice over HTTP (the default during
-	// the migration window — instant rollback via env change, no redeploy).
-	// Built once and shared with every Skeleton below so the real inbound
-	// WhatsApp path and the on-demand/playground endpoints never disagree.
-	ragRetriever, ragResponder := knowledge.BuildRetrieverAndResponder(os.Getenv(knowledge.ModeEnvVar), database.DB)
+	// RAG: native in-process pgvector pipeline (internal/knowledge). Built
+	// once and shared with every Skeleton below so the real inbound WhatsApp
+	// path and the on-demand/playground endpoints never disagree.
+	ragRetriever, ragResponder := knowledge.BuildRetrieverAndResponder(database.DB)
 
 	// FlowBuilder FASE 1: the inbound seam is plugged into the EventListener
 	// (NewEventListener wires flow.NewSkeleton with the interpreter+registry),
@@ -134,24 +131,22 @@ func main() {
 	if err := rabbitMQ.Connect(); err == nil {
 		services.StartEventListener(rabbitMQ, eventListener)
 
-		if os.Getenv(knowledge.ModeEnvVar) == "native" {
-			// Native ingestion worker + stuck-source reconciler replace the
-			// watink-knowledge Python consumer entirely in this mode.
-			ingestWorker := knowledge.NewIngestWorker(database.DB, rabbitMQ, s3Store)
-			if err := ingestWorker.Start(); err != nil {
-				log.Printf("[knowledge] ingest worker: %v", err)
-			}
-			reconciler := knowledge.NewReconciler(database.DB, redisSvc)
-			go reconciler.Start(context.Background())
-		} else {
-			// Knowledge Base RAG: consume ingestion status events from
-			// watink-knowledge (knowledge.events) and reflect them onto the
-			// source rows + broadcast to the tenant. Only needed in "http"
-			// mode — the native worker publishes and reflects status itself.
-			knowledgeStatus := services.NewKnowledgeStatusListener(container.DB, container.Broadcast)
-			if err := knowledgeStatus.Start(rabbitMQ); err != nil {
-				log.Printf("[knowledge] status listener: %v", err)
-			}
+		// Ingestion worker (fetch→parse→chunk→embed→store) + stuck-source
+		// reconciler.
+		ingestWorker := knowledge.NewIngestWorker(database.DB, rabbitMQ, s3Store)
+		if err := ingestWorker.Start(); err != nil {
+			log.Printf("[knowledge] ingest worker: %v", err)
+		}
+		reconciler := knowledge.NewReconciler(database.DB, redisSvc)
+		go reconciler.Start(context.Background())
+
+		// Consumes the ingest worker's own status events (knowledge.events)
+		// and reflects them onto the source rows + broadcasts to the tenant
+		// over SSE — a separate consumer so the worker's hot path never
+		// blocks on Broadcaster delivery.
+		knowledgeStatus := services.NewKnowledgeStatusListener(container.DB, container.Broadcast)
+		if err := knowledgeStatus.Start(rabbitMQ); err != nil {
+			log.Printf("[knowledge] status listener: %v", err)
 		}
 	} else {
 		log.Printf("⚠️ Warning: RabbitMQ connection failed: %v", err)

@@ -105,17 +105,8 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
       - PROXY_ENC_KEY=${PROXY_ENC_KEY}
-      - INTERNAL_TOKEN=${INTERNAL_TOKEN}
       - PLUGIN_MANAGER_INTERNAL_TOKEN=${PLUGIN_MANAGER_INTERNAL_TOKEN}
       - DOCS_PUBLIC=false
-      # RAG nativo (ADR 0028): "native" usa o pipeline embutido no business
-      # (internal/knowledge), "http"/ausente mantém as chamadas ao
-      # watink-knowledge (não deployado neste compose — não confundir com o
-      # nome do bucket S3 acima, que é só um identificador de storage).
-      # Default seguro: http, até validar "native" em homolog primeiro.
-      # Trocar para native é uma mudança de .env, não de código — sem
-      # rebuild, restart do watink-business já basta.
-      - KNOWLEDGE_MODE=${KNOWLEDGE_MODE:-http}
       # Object store da Base de Conhecimento (upload/download de fontes de
       # arquivo). Antes desta config, docker-compose.prod.yml não tinha
       # MinIO/S3 nenhum e o upload de arquivo respondia "object store não

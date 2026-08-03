@@ -21,7 +21,7 @@ type RouteRabbitMQ interface {
 }
 
 // SetupRoutes wires all HTTP routes. ragRetriever/ragResponder are the
-// KNOWLEDGE_MODE-selected RAG implementation (built once in main.go via
+// native pgvector RAG (built once in main.go via
 // knowledge.BuildRetrieverAndResponder and shared with the EventListener's
 // flow.Skeleton too, so the on-demand endpoints here and the real inbound
 // WhatsApp message path never disagree about which implementation answers a

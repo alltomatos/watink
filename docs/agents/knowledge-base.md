@@ -40,17 +40,17 @@ o worker Python bloqueava `/retrieve` durante qualquer ingestão pesada).
 | `chunk.go` | Chunking estrutural (heading/parágrafo + overlap) |
 | `ingest_worker.go` | Consumer AMQP `knowledge.ingest`, orquestra fetch→parse→chunk→embed→store |
 | `reconciler.go` | Cron (leader-lock Redis) marcando `error` fontes presas além de um TTL |
-| `wiring.go` | `BuildRetrieverAndResponder(mode, db)` — o switch `KNOWLEDGE_MODE` |
+| `wiring.go` | `BuildRetrieverAndResponder(db)` — constrói o retriever/responder nativos |
 
-### Modo de transição (`KNOWLEDGE_MODE`)
+### Wiring único (pós-descomissionamento)
 
-`KNOWLEDGE_MODE=native|http` (default `http` até a validação em produção terminar).
-`native` usa as implementações acima; `http` mantém as chamadas ao antigo microsserviço
-Python (em descomissionamento). A decisão é tomada **uma vez em `main.go`** e propagada
-para os dois `flow.Skeleton` existentes — `EventListener` (mensagens reais do WhatsApp) e
-`routes.go` (endpoints on-demand/playground) — via `Skeleton.SetRetriever`/`SetResponder`,
-para as duas entradas nunca divergirem sobre qual implementação responde. Rollback é
-trivial: troca de env, sem redeploy de código.
+O antigo microsserviço Python (`watink-knowledge/`) e o modo de transição
+`KNOWLEDGE_MODE=http` foram removidos após validação em produção — `internal/knowledge`
+é a única implementação de RAG. A construção acontece **uma vez em `main.go`** e é
+propagada para os dois `flow.Skeleton` existentes — `EventListener` (mensagens reais do
+WhatsApp) e `routes.go` (endpoints on-demand/playground) — via
+`Skeleton.SetRetriever`/`SetResponder`, para as duas entradas nunca divergirem sobre qual
+implementação responde.
 
 ---
 
@@ -169,15 +169,15 @@ routing: knowledge.<tenant>.status
 { tenantId, sourceId, status, lastError, chunkCount }
 → KnowledgeStatusListener atualiza a Source + emite SSE (Broadcaster) p/ a UI.
 ```
-Em modo `http`, o `KnowledgeStatusListener` continua consumindo os eventos publicados pelo
-serviço Python legado — a UI não percebe diferença entre os dois modos.
+`KnowledgeStatusListener` roda como um consumidor separado (não no hot path do worker) só
+para não bloquear a ingestão na entrega do Broadcaster.
 
-### Retrieval / Agent (in-process em modo `native`; HTTP em modo `http`)
+### Retrieval / Agent (in-process)
 
-Os dois caminhos continuam expostos pelas mesmas interfaces Go (`flow.Retriever`,
-`flow.AgentResponder`) — só a implementação por trás muda com `KNOWLEDGE_MODE`. Nenhum
-consumidor (`knowledge_executor.go`, `agent_executor.go`, `assistant_persona.go`) precisa
-saber qual modo está ativo.
+Os dois caminhos são expostos pelas mesmas interfaces Go (`flow.Retriever`,
+`flow.AgentResponder`), implementadas nativamente em `internal/knowledge`. Nenhum
+consumidor (`knowledge_executor.go`, `agent_executor.go`, `assistant_persona.go`) depende
+da implementação concreta — só da interface.
 
 O Agent Runtime (`GoAgentResponder`) preserva o protocolo do design anterior: o LLM emite a
 `action` via tag de controle `[[ACTION:continue|resolved|handoff]]` (parseada e removida da
