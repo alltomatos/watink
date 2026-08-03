@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
     Select,
     SelectContent,
@@ -27,6 +28,7 @@ import {
     deleteAssistant,
     duplicateAssistant,
     listAssistants,
+    updateAssistant,
 } from "../../services/assistantService";
 
 const MODE_LABELS: Record<Assistant["mode"], string> = {
@@ -45,6 +47,7 @@ const Assistants: React.FC = () => {
     const [assistantToDelete, setAssistantToDelete] = useState<Assistant | null>(null);
     const [sortBy, setSortBy] = useLocalStorage<AssistantSortOption>("assistantsSortBy", "name");
     const [searchTerm, setSearchTerm] = useState("");
+    const [togglingId, setTogglingId] = useState<number | null>(null);
 
     useEffect(() => {
         fetchAssistants();
@@ -89,6 +92,27 @@ const Assistants: React.FC = () => {
             fetchAssistants();
         } catch {
             toast.error("Erro ao duplicar assistente");
+        }
+    };
+
+    const handleToggleActive = async (assistant: Assistant) => {
+        const nextActive = !assistant.active;
+        setTogglingId(assistant.id);
+        // Otimista: reflete na hora, reverte se a API rejeitar (ex.: já existe
+        // outro assistant ativo nessa conexão sem "permitir múltiplos").
+        setAssistants((prev) => prev.map((a) => (a.id === assistant.id ? { ...a, active: nextActive } : a)));
+        try {
+            const { id, createdAt: _createdAt, updatedAt: _updatedAt, ...rest } = assistant;
+            await updateAssistant(id, { ...rest, active: nextActive });
+            toast.success(nextActive ? "Assistente ativado!" : "Assistente desativado!");
+        } catch (err) {
+            setAssistants((prev) => prev.map((a) => (a.id === assistant.id ? { ...a, active: !nextActive } : a)));
+            const message =
+                (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+                "Erro ao alterar status do assistente";
+            toast.error(message);
+        } finally {
+            setTogglingId(null);
         }
     };
 
@@ -243,15 +267,22 @@ const Assistants: React.FC = () => {
                                         >
                                             {MODE_LABELS[assistant.mode]}
                                         </Badge>
-                                        <span
-                                            className={
-                                                assistant.active
-                                                    ? "text-[11px] text-emerald-600 font-medium"
-                                                    : "text-[11px] text-muted-foreground"
-                                            }
-                                        >
-                                            {assistant.active ? "Ativo" : "Inativo"}
-                                        </span>
+                                        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                            <span
+                                                className={
+                                                    assistant.active
+                                                        ? "text-[11px] text-emerald-600 font-medium"
+                                                        : "text-[11px] text-muted-foreground"
+                                                }
+                                            >
+                                                {assistant.active ? "Ativo" : "Inativo"}
+                                            </span>
+                                            <Switch
+                                                checked={assistant.active}
+                                                disabled={togglingId === assistant.id}
+                                                onCheckedChange={() => handleToggleActive(assistant)}
+                                            />
+                                        </div>
                                     </div>
                                 </CardContent>
                             </Card>

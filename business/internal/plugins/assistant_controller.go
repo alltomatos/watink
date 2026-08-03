@@ -8,10 +8,12 @@ import (
 	"strconv"
 
 	"github.com/alltomatos/watinkdev/business/internal/flow"
+	"github.com/alltomatos/watinkdev/business/internal/knowledge"
 	"github.com/alltomatos/watinkdev/business/internal/models"
 	"github.com/alltomatos/watinkdev/business/pkg/auth"
 	"github.com/alltomatos/watinkdev/business/pkg/utils"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -45,6 +47,7 @@ func toAssistantResponse(a models.Assistant) gin.H {
 		"closingMessage":            a.ClosingMessage,
 		"stopOnHumanReply":          a.StopOnHumanReply,
 		"ignoreGroups":              a.IgnoreGroups,
+		"groupsMode":                a.GroupsMode,
 		"active":                    a.Active,
 		"createdAt":                 a.CreatedAt,
 		"updatedAt":                 a.UpdatedAt,
@@ -102,6 +105,7 @@ type assistantInput struct {
 	ClosingMessage            *string         `json:"closingMessage"`
 	StopOnHumanReply          *bool           `json:"stopOnHumanReply"`
 	IgnoreGroups              *bool           `json:"ignoreGroups"`
+	GroupsMode                string          `json:"groupsMode"`
 	Active                    *bool           `json:"active"`
 }
 
@@ -249,6 +253,14 @@ func (ac *AssistantController) Create(c *gin.Context) {
 	if triggerType == "" {
 		triggerType = "any"
 	}
+	groupsMode := in.GroupsMode
+	if groupsMode == "" {
+		groupsMode = models.AssistantGroupsModeLegacy
+	}
+	if !models.ValidAssistantGroupsModes[groupsMode] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "groupsMode inválido: use legacy ou selective"})
+		return
+	}
 
 	a := models.Assistant{
 		TenantID: tenantID, Name: in.Name, Description: in.Description,
@@ -258,7 +270,7 @@ func (ac *AssistantController) Create(c *gin.Context) {
 		SessionExpiryMinutes: in.SessionExpiryMinutes, TypingDelayMs: in.TypingDelayMs,
 		DebounceSeconds: in.DebounceSeconds, EndKeyword: in.EndKeyword,
 		ExpiryMessage: in.ExpiryMessage, ClosingMessage: in.ClosingMessage,
-		StopOnHumanReply: stopOnHumanReply, IgnoreGroups: ignoreGroups, Active: active,
+		StopOnHumanReply: stopOnHumanReply, IgnoreGroups: ignoreGroups, GroupsMode: groupsMode, Active: active,
 	}
 
 	err := db.Transaction(func(tx *gorm.DB) error {
@@ -318,6 +330,14 @@ func (ac *AssistantController) Update(c *gin.Context) {
 	if in.IgnoreGroups != nil {
 		ignoreGroups = *in.IgnoreGroups
 	}
+	groupsMode := existing.GroupsMode
+	if in.GroupsMode != "" {
+		groupsMode = in.GroupsMode
+	}
+	if !models.ValidAssistantGroupsModes[groupsMode] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "groupsMode inválido: use legacy ou selective"})
+		return
+	}
 
 	fields := map[string]interface{}{
 		"name": in.Name, "description": in.Description,
@@ -327,10 +347,15 @@ func (ac *AssistantController) Update(c *gin.Context) {
 		"sessionExpiryMinutes": in.SessionExpiryMinutes, "typingDelayMs": in.TypingDelayMs,
 		"debounceSeconds": in.DebounceSeconds, "endKeyword": in.EndKeyword,
 		"expiryMessage": in.ExpiryMessage, "closingMessage": in.ClosingMessage,
-		"stopOnHumanReply": stopOnHumanReply, "ignoreGroups": ignoreGroups, "active": active,
+		"stopOnHumanReply": stopOnHumanReply, "ignoreGroups": ignoreGroups, "groupsMode": groupsMode, "active": active,
 	}
 
-	err := db.Transaction(func(tx *gorm.DB) error {
+	// Session(NewDB:true): db já foi usado acima em Where/First(&existing) —
+	// reusar sem isolar aqui carrega o Statement dessa query pra dentro da
+	// transação, e assertConnectionAvailable's tx.Model(&models.Assistant{})
+	// duplica a referência à tabela ("table name \"Assistants\" specified
+	// more than once", SQLSTATE 42712 — reproduzido ao vivo em homolog).
+	err := db.Session(&gorm.Session{NewDB: true}).Transaction(func(tx *gorm.DB) error {
 		if err := assertConnectionAvailable(tx, tenantID, in.WhatsAppID, in.AllowMultipleOnConnection, active, id); err != nil {
 			return err
 		}
@@ -351,11 +376,155 @@ func (ac *AssistantController) Update(c *gin.Context) {
 		utils.RespondWithInternalError(c, err, "UpdateAssistant")
 		return
 	}
-	_ = db.Where(`id = ? AND "tenantId" = ?`, id, tenantID).First(&existing).Error
+	_ = db.Session(&gorm.Session{NewDB: true}).Where(`id = ? AND "tenantId" = ?`, id, tenantID).First(&existing).Error
 	c.JSON(http.StatusOK, toAssistantResponse(existing))
 }
 
 // Delete removes an Assistant and any router options where it is the router.
+// testAssistantDefaultMessage mirrors testGatewayDefaultMessage's intent —
+// short, cheap, distinctive enough to spot a truncated/wrong reply.
+const testAssistantDefaultMessage = "Olá, isso é um teste. Pode responder normalmente?"
+
+// Test runs a REAL turn against the Assistant, mode-aware — never fakes a
+// reply for a mode that doesn't generate one:
+//   - persona (and pipeline with respondsAfterProactive): calls the SAME
+//     watink-knowledge Agent Runtime endpoint used in production
+//     (flow.HTTPAgentClient.Respond), with the Assistant's real persona +
+//     knowledge base. No ticket/FlowRun needed — this bypasses WhatsApp
+//     delivery entirely and just returns the reply text.
+//   - router: no LLM call at all — returns the exact menu text the
+//     Assistant would send on first contact (deterministic, real).
+//   - flow: delegates 100% to another Flow — there's no text reply to
+//     generate here without running that Flow, so this reports that
+//     honestly instead of faking success.
+func (ac *AssistantController) Test(c *gin.Context) {
+	db, tenantID, ok := auth.GetScoped(c, "Assistants")
+	if !ok {
+		return
+	}
+	id, _ := strconv.Atoi(c.Param("id"))
+	var a models.Assistant
+	if err := db.Where(`id = ? AND "tenantId" = ?`, id, tenantID).First(&a).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "assistant não encontrado"})
+		return
+	}
+
+	var body struct {
+		Message string `json:"message"`
+	}
+	_ = c.ShouldBindJSON(&body)
+	message := body.Message
+	if message == "" {
+		message = testAssistantDefaultMessage
+	}
+	if _, err := utils.ValidateStringField(message, "message", 2000); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	switch a.Mode {
+	case models.AssistantModeRouter:
+		var options []models.AssistantRouterOption
+		// Session(NewDB:true): db já vem encadeado do GetScoped acima (usado
+		// em First(&a) logo antes) — reusar sem isolar aqui acumula condições
+		// do primeiro Where/First e a segunda query casa a tabela errada
+		// (CLAUDE.md "Multitenancy no core", armadilhas.md).
+		if err := db.Session(&gorm.Session{NewDB: true}).Where(`"routerAssistantId" = ? AND "tenantId" = ?`, a.ID, tenantID).
+			Order(`"order" ASC`).Find(&options).Error; err != nil {
+			utils.RespondWithInternalError(c, err, "TestAssistantRouter")
+			return
+		}
+		if len(options) == 0 {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "assistant router sem opções cadastradas"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"mode": models.AssistantModeRouter, "reply": buildRouterMenu(options)})
+		return
+
+	case models.AssistantModeFlow:
+		c.JSON(http.StatusOK, gin.H{
+			"mode":     models.AssistantModeFlow,
+			"testable": false,
+			"message":  "Modo Flow delega a conversa inteira a outro fluxo — não há resposta de texto própria para testar aqui. Teste o fluxo alvo diretamente no FlowBuilder.",
+		})
+		return
+
+	case models.AssistantModePersona:
+		var cfg models.AssistantPersonaConfig
+		if len(a.Config) > 0 {
+			_ = json.Unmarshal(a.Config, &cfg)
+		}
+		ac.testPersona(c, db, tenantID, cfg, message)
+		return
+
+	case models.AssistantModePipeline:
+		var cfg models.AssistantPipelineConfig
+		if len(a.Config) > 0 {
+			_ = json.Unmarshal(a.Config, &cfg)
+		}
+		if !cfg.RespondsAfterProactive {
+			c.JSON(http.StatusOK, gin.H{
+				"mode":     models.AssistantModePipeline,
+				"testable": false,
+				"message":  "Este assistant só notifica proativamente (respondsAfterProactive desligado) — não há resposta de texto própria para testar.",
+			})
+			return
+		}
+		ac.testPersona(c, db, tenantID, models.AssistantPersonaConfig{
+			Persona: cfg.Persona, KnowledgeBaseID: cfg.KnowledgeBaseID, MaxTurns: cfg.MaxTurns,
+			AiGatewayID: cfg.AiGatewayID, RagFallbackBehavior: cfg.RagFallbackBehavior,
+			RagFallbackMessage: cfg.RagFallbackMessage,
+		}, message)
+		return
+
+	default:
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "modo desconhecido"})
+	}
+}
+
+// testPersona is the shared real-call path for persona (and
+// respondsAfterProactive pipeline) — same Agent Runtime implementation the
+// production runtime uses (assistant_persona.go), single-turn, no history.
+// Builds the responder via knowledge.BuildRetrieverAndResponder — same native
+// pgvector RAG every other entry point uses (routes.go, EventListener); do
+// not hardcode a different implementation here (it used to call
+// flow.NewHTTPAgentClientFromEnv() directly against the now-decommissioned
+// watink-knowledge service, silently diverging from production behavior).
+func (ac *AssistantController) testPersona(c *gin.Context, db *gorm.DB, tenantID uuid.UUID, cfg models.AssistantPersonaConfig, message string) {
+	if cfg.KnowledgeBaseID == nil || *cfg.KnowledgeBaseID == 0 {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "configure uma Base de Conhecimento para testar este assistant"})
+		return
+	}
+
+	_, responder := knowledge.BuildRetrieverAndResponder(db)
+	reply, err := responder.Respond(c.Request.Context(), tenantID, *cfg.KnowledgeBaseID, cfg.Persona, nil, message)
+	if err != nil {
+		// 200 (não 502/504) de propósito: esta é uma resposta de "resultado
+		// de teste" válida, não um erro de transporte da nossa API — usar um
+		// status 5xx aqui faz o Cloudflare (na frente do domínio) substituir
+		// o corpo JSON pela página de erro genérica dele, escondendo a
+		// mensagem real (watink-knowledge indisponível, timeout etc.) do
+		// usuário. O cliente decide sucesso/falha pelo campo "success".
+		c.JSON(http.StatusOK, gin.H{
+			"mode":     models.AssistantModePersona,
+			"testable": true,
+			"success":  false,
+			"error":    err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"mode":       models.AssistantModePersona,
+		"testable":   true,
+		"success":    true,
+		"reply":      reply.Reply,
+		"action":     reply.Action,
+		"confidence": reply.Confidence,
+		"citations":  reply.Citations,
+	})
+}
+
 func (ac *AssistantController) Delete(c *gin.Context) {
 	db, tenantID, ok := auth.GetScoped(c, "Assistants")
 	if !ok {
@@ -365,6 +534,13 @@ func (ac *AssistantController) Delete(c *gin.Context) {
 
 	err := db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where(`"routerAssistantId" = ? AND "tenantId" = ?`, id, tenantID).Delete(&models.AssistantRouterOption{}).Error; err != nil {
+			return err
+		}
+		// AssistantGroup has a FK to Assistant with no cascade — found live
+		// in homolog: deleting an Assistant with any group visibility row
+		// failed with a foreign key violation (23503) because this delete
+		// was missing, same class of bug as the router options above.
+		if err := tx.Where(`"assistantId" = ? AND "tenantId" = ?`, id, tenantID).Delete(&models.AssistantGroup{}).Error; err != nil {
 			return err
 		}
 		if err := deleteSyntheticFlow(tx, tenantID, id); err != nil {

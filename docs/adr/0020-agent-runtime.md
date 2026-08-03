@@ -24,3 +24,7 @@ O runtime vive no `watink-knowledge` (ver ADR 0018). Mantém-se o **nó `knowled
 - **Reaproveita a Fase 1 do FlowBuilder:** o nó `agent` é mais um executor que suspende/retoma em `FlowRun`.
 - **Guardrails e RAG centralizados:** uma fonte de verdade para "responder só do contexto / citar / handoff em baixa confiança".
 - **Dois nós a manter (`knowledge` vs `agent`):** distinção documentada (1 turno controlado vs multi-turno autônomo) para não confundir o autor do flow.
+
+## Atualização — 2026-08-02 (ADR 0028)
+
+O **ADR 0028** internaliza o RAG (e o Agent Runtime) no core Go. A frase "o runtime vive no `watink-knowledge`" acima é histórica: o runtime agora vive em `internal/knowledge/agent.go` (`GoAgentResponder`), implementando a mesma interface `flow.AgentResponder` — mesmo protocolo `[[ACTION:continue|resolved|handoff]]`, mesmos guardrails, sem mudança em `agent_executor.go`. A alternativa "Agent loop em Go" descartada acima deixa de se aplicar: o motivo da rejeição (ecossistema Go fraco para parsing/RAG) não se sustentou como custo maior que manter dois processos — ver ADR 0028 para o raciocínio completo. A distinção entre nó `knowledge` (1 turno) e nó `agent` (multi-turno) permanece inalterada.

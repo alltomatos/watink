@@ -13,9 +13,11 @@ import (
 )
 
 // KnowledgeStatusListener consumes ingestion status events emitted by the
-// watink-knowledge microservice on the knowledge.events exchange and reflects
-// them onto the KnowledgeBaseSources row, then broadcasts the change to the
-// owning tenant.
+// native ingest worker (internal/knowledge.IngestWorker.publishStatus) on the
+// knowledge.events exchange and reflects them onto the KnowledgeBaseSources
+// row, then broadcasts the change to the owning tenant over SSE. A separate
+// consumer from the worker itself so the ingestion hot path never blocks on
+// Broadcaster delivery.
 //
 // Tenant isolation: RLS is INERT in this worker path (the app never sets
 // app.current_tenant), so every write carries WHERE "tenantId" MANUALLY and

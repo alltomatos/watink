@@ -3,8 +3,10 @@ package plugins
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/alltomatos/watinkdev/business/internal/models"
+	"github.com/alltomatos/watinkdev/business/pkg/aiclient"
 	"github.com/alltomatos/watinkdev/business/pkg/auth"
 	"github.com/alltomatos/watinkdev/business/pkg/cryptobox"
 	"github.com/alltomatos/watinkdev/business/pkg/utils"
@@ -187,6 +189,83 @@ func (ac *AiGatewayController) Update(c *gin.Context) {
 	}
 	_ = db.Session(&gorm.Session{NewDB: true}).Where(`id = ? AND "tenantId" = ?`, id, tenantID).First(&existing).Error
 	c.JSON(http.StatusOK, toAiGatewayResponse(existing))
+}
+
+// testGatewayDefaultMessage is sent when the request body omits `message` —
+// short enough to be cheap on every provider's pricing, distinctive enough
+// that a wrong/truncated reply is obvious in the UI.
+const testGatewayDefaultMessage = "Responda apenas com a palavra 'ok' para confirmar que a conexão está funcionando."
+
+// Test performs a REAL completion call against the gateway's configured
+// provider/model/baseURL using the stored (decrypted) API key — not a
+// connectivity ping, an actual chat completion, so a wrong model name, an
+// expired key or a wrong baseURL surface here exactly as they would during
+// a real Assistant run. Never persists anything; safe to call repeatedly.
+func (ac *AiGatewayController) Test(c *gin.Context) {
+	db, tenantID, ok := auth.GetScoped(c, "AiGateways")
+	if !ok {
+		return
+	}
+	id, _ := strconv.Atoi(c.Param("id"))
+	var g models.AiGateway
+	if err := db.Where(`id = ? AND "tenantId" = ?`, id, tenantID).First(&g).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "gateway de IA não encontrado"})
+		return
+	}
+	if !g.HasApiKey() {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "gateway sem API Key configurada"})
+		return
+	}
+
+	var body struct {
+		Message string `json:"message"`
+	}
+	_ = c.ShouldBindJSON(&body)
+	message := body.Message
+	if message == "" {
+		message = testGatewayDefaultMessage
+	}
+	if _, err := utils.ValidateStringField(message, "message", 2000); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	apiKey, err := cryptobox.Decrypt(g.ApiKeyEnc)
+	if err != nil {
+		utils.RespondWithInternalError(c, err, "DecryptAiGatewayApiKey")
+		return
+	}
+
+	baseURL := ""
+	if g.BaseURL != nil {
+		baseURL = *g.BaseURL
+	}
+	started := time.Now()
+	resp, err := aiclient.Complete(aiclient.Config{
+		Provider: g.Provider,
+		Model:    g.Model,
+		APIKey:   apiKey,
+		BaseURL:  baseURL,
+	}, []aiclient.Message{{Role: "user", Content: message}})
+	elapsedMs := time.Since(started).Milliseconds()
+	if err != nil {
+		// 200 (não 502) de propósito: resultado de teste válido, não erro de
+		// transporte da nossa API — um status 5xx aqui faz o Cloudflare (na
+		// frente do domínio) substituir o corpo JSON pela página de erro
+		// genérica dele, escondendo a mensagem real (chave inválida, modelo
+		// errado etc.). O cliente decide sucesso/falha por "success".
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":   true,
+		"reply":     resp.Content,
+		"elapsedMs": elapsedMs,
+	})
 }
 
 // Delete removes an AiGateway of the tenant.

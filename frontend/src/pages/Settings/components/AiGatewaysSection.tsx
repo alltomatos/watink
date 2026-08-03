@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { Plus, Pencil, Trash2, Loader2, KeyRound } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, KeyRound, Zap, CheckCircle2, XCircle } from "lucide-react";
 
 import { Button } from "../../../components/ui/button";
 import { Badge } from "../../../components/ui/badge";
@@ -26,9 +26,11 @@ import ConfirmationModal from "../../../components/ConfirmationModal";
 import {
     AiGateway,
     AiGatewayInput,
+    AiGatewayTestResult,
     createAiGateway,
     deleteAiGateway,
     listAiGateways,
+    testAiGateway,
     updateAiGateway,
 } from "../../../services/aiGatewayService";
 
@@ -42,6 +44,8 @@ const AiGatewaysSection: React.FC = () => {
     const [editing, setEditing] = useState<AiGateway | null>(null);
     const [form, setForm] = useState<AiGatewayInput>(emptyForm);
     const [deleteTarget, setDeleteTarget] = useState<AiGateway | null>(null);
+    const [testingId, setTestingId] = useState<number | null>(null);
+    const [testResult, setTestResult] = useState<{ gateway: AiGateway; result: AiGatewayTestResult } | null>(null);
 
     const fetchGateways = useCallback(async () => {
         setLoading(true);
@@ -99,6 +103,27 @@ const AiGatewaysSection: React.FC = () => {
             toast.error(message);
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleTest = async (gateway: AiGateway) => {
+        setTestingId(gateway.id);
+        try {
+            const result = await testAiGateway(gateway.id);
+            setTestResult({ gateway, result });
+            if (result.success) {
+                toast.success(`Gateway "${gateway.name}" respondeu em ${result.elapsedMs}ms`);
+            } else {
+                toast.error(`Gateway "${gateway.name}" falhou no teste`);
+            }
+        } catch (err) {
+            const message =
+                (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+                "Erro ao testar gateway";
+            setTestResult({ gateway, result: { success: false, error: message } });
+            toast.error(message);
+        } finally {
+            setTestingId(null);
         }
     };
 
@@ -174,6 +199,19 @@ const AiGatewaysSection: React.FC = () => {
                                     </Badge>
                                 </TableCell>
                                 <TableCell className="flex gap-1 justify-end">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        title="Testar gateway"
+                                        disabled={!gw.hasApiKey || testingId === gw.id}
+                                        onClick={() => handleTest(gw)}
+                                    >
+                                        {testingId === gw.id ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <Zap className="h-4 w-4" />
+                                        )}
+                                    </Button>
                                     <Button variant="ghost" size="icon" onClick={() => openEdit(gw)}>
                                         <Pencil className="h-4 w-4" />
                                     </Button>
@@ -246,6 +284,38 @@ const AiGatewaysSection: React.FC = () => {
                         <Button onClick={handleSave} disabled={saving}>
                             {saving ? "Salvando..." : "Salvar"}
                         </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={!!testResult} onOpenChange={(open) => !open && setTestResult(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            {testResult?.result.success ? (
+                                <CheckCircle2 className="h-5 w-5 text-green-500" />
+                            ) : (
+                                <XCircle className="h-5 w-5 text-destructive" />
+                            )}
+                            Teste — {testResult?.gateway.name}
+                        </DialogTitle>
+                    </DialogHeader>
+                    {testResult?.result.success ? (
+                        <div className="flex flex-col gap-2">
+                            <p className="text-sm text-muted-foreground">
+                                Resposta do modelo ({testResult.result.elapsedMs}ms):
+                            </p>
+                            <p className="rounded-lg border bg-muted/40 p-3 text-sm whitespace-pre-wrap">
+                                {testResult.result.reply}
+                            </p>
+                        </div>
+                    ) : (
+                        <p className="text-sm text-destructive whitespace-pre-wrap">
+                            {testResult?.result.error ?? "Falha desconhecida"}
+                        </p>
+                    )}
+                    <DialogFooter>
+                        <Button onClick={() => setTestResult(null)}>Fechar</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

@@ -37,3 +37,18 @@ export const updateAiGateway = async (id: number, input: AiGatewayInput): Promis
 export const deleteAiGateway = async (id: number): Promise<void> => {
     await api.delete(`/ai-gateways/${id}`);
 };
+
+export interface AiGatewayTestResult {
+    success: boolean;
+    reply?: string;
+    elapsedMs?: number;
+    error?: string;
+}
+
+/** Dispara uma chamada REAL de completion contra o provedor/modelo/chave
+ * configurados (ver AiGatewayController.Test no backend) — não é um ping,
+ * é a mesma chamada que rodaria numa geração de verdade. */
+export const testAiGateway = async (id: number, message?: string): Promise<AiGatewayTestResult> => {
+    const { data } = await api.post(`/ai-gateways/${id}/test`, message ? { message } : {});
+    return data;
+};

@@ -35,6 +35,7 @@ import (
 	"github.com/alltomatos/watinkdev/business/internal/database"
 	"github.com/alltomatos/watinkdev/business/internal/domain"
 	"github.com/alltomatos/watinkdev/business/internal/flow"
+	"github.com/alltomatos/watinkdev/business/internal/knowledge"
 	"github.com/alltomatos/watinkdev/business/internal/middleware"
 	"github.com/alltomatos/watinkdev/business/internal/routes"
 	"github.com/alltomatos/watinkdev/business/internal/services"
@@ -91,6 +92,20 @@ func main() {
 	// Pass hub so the container uses the same SSEHub — avoids a second instance.
 	container := application.NewContainer(database.DB, redisSvc, broadcast, rabbitMQ, hub)
 
+	// Knowledge Base file sources: build the S3-compatible object store from
+	// env. When S3 is unconfigured or init fails, s3Store stays nil and the
+	// file-source path responds with a clear error (never panics). Built here
+	// (not just inside the route-setup block below) because the native
+	// ingestion worker also needs it to download uploaded files.
+	var s3Store domain.ObjectStore
+	if s3cfg, ok := s3store.ConfigFromEnv(); ok {
+		if st, err := s3store.New(s3cfg); err != nil {
+			log.Printf("⚠️ S3 store init failed: %v", err)
+		} else {
+			s3Store = st
+		}
+	}
+
 	// FlowBuilder FASE 1: build the outbound channel registry via DI and register
 	// the WhatsApp adapter (dedup + PublishCommand). The interpreter resolves
 	// adapters from this registry — never whatsmeow directly (ADR 0014).
@@ -100,19 +115,35 @@ func main() {
 		Engines: container.SessionService,
 	}))
 
+	// RAG: native in-process pgvector pipeline (internal/knowledge). Built
+	// once and shared with every Skeleton below so the real inbound WhatsApp
+	// path and the on-demand/playground endpoints never disagree.
+	ragRetriever, ragResponder := knowledge.BuildRetrieverAndResponder(database.DB)
+
 	// FlowBuilder FASE 1: the inbound seam is plugged into the EventListener
 	// (NewEventListener wires flow.NewSkeleton with the interpreter+registry),
 	// replacing the two previously-dead workers. No separate AMQP flow worker.
 	// Built unconditionally (not just when RabbitMQ connects) — the izapia
 	// webhook handler below reuses it as a transport-agnostic inbound seam.
 	eventListener := services.NewEventListener(container.ChannelSessionRepo, container.MessageRepo, container.ContactRepo, container.TicketRepo, container.ReceiveMessage, broadcast, database.DB, channelRegistry, redisSvc)
+	eventListener.ConfigureKnowledge(ragRetriever, ragResponder)
 
 	if err := rabbitMQ.Connect(); err == nil {
 		services.StartEventListener(rabbitMQ, eventListener)
 
-		// Knowledge Base RAG: consume ingestion status events from
-		// watink-knowledge (knowledge.events) and reflect them onto the source
-		// rows + broadcast to the tenant.
+		// Ingestion worker (fetch→parse→chunk→embed→store) + stuck-source
+		// reconciler.
+		ingestWorker := knowledge.NewIngestWorker(database.DB, rabbitMQ, s3Store)
+		if err := ingestWorker.Start(); err != nil {
+			log.Printf("[knowledge] ingest worker: %v", err)
+		}
+		reconciler := knowledge.NewReconciler(database.DB, redisSvc)
+		go reconciler.Start(context.Background())
+
+		// Consumes the ingest worker's own status events (knowledge.events)
+		// and reflects them onto the source rows + broadcasts to the tenant
+		// over SSE — a separate consumer so the worker's hot path never
+		// blocks on Broadcaster delivery.
 		knowledgeStatus := services.NewKnowledgeStatusListener(container.DB, container.Broadcast)
 		if err := knowledgeStatus.Start(rabbitMQ); err != nil {
 			log.Printf("[knowledge] status listener: %v", err)
@@ -172,23 +203,11 @@ func main() {
 			})
 		})
 
-		// Knowledge Base file sources: build the S3-compatible object store from
-		// env. When S3 is unconfigured or init fails, s3Store stays nil and the
-		// file-source path responds with a clear error (never panics).
-		var s3Store domain.ObjectStore
-		if s3cfg, ok := s3store.ConfigFromEnv(); ok {
-			if st, err := s3store.New(s3cfg); err != nil {
-				log.Printf("⚠️ S3 store init failed: %v", err)
-			} else {
-				s3Store = st
-			}
-		}
-
 		routes.SetupRoutes(apiGroup, rabbitMQ, container, s3Store, controllers.BuildInfo{
 			GitCommit:     GitCommit,
 			GitBranch:     GitBranch,
 			GitCommitDate: GitCommitDate,
-		})
+		}, ragRetriever, ragResponder)
 	}
 
 	r.GET("/api/health", func(c *gin.Context) {

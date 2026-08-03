@@ -61,10 +61,18 @@ type routerOptionInput struct {
 // router mode requires an explicit connection on both sides).
 func sameConnection(db *gorm.DB, tenantID interface{}, routerAssistantID, targetAssistantID int) (bool, error) {
 	var router, target models.Assistant
-	if err := db.Where(`id = ? AND "tenantId" = ?`, routerAssistantID, tenantID).First(&router).Error; err != nil {
+	// Session(NewDB:true) nas DUAS chamadas: `db` chega aqui já usado por um
+	// caller (Update() faz um First(&existing) antes de chamar
+	// sameConnection) e/ou seria reusado de novo aqui entre router/target —
+	// qualquer uma das duas reutilizações vaza o Statement da query anterior
+	// pra próxima (mesma classe de bug corrigida em AssistantController.Update
+	// — reproduzido ao vivo em homolog também aqui, via "Adicionar" opção de
+	// roteador). Isolar as duas torna esta função segura pra qualquer db de
+	// entrada, usado ou não.
+	if err := db.Session(&gorm.Session{NewDB: true}).Where(`id = ? AND "tenantId" = ?`, routerAssistantID, tenantID).First(&router).Error; err != nil {
 		return false, err
 	}
-	if err := db.Where(`id = ? AND "tenantId" = ?`, targetAssistantID, tenantID).First(&target).Error; err != nil {
+	if err := db.Session(&gorm.Session{NewDB: true}).Where(`id = ? AND "tenantId" = ?`, targetAssistantID, tenantID).First(&target).Error; err != nil {
 		return false, err
 	}
 	if router.WhatsAppID == nil || target.WhatsAppID == nil {

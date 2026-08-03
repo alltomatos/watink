@@ -48,6 +48,28 @@ type Skeleton struct {
 	assistantRuntime AssistantRuntime
 }
 
+// SetRetriever wires the RAG retriever (internal/knowledge.PgVectorRetriever,
+// built in main.go via knowledge.BuildRetrieverAndResponder) after
+// construction — flow doesn't import internal/knowledge directly (it would
+// cycle back, since knowledge already imports flow), so NewSkeleton starts
+// with a nil retriever and every real construction site sets it right after.
+// A nil argument is a no-op, so callers can pass through an optional override
+// freely; consumers (agent/knowledge executors) already nil-check before use.
+func (s *Skeleton) SetRetriever(r Retriever) {
+	if r != nil {
+		s.retriever = r
+	}
+}
+
+// SetResponder wires the Agent Runtime responder after construction — same
+// pattern as SetRetriever, for the agent node/Assistants persona mode. A nil
+// argument is a no-op.
+func (s *Skeleton) SetResponder(r AgentResponder) {
+	if r != nil {
+		s.responder = r
+	}
+}
+
 // SetAssistantRuntime wires the "Assistentes de IA" plugin's runtime after
 // construction (the plugin manager, which owns the implementation, is built
 // after the Skeleton in routes.go — DI pura, no global). Nil is the default
@@ -65,7 +87,7 @@ func NewSkeleton(db *gorm.DB, registry *ChannelRegistry, redis domain.RedisServi
 	if db != nil {
 		ip = NewInterpreter(DefaultExecutorRegistry(), registry, db)
 	}
-	return &Skeleton{db: db, registry: registry, redis: redis, interpreter: ip, retriever: NewHTTPRetrieverFromEnv(), responder: NewHTTPAgentClientFromEnv()}
+	return &Skeleton{db: db, registry: registry, redis: redis, interpreter: ip}
 }
 
 // InboundContext carries everything the runtime needs to resume/start a run for
@@ -78,6 +100,11 @@ type InboundContext struct {
 	EnvID    string
 	Ticket   *domain.Ticket
 	Contact  *domain.Contact
+	// MentionedJIDs carries the @-mentioned JIDs from the WhatsApp message
+	// (engine-go's extractMentionedJIDs), threaded through to ExecState so
+	// an Assistant configured to only respond when mentioned in a group can
+	// tell a direct mention apart from ambient group chatter.
+	MentionedJIDs []string
 }
 
 // RouteInbound is the legacy (no-ticket) trigger-match + log path, preserved for
@@ -324,6 +351,7 @@ func (s *Skeleton) StartFlow(ctx context.Context, in InboundContext, f models.Fl
 		Inbound:          in.Body, // carry the triggering body for the first menu/switch
 		Ticket:           in.Ticket,
 		Contact:          in.Contact,
+		MentionedJIDs:    in.MentionedJIDs,
 		Retriever:        s.retriever,
 		Responder:        s.responder,
 		AssistantRuntime: s.assistantRuntime,
@@ -452,6 +480,7 @@ func (s *Skeleton) resume(ctx context.Context, in InboundContext, run models.Flo
 		ResumeNodeID:     run.CurrentNodeID, // the node we suspended at owns the reply
 		Ticket:           in.Ticket,
 		Contact:          in.Contact,
+		MentionedJIDs:    in.MentionedJIDs,
 		Retriever:        s.retriever,
 		Responder:        s.responder,
 		AssistantRuntime: s.assistantRuntime,

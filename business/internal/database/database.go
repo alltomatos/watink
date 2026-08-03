@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/alltomatos/watinkdev/business/internal/knowledge"
 	"github.com/alltomatos/watinkdev/business/internal/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -84,6 +85,7 @@ func Migrate() {
 		&models.ProtocolAttachment{},
 		&models.Assistant{},
 		&models.AssistantRouterOption{},
+		&models.AssistantGroup{},
 		&models.AiGateway{},
 		&models.AssistantProactiveLog{},
 	)
@@ -101,6 +103,10 @@ func Migrate() {
 	}
 
 	addClientAddressGeography()
+
+	// KBChunk (halfvec/HNSW) is not GORM-modelable, same reasoning as
+	// addCustomIndexes()/PostGIS above — raw idempotent DDL, best-effort.
+	knowledge.EnsureSchema(DB)
 
 	fmt.Println("Database migration completed")
 	Seed()
@@ -169,6 +175,9 @@ func Seed() {
 		{Resource: "pipelines", Action: "create", Description: "Criar Pipelines"},
 		{Resource: "pipelines", Action: "update", Description: "Editar Pipelines"},
 		{Resource: "pipelines", Action: "delete", Description: "Excluir Pipelines"},
+		// knowledgeBases (RAG)
+		{Resource: "knowledgeBases", Action: "read", Description: "Visualizar Bases de Conhecimento e testar recuperação"},
+		{Resource: "knowledgeBases", Action: "manage", Description: "Criar/editar/excluir Bases de Conhecimento e suas fontes"},
 		// flows
 		{Resource: "flows", Action: "read", Description: "Visualizar/gerenciar Flows (Automação)"},
 		{Resource: "flows", Action: "create", Description: "Criar Flows"},

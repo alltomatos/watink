@@ -16,7 +16,8 @@ type RetrievedChunk struct {
 }
 
 // Retriever fetches the top-K most relevant chunks for a query within a
-// tenant's knowledge base. Implementations call the watink-knowledge service.
+// tenant's knowledge base. internal/knowledge.PgVectorRetriever is the native
+// in-process implementation.
 type Retriever interface {
 	Retrieve(ctx context.Context, tenantID uuid.UUID, kbID, topK int, minScore float64, query string) ([]RetrievedChunk, error)
 }

@@ -51,10 +51,10 @@ Frontend (React/Vite) ←REST/SSE→ Backend Go (Gin/GORM) ←SQL→ PostgreSQL
 | Backend Go + Frontend — DealController GET/PUT + Pipeline UI redesign (creator/kanban/listing) | ✅ Concluída (PR #225) |
 | Backend Go — DealController testes unitários (5 casos List + Update) | ⏳ Em review (PR #227) |
 | FlowBuilder — Runtime Fase 0+1 (FlowGraph, FlowRun, interpreter, executores, suspend/resume, guard de ativação) | ✅ Concluída (PR #242/#243) |
-| Base de Conhecimento (RAG) — microsserviço `watink-knowledge` (Python/FastAPI) + nó `knowledge` + guardrails+citação | ✅ Concluída (PR #256) |
-| Base de Conhecimento — CI Python (ruff+pytest) + higiene `__pycache__` | ✅ Concluída (PR #257/#258) |
+| Base de Conhecimento (RAG) — microsserviço `watink-knowledge` (Python/FastAPI) + nó `knowledge` + guardrails+citação | ✅ Concluída (PR #256) — **superada e removida, ver RAG nativo abaixo** |
 | Base de Conhecimento — fonte arquivo (S3/MinIO + parsers PDF/docx/xlsx) | ✅ Concluída (PR #259) |
 | Base de Conhecimento — UI (lista, fontes, upload, status SSE tempo-real) | ✅ Concluída (PR #260) |
+| Base de Conhecimento — **RAG nativo em Go** (ADR 0028, supera ADR 0018): schema+embeddings+retriever, scraping/parsers/chunking nativos, worker de ingestão+reconciler, Agent Runtime em Go, RequirePermission+cap de upload | ✅ Concluída e validada em homolog (PRs #482-#487); microsserviço Python descomissionado (código, CI, Firecrawl e envs removidos) |
 | Conexões — Subsistema de proxy anti-ban (cripto-at-rest, import Webshare, grupos+rotação, geo cidade/país, teste/test-all, auto-isolação no ban, filtros) | ✅ Concluída (PRs #292-#296) |
 | Acessos (ADR 0022) — modelo Cargo/Setor/Alcance + `RequirePermission` fail-closed + anti-lockout | ✅ Concluída (PR #302) |
 | Onboarding — Wizard `POST /initial-setup` (Nome Fantasia) + Checklist derivado no Dashboard | ✅ Concluída (PR #303) |
@@ -293,37 +293,36 @@ MUI v4 **completamente removido** — `@material-ui/*` não é dependência do p
 
 ## Módulo: Base de Conhecimento (RAG)
 
-**Responsabilidade:** Ingestão e recuperação de conhecimento (RAG) no microsserviço `watink-knowledge` (Python/FastAPI). Fontes (texto, arquivo, URL/site, git) são vetorizadas em KBChunks (pgvector) e consumidas pelos nós `knowledge`/`agent` do FlowBuilder e (futuro) por Agentes standalone. O `business` (Go) é o único gateway: detém metadados, orquestra o turn-taking e valida auth/tenant.
+**Responsabilidade:** Ingestão e recuperação de conhecimento (RAG), **nativo no core Go** (`business/internal/knowledge/`, ADR 0028 — supera o ADR 0018, que rodava isso num microsserviço Python separado). Fontes (texto, arquivo, URL) são vetorizadas em KBChunks (pgvector) e consumidas pelos nós `knowledge`/`agent` do FlowBuilder e pelo plugin Assistants (modo `persona`).
 
 **Arquitetura:**
-- `business` (Go): CRUD de bases/fontes + UI, upload p/ S3, publica jobs de ingestão (AMQP), chama retrieval/agent (HTTP interno), orquestra FlowRun. Único exposto ao frontend.
-- `watink-knowledge` (Python/FastAPI): ingestão assíncrona + Retrieval RAG + Agent Runtime. Stateless por chamada. Só rede interna do Swarm.
-- Scraping delegado: Firecrawl (web) · browserless (JS). Embedding/rerank/web-search via omniroute.
-- Mesmo PostgreSQL: KBChunk em `halfvec(2048)` HNSW cosine.
+- Um único processo: `business` (Go) faz CRUD de bases/fontes + UI, upload/download S3, publica **e consome** os jobs de ingestão (AMQP, `internal/knowledge/ingest_worker.go`), responde retrieval/agent in-process (`flow.Retriever`/`flow.AgentResponder`), roda um reconciler cron para fontes presas. É a **única** implementação — o microsserviço Python (`watink-knowledge/`) e o modo de transição HTTP foram removidos após validação em produção; `knowledge.BuildRetrieverAndResponder(db)` constrói sempre o retriever/responder nativos. Ver `internal/knowledge/wiring.go`.
+- Scraping nativo: HTTP + `go-readability` com SSRF guard e retry — sem Firecrawl/browserless. Headless fica fora da v1 (site JS-heavy falha com erro claro).
+- Parsing pure Go (PDF/DOCX/XLSX/CSV/TXT/MD) — sem shell-out (imagem `business` é distroless, sem shell/poppler).
+- Mesmo PostgreSQL: KBChunk em `halfvec` HNSW cosine, com FK `ON DELETE CASCADE`.
 
 **Invariants:**
-- O `business` é o **único gateway** — o frontend nunca fala com o `watink-knowledge` (só rede interna do Swarm + segredo interno).
-- **RLS é INERTE** no serviço Python — toda query carrega `WHERE "tenantId" = ?` manual.
-- Retrieval/ingestão sempre escopados por **`tenantId + knowledgeBaseId`**.
-- Embedding via **omniroute**, modelo configurado em **Configurações → Agente de IA** (`aiEmbeddingModel`); **dimensão global fixa** pelo modelo (hoje 2048 → `halfvec`); `model`+`dim` gravados em cada KBChunk.
-- **Configurações ganha**: campo `aiEmbeddingModel` (Agente de IA) + seção **Armazenamento S3** (global, superadmin).
-- Ingestão **assíncrona** (worker AMQP), **idempotente por fonte** (re-ingest apaga chunks antigos e reinsere, transacional), lifecycle `pending→fetching→processing→ready|error`.
-- **Dedup por hash de conteúdo**; **lock por `sourceId`** evita refresh concorrente.
-- Status volta por **evento AMQP** → `business` atualiza a Source e emite **SSE** (Broadcaster) p/ a UI.
-- Arquivos no **S3 Storage Driver** (global, subpasta `{tenantId}/{kbId}/{sourceId}/`).
+- **RLS é INERTE** nas tabelas de knowledge — toda query carrega `WHERE "tenantId" = ?` manual.
+- Retrieval/ingestão sempre escopados por **`tenantId + knowledgeBaseId`**; retrieval também filtra pelo `model` de embedding vigente do tenant (evita misturar gerações diferentes).
+- Embedding via gateway do tenant (`aiEmbeddingModel`/`aiEmbeddingBaseURL`/`aiEmbeddingApiKey`, com fallback para `aiCustomBaseURL`/`aiApiKey`); **dimensão NÃO é mais fixa globalmente** — validada por tenant contra o que o gateway retorna; `model`+`dim` gravados em cada KBChunk.
+- Ingestão **assíncrona** (worker AMQP no próprio `business`), **idempotente por fonte** (hash de conteúdo pula reembedding se inalterado; re-ingest apaga chunks antigos e reinsere, transacional), lifecycle `pending→processing→ready|error`. Fonte presa além de um TTL vira `error` via reconciler cron.
+- Publish de job com verificação de erro — falha ao enfileirar marca a fonte `error` na hora (não fica presa em `pending` para sempre).
+- Status volta por **evento AMQP** (publicado pelo próprio worker em modo `native`) → `business` atualiza a Source e emite **SSE** (Broadcaster) p/ a UI.
+- Arquivos no **S3 Storage Driver** (global, subpasta `{tenantId}/{kbId}/{sourceId}/`), cap de 50MB no upload.
 - Guardrails no retrieval: responder só do contexto, citação obrigatória, `< minScore` → "não sei"/handoff. **Nunca alucinar.**
-- **Um Agent Runtime**, dois pontos de entrada (Agent node agora, Agente standalone depois).
+- **Um Agent Runtime** (`internal/knowledge/agent.go`), múltiplos pontos de entrada (Agent node, Assistant persona, futuro Agente standalone).
+- Rotas `/knowledge-bases*` exigem `RequirePermission("knowledgeBases", "read"|"manage")`.
 
 **O que NÃO fazer:**
-- Não expor o `watink-knowledge` à internet nem deixar o frontend chamá-lo direto — sempre via `business`.
-- Não confiar em RLS no serviço Python — sempre `WHERE tenantId` manual.
-- Não colocar scraping/parsing no `business` nem no engine-go — scraping é Firecrawl/browserless; parsing/embedding é o `watink-knowledge`.
-- Não usar chave OpenAI hardcoded p/ embedding — usar o omniroute via a setting `aiEmbeddingModel` (**Configurações → Agente de IA**).
+- Não confiar em RLS nas tabelas de knowledge — sempre `WHERE tenantId` manual.
+- Não usar chave hardcoded p/ embedding — usar as settings do tenant (`aiEmbeddingModel` e afins).
 - Não misturar dimensões no mesmo índice — trocar de modelo exige re-embed da base inteira.
 - Não usar `vector(N)` p/ N>2000 — usar `halfvec` (HNSW até 4000).
-- Não descartar o conteúdo do arquivo no upload (bug atual do `CreateSource`) — persistir no S3.
+- Não descartar o conteúdo do arquivo/texto no upload — S3 para arquivo, `rawContent` para texto.
 - Não responder fora do contexto nem omitir citação; baixa confiança → handoff.
-- Não construir o Agente standalone como motor separado — reusar o Agent Runtime.
+- Não construir um novo motor de agente separado — reusar o Agent Runtime (`GoAgentResponder`).
+- Não reintroduzir a fronteira HTTP interna (`INTERNAL_TOKEN`) nem duplicar o cliente LLM do tenant — um único `pkg/aiclient`.
+- Não adicionar shell-out para `pdftotext`/poppler — a imagem `business` é distroless; parsing de PDF é pure Go (sem OCR, limitação aceita).
 
 **Referência:** [`docs/agents/knowledge-base.md`](docs/agents/knowledge-base.md) · ADRs 0015 (atualizado), 0018 (microsserviço RAG), 0019 (S3 driver), 0020 (Agent Runtime)
 
@@ -476,7 +475,7 @@ MUI v4 **completamente removido** — `@material-ui/*` não é dependência do p
 ## Domain Docs
 
 - **Glossário**: [`CONTEXT.md`](CONTEXT.md)
-- **ADRs**: [`docs/adr/`](docs/adr/) — ver **ADR 0009** para stage upsert, **ADR 0008** para política anti-MUI, **ADR 0007** para decomposição de componentes. **FlowBuilder/Automação**: **0011** FlowRun unificado · **0012** trigger polimórfico · **0013** contrato versionado FlowGraph · **0014** channel adapters · **0015** pgvector RAG · **0016** campanhas anti-ban (risco estrutural + opt-in + roadmap BSP) · **0017** scheduler multi-node. **Base de Conhecimento/RAG**: **0015** (atualizado) pgvector RAG · **0018** microsserviço watink-knowledge + trust boundary · **0019** S3 Storage Driver · **0020** Agent Runtime. **Acessos/RBAC**: **0022** modelo Cargo/Setor/Alcance + enforcement real (supera **0005**, ABAC via RolePermission.Scope/Conditions nunca implementado). **Clientes/CRM**: **0023** Client como entidade core (sai do plugin "pro"), transitividade Contact→Client, documento cifrado at-rest. **Plugins/Licenciamento**: **0024** redesenho do sistema de plugins (Watink Hub como autoridade, token assinado Ed25519, trilho duplo, licença por instância+teto, fronteira core/plugin = ativação; supera **0003** no ponto da flag) · **0025** marketplace de terceiros (publishers, artefatos assinados, runtime out-of-process em fases; plano executável em `docs/agents/marketplace-terceiros.md`; ADR irmão: Hub 0004)
+- **ADRs**: [`docs/adr/`](docs/adr/) — ver **ADR 0009** para stage upsert, **ADR 0008** para política anti-MUI, **ADR 0007** para decomposição de componentes. **FlowBuilder/Automação**: **0011** FlowRun unificado · **0012** trigger polimórfico · **0013** contrato versionado FlowGraph · **0014** channel adapters · **0015** pgvector RAG · **0016** campanhas anti-ban (risco estrutural + opt-in + roadmap BSP) · **0017** scheduler multi-node. **Base de Conhecimento/RAG**: **0028** RAG nativo em Go (supera **0018**, microsserviço descomissionado) · **0015** (atualizado) pgvector RAG · **0018** microsserviço watink-knowledge + trust boundary (histórico, superado e removido) · **0019** S3 Storage Driver · **0020** (atualizado) Agent Runtime. **Acessos/RBAC**: **0022** modelo Cargo/Setor/Alcance + enforcement real (supera **0005**, ABAC via RolePermission.Scope/Conditions nunca implementado). **Clientes/CRM**: **0023** Client como entidade core (sai do plugin "pro"), transitividade Contact→Client, documento cifrado at-rest. **Plugins/Licenciamento**: **0024** redesenho do sistema de plugins (Watink Hub como autoridade, token assinado Ed25519, trilho duplo, licença por instância+teto, fronteira core/plugin = ativação; supera **0003** no ponto da flag) · **0025** marketplace de terceiros (publishers, artefatos assinados, runtime out-of-process em fases; plano executável em `docs/agents/marketplace-terceiros.md`; ADR irmão: Hub 0004)
 - **Arquitetura**: [`docs/dev/architecture.md`](docs/dev/architecture.md)
 - **Frontend DS**: [`docs/frontend/design-system.md`](docs/frontend/design-system.md)
 - **Git Workflow**: [`docs/dev/git_workflow_policy.md`](docs/dev/git_workflow_policy.md)

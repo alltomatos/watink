@@ -318,9 +318,19 @@ const PluginDetail: React.FC = () => {
             <CardContent className="pt-6 space-y-4">
               <h3 className="font-semibold text-lg">Sobre este plugin</h3>
               <div
-                className="text-muted-foreground whitespace-pre-line [&_h2]:text-foreground [&_h2]:font-semibold [&_h2]:text-base [&_h2]:mt-4 [&_h2]:mb-1 [&_h3]:text-foreground [&_h3]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_strong]:text-foreground [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mt-1"
+                // clearfix ([&::after]) — o editor do Hub pode posicionar
+                // imagens com float:left/right (data-align, ver
+                // RichTextEditor do hub-console); sem isso o Card colapsa a
+                // altura e o rodapé do card fica por baixo da imagem.
+                className="text-muted-foreground whitespace-pre-line [&::after]:content-[''] [&::after]:table [&::after]:clear-both [&_h2]:text-foreground [&_h2]:font-semibold [&_h2]:text-base [&_h2]:mt-4 [&_h2]:mb-1 [&_h3]:text-foreground [&_h3]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_strong]:text-foreground [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mt-1 [&_img]:rounded-lg"
                 dangerouslySetInnerHTML={{
-                  __html: DOMPurify.sanitize(plugin.longDescription || plugin.description || FALLBACK_DESCRIPTION),
+                  __html: DOMPurify.sanitize(plugin.longDescription || plugin.description || FALLBACK_DESCRIPTION, {
+                    // style e data-align são o que o editor rico do Hub usa
+                    // pra posicionar imagem (float esquerda/direita/centro) —
+                    // DOMPurify já libera os dois por padrão, mas explicita
+                    // aqui pra não depender de default silencioso.
+                    ADD_ATTR: ["style", "data-align"],
+                  }),
                 }}
               />
             </CardContent>

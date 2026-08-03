@@ -10,6 +10,7 @@ import (
 	"github.com/alltomatos/watinkdev/business/internal/application/usecases"
 	"github.com/alltomatos/watinkdev/business/internal/domain"
 	"github.com/alltomatos/watinkdev/business/internal/flow"
+	"github.com/alltomatos/watinkdev/business/internal/plugins"
 	"github.com/google/uuid"
 	amqp "github.com/streadway/amqp"
 	"gorm.io/gorm"
@@ -27,7 +28,28 @@ type EventListener struct {
 }
 
 func NewEventListener(sessions domain.ChannelSessionRepository, messages domain.MessageRepository, contacts domain.ContactRepository, tickets domain.TicketRepository, rm *usecases.ReceiveMessageUseCase, broadcast domain.Broadcaster, db *gorm.DB, registry *flow.ChannelRegistry, redis domain.RedisService) *EventListener {
-	return &EventListener{sessions: sessions, messages: messages, contacts: contacts, tickets: tickets, receiveMessage: rm, broadcast: domain.BroadcastOrNop(broadcast), db: db, flowSkeleton: flow.NewSkeleton(db, registry, redis)}
+	// SetAssistantRuntime: sem isto, todo assistant-node de toda mensagem
+	// real recebida (message.received) executa com st.AssistantRuntime==nil
+	// e assistantExecutor.Execute degrada silenciosamente pra "sem
+	// assistantId/runtime" (Advance, sem edge de saída, run "completed" sem
+	// nunca chamar o Mode do Assistant) -- o plugin "Assistentes de IA"
+	// nunca respondia UMA mensagem real sequer, apesar de rodar via
+	// /flows/:id/run (routes.go monta um Skeleton SEPARADO, com o runtime
+	// wireado, só pro endpoint manual). Bug reproduzido ao vivo em homolog:
+	// FlowRun entrava no nó assistant e completava em ~0ms sem nenhuma
+	// query em Assistants/AssistantRouterOptions, sem enviar nada.
+	skeleton := flow.NewSkeleton(db, registry, redis)
+	skeleton.SetAssistantRuntime(plugins.NewAssistantRuntime(db))
+	return &EventListener{sessions: sessions, messages: messages, contacts: contacts, tickets: tickets, receiveMessage: rm, broadcast: domain.BroadcastOrNop(broadcast), db: db, flowSkeleton: skeleton}
+}
+
+// ConfigureKnowledge wires the flow skeleton's RAG retriever/responder (see
+// flow.Skeleton.SetRetriever/SetResponder) — called from main.go right after
+// construction so the native pgvector RAG applies to the real inbound
+// WhatsApp message path, not just the on-demand endpoints wired in routes.go.
+func (el *EventListener) ConfigureKnowledge(retriever flow.Retriever, responder flow.AgentResponder) {
+	el.flowSkeleton.SetRetriever(retriever)
+	el.flowSkeleton.SetResponder(responder)
 }
 
 // bcast returns a nil-safe broadcaster — tests that construct EventListener
@@ -195,12 +217,13 @@ func (el *EventListener) processMessage(ctx context.Context, p MessagePayload, r
 	// (WHERE "tenantId" manual). EnvID = inbound message id (redelivery dedup).
 	if el.flowSkeleton != nil {
 		el.flowSkeleton.RouteInboundTicket(ctx, flow.InboundContext{
-			TenantID: tenantID,
-			Body:     p.Body,
-			FromMe:   p.FromMe,
-			EnvID:    p.ID,
-			Ticket:   result.Ticket,
-			Contact:  result.Contact,
+			TenantID:      tenantID,
+			Body:          p.Body,
+			FromMe:        p.FromMe,
+			EnvID:         p.ID,
+			Ticket:        result.Ticket,
+			Contact:       result.Contact,
+			MentionedJIDs: p.MentionedJids,
 		})
 	}
 
