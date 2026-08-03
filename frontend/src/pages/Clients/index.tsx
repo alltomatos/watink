@@ -1,6 +1,6 @@
 /* @jsxImportSource react */
 import React from "react";
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, Users } from "lucide-react";
 import { PageContainer, PageHeader, PageContent } from "@/components/ui/page-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +35,14 @@ const Clients: React.FC = () => {
       perform="clients:read"
       yes={() => (
         <PageContainer>
-          <PageHeader title="👥 Clientes">
+          <PageHeader
+            title={
+              <span className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-muted-foreground" />
+                Clientes
+              </span>
+            }
+          >
             <div className="flex items-center gap-2">
               <div className="relative hidden md:block">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
