@@ -55,10 +55,13 @@ export const appleLight = {
   'text-inverse': '0 0% 100%',
   'text-sidebar': '240 2% 23%',
 
-  'action-primary': '211 100% 50%', // Apple Blue
-  'action-primary-hover': '220 100% 50%',
-  'action-primary-bg': '216 100% 95%',
-  'action-primary-active': '219 100% 40%',
+  // Corporate blue (mesmo tom do preset 'saas') — menos "iOS consumer app",
+  // mais adequado a um painel operacional B2B. Epic #504 do redesign
+  // corporativo; ver docs/frontend/design-system.md.
+  'action-primary': '221 83% 53%', // #2563EB
+  'action-primary-hover': '224 76% 48%', // #1D4ED8
+  'action-primary-bg': '214 100% 97%',
+  'action-primary-active': '226 71% 40%',
 
   // Nav Icon Themes (Google-style)
   'nav-icon-blue': '214 82% 51%',
@@ -145,10 +148,11 @@ export const appleDark = {
  'text-inverse': '0 0% 0%',
  'text-sidebar': '240 11% 91%',
 
- 'action-primary': '210 100% 52%', // iOS Blue dark variant
- 'action-primary-hover': '211 100% 63%',
- 'action-primary-bg': '212 53% 24%',
- 'action-primary-active': '212 92% 47%',
+ // Corporate blue dark variant (mesmo tom do preset 'saas' dark)
+ 'action-primary': '213 94% 68%', // #60A5FA
+ 'action-primary-hover': '212 96% 78%',
+ 'action-primary-bg': '224 64% 33%',
+ 'action-primary-active': '213 97% 87%',
 
  // WhatsApp brand (dark variant)
  'whatsapp-brand': '140 78% 60%',
