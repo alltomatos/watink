@@ -64,7 +64,7 @@ const PersonalizationSection: React.FC<PersonalizationSectionProps> = ({
                   <Button size="sm" variant="outline" onClick={() => logoInputRef.current?.click()}>
                     <CloudUpload className="mr-2 h-4 w-4" /> Alterar Logo
                   </Button>
-                  <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => handleUpdateSetting("systemLogo", "")}>
+                  <Button size="sm" variant="destructive-ghost" onClick={() => handleUpdateSetting("systemLogo", "")}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
@@ -80,7 +80,7 @@ const PersonalizationSection: React.FC<PersonalizationSectionProps> = ({
                   <Button size="sm" variant="outline" onClick={() => faviconInputRef.current?.click()}>
                     <CloudUpload className="mr-2 h-4 w-4" /> Alterar Favicon
                   </Button>
-                  <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => handleUpdateSetting("systemFavicon", "")}>
+                  <Button size="sm" variant="destructive-ghost" onClick={() => handleUpdateSetting("systemFavicon", "")}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
@@ -96,7 +96,7 @@ const PersonalizationSection: React.FC<PersonalizationSectionProps> = ({
                   <Button size="sm" variant="outline" onClick={() => mobileLogoInputRef.current?.click()}>
                     <CloudUpload className="mr-2 h-4 w-4" /> Alterar Mobile
                   </Button>
-                  <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => handleUpdateSetting("mobileLogo", "")}>
+                  <Button size="sm" variant="destructive-ghost" onClick={() => handleUpdateSetting("mobileLogo", "")}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
@@ -153,7 +153,7 @@ const PersonalizationSection: React.FC<PersonalizationSectionProps> = ({
                   <Button size="sm" variant="outline" onClick={() => loginBackgroundInputRef.current?.click()}>
                     <CloudUpload className="mr-2 h-4 w-4" /> Alterar Fundo
                   </Button>
-                  <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => handleUpdateSetting("login_backgroundImage", "")}>
+                  <Button size="sm" variant="destructive-ghost" onClick={() => handleUpdateSetting("login_backgroundImage", "")}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>

@@ -6,6 +6,14 @@
 @import './theme/bridge.css';
 
 @import "tailwindcss";
+@plugin "tailwindcss-animate";
+
+/* Tailwind v4 has no config file wired in (components.json leaves
+ * `tailwind.config` empty on purpose) — `dark:` must be declared here as a
+ * custom variant keyed off the `.dark` class that theme/loader.ts toggles,
+ * otherwise it silently falls back to `prefers-color-scheme` and never
+ * matches our runtime theme switch. */
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* ── Tailwind v4: @theme define as utilidades de cor (bg-*, text-*, border-*) ──
  * Os tokens shadcn (--primary, --border, etc.) ficam em bridge.css como HSL cru.
@@ -30,6 +38,58 @@
   --color-border:               hsl(var(--border));
   --color-input:                hsl(var(--input));
   --color-ring:                 hsl(var(--ring));
+
+  /* Status — usados por StatusChip/MetricCard/Avatar (bg-status-success etc.) */
+  --color-status-success:     hsl(var(--status-success));
+  --color-status-error:       hsl(var(--status-error));
+  --color-status-warning:     hsl(var(--status-warning));
+  --color-status-info:        hsl(var(--status-info));
+  --color-status-success-bg:  hsl(var(--status-success-bg));
+  --color-status-error-bg:    hsl(var(--status-error-bg));
+  --color-status-warning-bg:  hsl(var(--status-warning-bg));
+  --color-status-info-bg:     hsl(var(--status-info-bg));
+  --color-status-default-bg:  hsl(var(--status-default-bg));
+  --color-status-success-text: hsl(var(--status-success-text));
+  --color-status-error-text:   hsl(var(--status-error-text));
+  --color-status-warning-text: hsl(var(--status-warning-text));
+  --color-status-info-text:    hsl(var(--status-info-text));
+  --color-status-default-text: hsl(var(--status-default-text));
+  --color-bg-surface:          hsl(var(--bg-surface));
+
+  /* Radius — fonte única de verdade para a escala de raio (antes duplicada
+   * e divergente entre spacing.css e o componentTokens do loader). Valores
+   * conforme docs/frontend/design-system.md: botões/inputs 8px, overlays
+   * 12px, cards 16px. spacing.css consome estes via var(--radius-*) — não
+   * redeclare os valores lá. */
+  --radius-none: 0px;
+  --radius-sm:   6px;
+  --radius-md:   8px;
+  --radius-lg:   12px;
+  --radius-xl:   16px;
+  --radius-2xl:  20px;
+  --radius-full: 9999px;
+
+  /* Shadows — mesma escala usada em card.tsx/dialog.tsx via arbitrary values;
+   * registradas aqui para permitir shadow-sm/md/lg/xl utilitários também. */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
+  --shadow-md: 0 3px 6px rgba(0, 0, 0, 0.16);
+  --shadow-lg: 0 6px 12px rgba(0, 0, 0, 0.2);
+  --shadow-xl: 0 10px 20px rgba(0, 0, 0, 0.25);
+
+  /* Fonts — --font-primary vem de typography.css; aqui só criamos o alias
+   * no namespace que o Tailwind usa para gerar font-sans. font-mono é
+   * literal (não pode referenciar --font-mono de typography.css: o próprio
+   * @theme redeclara --font-mono no mesmo escopo global, o que criaria uma
+   * referência circular). Mantenha em sync com typography.css se mudar. */
+  --font-sans: var(--font-primary);
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+  /* Motion — duration-fast/normal/slow usados em status-chip.tsx etc.
+   * Literais por causa da mesma restrição de referência circular do @theme;
+   * fonte de verdade continua theme/tokens/motion.css — manter em sync. */
+  --duration-fast:   150ms;
+  --duration-normal: 200ms;
+  --duration-slow:   300ms;
 }
 
 @layer base {

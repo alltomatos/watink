@@ -1,4 +1,5 @@
 import React from "react";
+import { Rocket } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -34,7 +35,10 @@ const UpdateDialog: React.FC<UpdateDialogProps> = ({
   <Dialog open={open} onOpenChange={onOpenChange}>
     <DialogContent>
       <DialogHeader>
-        <DialogTitle>🚀 Verificar Atualização</DialogTitle>
+        <DialogTitle className="flex items-center gap-2">
+          <Rocket className="h-5 w-5 text-muted-foreground" />
+          Verificar Atualização
+        </DialogTitle>
       </DialogHeader>
       <div className="space-y-2 text-sm">
         <p>

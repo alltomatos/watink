@@ -2,7 +2,7 @@
 import React from "react";
 import { Search, Plus, Download, List, LayoutGrid, Trash2 } from "lucide-react";
 
-import { PageLayout, PageHeader, PageContent } from "../../components/ui/page-layout";
+import { PageContainer, PageHeader, PageContent } from "../../components/ui/page-layout";
 import ContactModal from "../../components/ContactModal";
 import ConfirmationModal from "../../components/ConfirmationModal/";
 import ClientModal from "../Clients/ClientModal";
@@ -55,7 +55,7 @@ const Contacts: React.FC = () => {
   } = useContacts();
 
   return (
-    <PageLayout>
+    <PageContainer>
       <ContactModal
         open={contactModalOpen}
         onClose={handleCloseContactModal}
@@ -201,7 +201,7 @@ const Contacts: React.FC = () => {
           />
         )}
       </PageContent>
-    </PageLayout>
+    </PageContainer>
   );
 };
 

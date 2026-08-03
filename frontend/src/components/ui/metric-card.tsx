@@ -75,7 +75,7 @@ const MetricCard = React.forwardRef<HTMLDivElement, MetricCardProps>(
         {icon && (
           <div
             className={cn(
-              "mb-4 flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl [&>svg]:h-7 [&>svg]:w-7",
+              "mb-4 flex h-14 w-14 shrink-0 items-center justify-center rounded-xl [&>svg]:h-7 [&>svg]:w-7",
               iconBgStyles[c],
               iconColorStyles[c]
             )}
@@ -92,7 +92,7 @@ const MetricCard = React.forwardRef<HTMLDivElement, MetricCardProps>(
         {/* Valor principal — grande e colorido */}
         <span
           className={cn(
-            "text-[2.5rem] font-extrabold leading-none tracking-tight",
+            "text-[2.5rem] font-extrabold leading-none tracking-tight tabular-nums",
             valueColorStyles[c]
           )}
         >
@@ -105,8 +105,8 @@ const MetricCard = React.forwardRef<HTMLDivElement, MetricCardProps>(
             className={cn(
               "mt-3 inline-flex w-fit items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold",
               trend.positive
-                ? "bg-[var(--status-success-bg)] text-[var(--status-success-text)]"
-                : "bg-[var(--status-error-bg)] text-[var(--status-error-text)]"
+                ? "bg-status-success-bg text-status-success-text"
+                : "bg-status-error-bg text-status-error-text"
             )}
           >
             {trend.positive ? (

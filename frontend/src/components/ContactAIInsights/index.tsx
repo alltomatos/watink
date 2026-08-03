@@ -1,5 +1,5 @@
 import React from "react";
-import { RefreshCw } from "lucide-react";
+import { Bot, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ContactAIInsightsProps } from "./contactAIInsightsTypes";
 import { useContactAIInsights } from "./hooks/useContactAIInsights";
@@ -30,7 +30,10 @@ const ContactAIInsights = ({ contactId }: ContactAIInsightsProps) => {
     <div className="h-full flex flex-col overflow-hidden bg-[var(--bg-default)]">
       {/* Header */}
       <div className="px-4 py-3 border-b border-[var(--border-divider)] bg-[var(--bg-surface)] flex items-center justify-between">
-        <span className="text-sm font-semibold">🤖 Assistente IA</span>
+        <span className="flex items-center gap-1.5 text-sm font-semibold">
+          <Bot className="h-4 w-4 text-muted-foreground" />
+          Assistente IA
+        </span>
         <Button variant="ghost" size="icon" onClick={fetchInsights} title="Atualizar análise">
           <RefreshCw className="w-4 h-4" />
         </Button>

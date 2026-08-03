@@ -3,7 +3,7 @@ import React from "react";
 
 import { i18n } from "../../translate/i18n";
 import {
-  PageLayout,
+  PageContainer,
   PageHeader,
   PageContent,
 } from "../../components/ui/page-layout";
@@ -35,7 +35,7 @@ const TagManager = () => {
   } = useTagManager();
 
   return (
-    <PageLayout>
+    <PageContainer>
       <TagModal
         open={tagModalOpen}
         onClose={handleCloseTagModal}
@@ -80,7 +80,7 @@ const TagManager = () => {
           }}
         />
       </PageContent>
-    </PageLayout>
+    </PageContainer>
   );
 };
 

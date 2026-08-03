@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { toast } from "react-toastify";
 import { Save, PlayCircle, Loader2, CheckCircle2, XCircle, Info } from "lucide-react";
-import { PageLayout, PageHeader, PageContent } from "@/components/ui/page-layout";
+import { PageContainer, PageHeader, PageContent } from "@/components/ui/page-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -320,7 +320,7 @@ const AssistantCreator: React.FC = () => {
     const showPersonaSections = mode === "persona" || (mode === "pipeline" && respondsAfterProactive);
 
     return (
-        <PageLayout>
+        <PageContainer>
             <PageHeader
                 title={isEditing ? "Editar Assistente" : "Novo Assistente"}
                 description="Configure a conexão, o comportamento e o gatilho do assistente"
@@ -811,7 +811,7 @@ const AssistantCreator: React.FC = () => {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </PageLayout>
+        </PageContainer>
     );
 };
 

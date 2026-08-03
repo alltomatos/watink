@@ -61,6 +61,7 @@ Frontend (React/Vite) ←REST/SSE→ Backend Go (Gin/GORM) ←SQL→ PostgreSQL
 | Plugins — Redesenho Marketplace + Licenciamento via Hub (ADR 0024; Hub em `watink-ecosistema/hub`) | ✅ Concluída (auditado 2026-07-04) |
 | Plugins — Marketplace de terceiros (ADR 0025 + Hub ADR 0004; plano em `docs/agents/marketplace-terceiros.md`) | 🔧 Fase 0 implementada (2026-07-04) — pendente review/commit; Fase 1 não iniciada |
 | Plugins — Marketplace respeita instância gerida por Watink SaaS (ADR 0026; ADRs irmãos: Hub ADR 0005, watink-saas ADR 0008) | 🟡 Desenho aceito e verificado; implementação a fazer (mudança cirúrgica em `PluginController.Activate`) |
+| Frontend — Redesign corporativo: paleta, componentes compartilhados (DataTable/EmptyState/ErrorState/FormField/notify), telas de referência | ✅ Concluída (PRs #507-#510) — rollout das ~25 páginas restantes é trabalho incremental futuro, ver [`docs/frontend/design-system.md`](docs/frontend/design-system.md) |
 
 ## Services & Ports
 
@@ -172,6 +173,13 @@ MUI v4 **completamente removido** — `@material-ui/*` não é dependência do p
 - Tokens semânticos em HSL cru — usar `hsl(var(--token))` em valores arbitrários Tailwind.
 - Cards: sombra, não borda — `rounded-2xl shadow-[0px_4px_20px_rgba(0,0,0,0.08)]`.
 - Todos os arquivos novos em `.tsx`. Proibido `.jsx` ou `.js` em `src/`.
+
+**Identidade corporativa (redesign jul-ago/2026, Epics #503-#506 — ver doc completo):**
+- Cor de marca (`action-primary`) é o azul corporativo `#2563EB` (light) / `#60A5FA` (dark) — nunca reintroduzir o azul iOS antigo (`#007AFF`) nem hardcodar hex, sempre via token semântico em `theme/tokens/semantic.ts`.
+- **Proibido emoji como ícone estrutural** (título de página/seção, botão, badge) — usar `lucide-react`. Emoji só é aceitável como conteúdo informal em áreas de chat (reações, preview de mensagem WhatsApp).
+- Antes de criar tabela/formulário/empty-state do zero, usar os componentes compartilhados: `DataTable`, `FormField`, `EmptyState`, `ErrorState` (`src/components/ui/`) e `notify` (`src/lib/notify.ts`) para toasts.
+- `PageContainer`/`PageHeader`/`PageContent` (`src/components/ui/page-layout.tsx`) é o shell padrão de página CRUD — não usar em workspaces custom como Tickets (chat), que só herdam os tokens de cor/spacing.
+- Redesign cobriu a fundação + telas de referência (Sidebar, Dashboard, Clients, Settings, Tickets) — **não o produto inteiro**. Página fora dessa lista ainda pode ter padrões antigos; isso é rollout pendente, não regressão.
 
 ## Security
 

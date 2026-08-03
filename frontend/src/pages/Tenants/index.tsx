@@ -1,6 +1,6 @@
 /* @jsxImportSource react */
 import React from "react";
-import { Plus } from "lucide-react";
+import { Building2, Plus } from "lucide-react";
 
 import TenantModal from "../../components/TenantModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
@@ -49,7 +49,15 @@ const Tenants: React.FC = () => {
         tenantId={selectedTenantId ?? undefined}
       />
 
-      <PageHeader title="🏢 Tenants" description="Gerencie os tenants cadastrados na plataforma">
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
+            <Building2 className="h-5 w-5 text-muted-foreground" />
+            Tenants
+          </span>
+        }
+        description="Gerencie os tenants cadastrados na plataforma"
+      >
         <Button onClick={handleOpenTenantModal}>
           <Plus className="mr-2 h-4 w-4" />
           Novo Tenant

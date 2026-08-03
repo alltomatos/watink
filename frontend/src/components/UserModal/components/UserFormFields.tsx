@@ -4,7 +4,7 @@ import { Eye, EyeOff } from "lucide-react";
 
 import { i18n } from "../../../translate/i18n";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FormField } from "@/components/ui/form-field";
 import { cn } from "@/lib/utils";
 
 interface UserFormFieldsProps {
@@ -23,13 +23,7 @@ const UserFormFields: React.FC<UserFormFieldsProps> = ({
   return (
     <>
       <div className="grid grid-cols-2 gap-4">
-        <div className="flex flex-col gap-2">
-          <Label
-            htmlFor="name"
-            className={cn(touched.name && errors.name && "text-destructive")}
-          >
-            {i18n.t("userModal.form.name")}
-          </Label>
+        <FormField htmlFor="name" label={i18n.t("userModal.form.name")} required error={touched.name ? errors.name : undefined}>
           <Field name="name">
             {({ field }: FieldProps) => (
               <Input
@@ -40,18 +34,9 @@ const UserFormFields: React.FC<UserFormFieldsProps> = ({
               />
             )}
           </Field>
-          {touched.name && errors.name && (
-            <span className="text-xs text-destructive">{errors.name}</span>
-          )}
-        </div>
+        </FormField>
 
-        <div className="flex flex-col gap-2">
-          <Label
-            htmlFor="password"
-            className={cn(touched.password && errors.password && "text-destructive")}
-          >
-            {i18n.t("userModal.form.password")}
-          </Label>
+        <FormField htmlFor="password" label={i18n.t("userModal.form.password")} required error={touched.password ? errors.password : undefined}>
           <div className="relative">
             <Field name="password">
               {({ field }: FieldProps) => (
@@ -74,19 +59,10 @@ const UserFormFields: React.FC<UserFormFieldsProps> = ({
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
-          {touched.password && errors.password && (
-            <span className="text-xs text-destructive">{errors.password}</span>
-          )}
-        </div>
+        </FormField>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <Label
-          htmlFor="email"
-          className={cn(touched.email && errors.email && "text-destructive")}
-        >
-          {i18n.t("userModal.form.email")}
-        </Label>
+      <FormField htmlFor="email" label={i18n.t("userModal.form.email")} required error={touched.email ? errors.email : undefined}>
         <Field name="email">
           {({ field }: FieldProps) => (
             <Input
@@ -97,10 +73,7 @@ const UserFormFields: React.FC<UserFormFieldsProps> = ({
             />
           )}
         </Field>
-        {touched.email && errors.email && (
-          <span className="text-xs text-destructive">{errors.email}</span>
-        )}
-      </div>
+      </FormField>
     </>
   );
 };

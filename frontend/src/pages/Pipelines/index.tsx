@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "react-toastify";
 import { Copy, FileDown, Layers, MoreVertical, Pencil, Plus, Search, Trash2, Upload } from "lucide-react";
-import { PageLayout, PageHeader, PageContent } from "@/components/ui/page-layout";
+import { PageContainer, PageHeader, PageContent } from "@/components/ui/page-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -170,7 +170,7 @@ const Pipelines: React.FC = () => {
     };
 
     return (
-        <PageLayout>
+        <PageContainer>
             <ConfirmationModal
                 title="Excluir pipeline"
                 open={!!pipelineToDelete}
@@ -391,7 +391,7 @@ const Pipelines: React.FC = () => {
                     </div>
                 )}
             </PageContent>
-        </PageLayout>
+        </PageContainer>
     );
 };
 
