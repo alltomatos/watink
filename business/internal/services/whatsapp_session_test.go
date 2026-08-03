@@ -88,20 +88,6 @@ func TestDeleteWhatsAppSession_PublishesDelete(t *testing.T) {
 	}
 }
 
-// TestLegacyGlobalFunctions_ReturnErrors ensures legacy functions fail closed.
-func TestLegacyGlobalFunctions_ReturnErrors(t *testing.T) {
-	w := models.Whatsapp{}
-	if err := StartWhatsAppSession(w, false, "", false); err == nil {
-		t.Error("legacy StartWhatsAppSession should return error")
-	}
-	if err := StopWhatsAppSession(w); err == nil {
-		t.Error("legacy StopWhatsAppSession should return error")
-	}
-	if err := DeleteWhatsAppSession(w); err == nil {
-		t.Error("legacy DeleteWhatsAppSession should return error")
-	}
-}
-
 // mockRedisServiceLockFails always fails to acquire the lock.
 type mockRedisServiceLockFails struct{ mockRedisService }
 

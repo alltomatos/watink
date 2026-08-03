@@ -47,28 +47,3 @@ func (e TicketStatusChangedEvent) TenantID() uuid.UUID { return e.tenantID }
 func NewTicketStatusChangedEvent(ticketID int, oldStatus, newStatus string, tenantID uuid.UUID) TicketStatusChangedEvent {
 	return TicketStatusChangedEvent{TicketID: ticketID, OldStatus: oldStatus, NewStatus: newStatus, tenantID: tenantID}
 }
-
-type ContactCreatedEvent struct {
-	ContactID int
-	tenantID  uuid.UUID
-}
-
-func (e ContactCreatedEvent) EventName() string   { return "ContactCreated" }
-func (e ContactCreatedEvent) TenantID() uuid.UUID { return e.tenantID }
-
-func NewContactCreatedEvent(contactID int, tenantID uuid.UUID) ContactCreatedEvent {
-	return ContactCreatedEvent{ContactID: contactID, tenantID: tenantID}
-}
-
-type SessionStatusChangedEvent struct {
-	SessionID int
-	Status    string
-	tenantID  uuid.UUID
-}
-
-func (e SessionStatusChangedEvent) EventName() string   { return "SessionStatusChanged" }
-func (e SessionStatusChangedEvent) TenantID() uuid.UUID { return e.tenantID }
-
-func NewSessionStatusChangedEvent(sessionID int, status string, tenantID uuid.UUID) SessionStatusChangedEvent {
-	return SessionStatusChangedEvent{SessionID: sessionID, Status: status, tenantID: tenantID}
-}

@@ -60,39 +60,6 @@ func TestTicketStatusChangedEvent(t *testing.T) {
 	}
 }
 
-func TestContactCreatedEvent(t *testing.T) {
-	tenantID := uuid.New()
-	event := ContactCreatedEvent{
-		ContactID: 789,
-		tenantID:  tenantID,
-	}
-
-	if event.EventName() != "ContactCreated" {
-		t.Errorf("Expected event name 'ContactCreated', got %s", event.EventName())
-	}
-
-	if event.TenantID() != tenantID {
-		t.Errorf("Expected tenant ID %s, got %s", tenantID, event.TenantID())
-	}
-}
-
-func TestSessionStatusChangedEvent(t *testing.T) {
-	tenantID := uuid.New()
-	event := SessionStatusChangedEvent{
-		SessionID: 456,
-		Status:    "connected",
-		tenantID:  tenantID,
-	}
-
-	if event.EventName() != "SessionStatusChanged" {
-		t.Errorf("Expected event name 'SessionStatusChanged', got %s", event.EventName())
-	}
-
-	if event.TenantID() != tenantID {
-		t.Errorf("Expected tenant ID %s, got %s", tenantID, event.TenantID())
-	}
-}
-
 func TestUser_CheckPassword_Correct(t *testing.T) {
 	hash, err := bcrypt.GenerateFromPassword([]byte("secret123"), bcrypt.MinCost)
 	if err != nil {

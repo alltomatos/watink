@@ -63,36 +63,3 @@ func TestNewTicketStatusChangedEvent(t *testing.T) {
 	}
 	var _ DomainEvent = e
 }
-
-func TestNewContactCreatedEvent(t *testing.T) {
-	tenantID := uuid.New()
-	e := NewContactCreatedEvent(99, tenantID)
-	if e.ContactID != 99 {
-		t.Errorf("expected ContactID 99, got %d", e.ContactID)
-	}
-	if e.TenantID() != tenantID {
-		t.Errorf("expected tenantID %s, got %s", tenantID, e.TenantID())
-	}
-	if e.EventName() != "ContactCreated" {
-		t.Errorf("expected EventName 'ContactCreated', got %s", e.EventName())
-	}
-	var _ DomainEvent = e
-}
-
-func TestNewSessionStatusChangedEvent(t *testing.T) {
-	tenantID := uuid.New()
-	e := NewSessionStatusChangedEvent(5, "connected", tenantID)
-	if e.SessionID != 5 {
-		t.Errorf("expected SessionID 5, got %d", e.SessionID)
-	}
-	if e.Status != "connected" {
-		t.Errorf("expected Status 'connected', got %s", e.Status)
-	}
-	if e.TenantID() != tenantID {
-		t.Errorf("expected tenantID %s, got %s", tenantID, e.TenantID())
-	}
-	if e.EventName() != "SessionStatusChanged" {
-		t.Errorf("expected EventName 'SessionStatusChanged', got %s", e.EventName())
-	}
-	var _ DomainEvent = e
-}

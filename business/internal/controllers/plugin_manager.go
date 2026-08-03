@@ -347,20 +347,6 @@ func (pc *PluginController) Instance(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"instanceId": inst.InstanceID})
 }
 
-// Legacy stubs -- remove once all clients migrate to PluginController
-func PluginsCatalog(c *gin.Context) {
-	c.JSON(http.StatusServiceUnavailable, gin.H{"error": "migrate to PluginController"})
-}
-func PluginsInstalled(c *gin.Context) {
-	c.JSON(http.StatusServiceUnavailable, gin.H{"error": "migrate to PluginController"})
-}
-func PluginsCheckout(c *gin.Context) {
-	c.JSON(http.StatusServiceUnavailable, gin.H{"error": "migrate to PluginController"})
-}
-func PluginsInstance(c *gin.Context) {
-	c.JSON(http.StatusServiceUnavailable, gin.H{"error": "migrate to PluginController"})
-}
-
 // upsertInstallation creates or reactivates the (tenantId, pluginId) row.
 // UNIQUE(tenantId, pluginId) on the model means a plain Create on an existing
 // row would violate the constraint -- use ON CONFLICT DO UPDATE instead so
