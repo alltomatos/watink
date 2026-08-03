@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"strconv"
 
 	"github.com/alltomatos/watinkdev/business/internal/flow"
@@ -486,18 +485,18 @@ func (ac *AssistantController) Test(c *gin.Context) {
 // testPersona is the shared real-call path for persona (and
 // respondsAfterProactive pipeline) — same Agent Runtime implementation the
 // production runtime uses (assistant_persona.go), single-turn, no history.
-// Builds the responder via knowledge.BuildRetrieverAndResponder so this "Test"
-// button respects KNOWLEDGE_MODE like every other RAG entry point — it used
-// to hardcode flow.NewHTTPAgentClientFromEnv(), silently bypassing the switch
-// (found testing the native RAG pipeline live: the button kept calling the
-// decommissioned watink-knowledge service even with KNOWLEDGE_MODE=native).
+// Builds the responder via knowledge.BuildRetrieverAndResponder — same native
+// pgvector RAG every other entry point uses (routes.go, EventListener); do
+// not hardcode a different implementation here (it used to call
+// flow.NewHTTPAgentClientFromEnv() directly against the now-decommissioned
+// watink-knowledge service, silently diverging from production behavior).
 func (ac *AssistantController) testPersona(c *gin.Context, db *gorm.DB, tenantID uuid.UUID, cfg models.AssistantPersonaConfig, message string) {
 	if cfg.KnowledgeBaseID == nil || *cfg.KnowledgeBaseID == 0 {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "configure uma Base de Conhecimento para testar este assistant"})
 		return
 	}
 
-	_, responder := knowledge.BuildRetrieverAndResponder(os.Getenv(knowledge.ModeEnvVar), db)
+	_, responder := knowledge.BuildRetrieverAndResponder(db)
 	reply, err := responder.Respond(c.Request.Context(), tenantID, *cfg.KnowledgeBaseID, cfg.Persona, nil, message)
 	if err != nil {
 		// 200 (não 502/504) de propósito: esta é uma resposta de "resultado
