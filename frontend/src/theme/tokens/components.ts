@@ -1,9 +1,12 @@
 export const componentTokens = {
-  // Radius
-  'radius-sm': '8px',
-  'radius-md': '12px',
-  'radius-lg': '16px',
-  'radius-xl': '20px',
+  // Radius — mesma escala de src/index.css (@theme) / spacing.css.
+  // Não redeclare valores diferentes aqui: o loader injeta este objeto por
+  // cima dos tokens de CSS em runtime, e uma divergência aqui volta a
+  // quebrar a fonte única de verdade.
+  'radius-sm': '6px',
+  'radius-md': '8px',
+  'radius-lg': '12px',
+  'radius-xl': '16px',
   'radius-full': '9999px',
 
   // Spacing
@@ -43,8 +46,9 @@ export const componentTokens = {
   'nav-active-bg': 'var(--action-primary-bg)',
   'nav-active-text': 'var(--text-primary)',
 
-  // App Structure
-  'sidebar-width': '260px',
+  // App Structure — 200px/70px expandido/colapsado (ver MainSidebar, que já
+  // usa esses valores hardcoded via className; mantém consistência).
+  'sidebar-width': '200px',
   'sidebar-bg': 'var(--bg-sidebar)',
   'appbar-bg': 'var(--bg-appbar)',
   'appbar-height': '64px',

@@ -105,8 +105,8 @@ const MetricCard = React.forwardRef<HTMLDivElement, MetricCardProps>(
             className={cn(
               "mt-3 inline-flex w-fit items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold",
               trend.positive
-                ? "bg-[var(--status-success-bg)] text-[var(--status-success-text)]"
-                : "bg-[var(--status-error-bg)] text-[var(--status-error-text)]"
+                ? "bg-status-success-bg text-status-success-text"
+                : "bg-status-error-bg text-status-error-text"
             )}
           >
             {trend.positive ? (

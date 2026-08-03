@@ -11,15 +11,15 @@ const statusChipVariants = cva(
     variants: {
       status: {
         success:
-          "bg-[var(--status-success-bg)] text-[var(--status-success-text)]",
+          "bg-status-success-bg text-status-success-text",
         error:
-          "bg-[var(--status-error-bg)] text-[var(--status-error-text)]",
+          "bg-status-error-bg text-status-error-text",
         warning:
-          "bg-[var(--status-warning-bg)] text-[var(--status-warning-text)]",
+          "bg-status-warning-bg text-status-warning-text",
         info:
-          "bg-[var(--status-info-bg)] text-[var(--status-info-text)]",
+          "bg-status-info-bg text-status-info-text",
         default:
-          "bg-[var(--status-default-bg)] text-[var(--status-default-text)]",
+          "bg-status-default-bg text-status-default-text",
       },
       size: {
         sm: "px-2 py-0.5 text-[0.625rem]",
@@ -38,11 +38,11 @@ const statusChipVariants = cva(
 const dotVariants = cva("shrink-0 rounded-full", {
   variants: {
     status: {
-      success: "bg-[var(--status-success)]",
-      error: "bg-[var(--status-error)]",
-      warning: "bg-[var(--status-warning)]",
-      info: "bg-[var(--status-info)]",
-      default: "bg-[var(--status-default-text)]",
+      success: "bg-status-success",
+      error: "bg-status-error",
+      warning: "bg-status-warning",
+      info: "bg-status-info",
+      default: "bg-status-default-text",
     },
     size: {
       sm: "h-1.5 w-1.5",

@@ -25,7 +25,7 @@ const avatarVariants = cva(
 );
 
 const onlineDotVariants = cva(
-  "absolute bottom-0 right-0 rounded-full border-2 border-[var(--bg-surface)] bg-status-success",
+  "absolute bottom-0 right-0 rounded-full border-2 border-bg-surface bg-status-success",
   {
     variants: {
       size: {
