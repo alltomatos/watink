@@ -1,7 +1,7 @@
 /* @jsxImportSource react */
 import React, { Suspense, lazy } from "react";
 import { BrowserRouter, Routes as RouterRoutes } from "react-router";
-import { ToastContainer } from "react-toastify";
+import ThemedToastContainer from "../components/ThemedToastContainer";
 
 import LoggedInLayout from "../layout";
 import PageLoader from "../components/PageLoader";
@@ -130,7 +130,7 @@ const Routes = () => {
      <Route path="/*" element={<PrivateRoute isPrivate><PrivateRoutes /></PrivateRoute>} />
      </RouterRoutes>
  </Suspense>
- <ToastContainer autoClose={3000} />
+ <ThemedToastContainer />
  </ThemeProvider>
  </AuthProvider>
  </StatusCheck>
