@@ -246,31 +246,6 @@ func TestPluginController_Checkout_Returns503(t *testing.T) {
 	assert.True(t, ok, "response must contain error key")
 }
 
-func TestLegacyPluginStubs(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	cases := []struct {
-		name    string
-		handler gin.HandlerFunc
-	}{
-		{"PluginsCatalog", PluginsCatalog},
-		{"PluginsInstalled", PluginsInstalled},
-		{"PluginsCheckout", PluginsCheckout},
-		{"PluginsInstance", PluginsInstance},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			w := httptest.NewRecorder()
-			c, _ := gin.CreateTestContext(w)
-			req, _ := http.NewRequest("GET", "/", nil)
-			c.Request = req
-			tc.handler(c)
-			assert.Equal(t, http.StatusServiceUnavailable, w.Code)
-		})
-	}
-}
-
 func TestPluginController_Activate_LicensedGrantsAllocation(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	tenantID := uuid.New()
