@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router";
-import { Maximize, RefreshCw, ArrowLeft } from "lucide-react";
+import { Maximize, RefreshCw, ArrowLeft, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -33,7 +33,10 @@ const KanbanHeader: React.FC<KanbanHeaderProps> = ({
             <ArrowLeft className="h-5 w-5" />
           </Button>
         )}
-        <h1 className="text-xl font-semibold">🎫 Helpdesk Kanban</h1>
+        <h1 className="flex items-center gap-2 text-xl font-semibold">
+          <Ticket className="h-5 w-5 text-muted-foreground" />
+          Helpdesk Kanban
+        </h1>
       </div>
       <div className="flex items-center gap-1">
         <Tooltip>

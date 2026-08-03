@@ -106,7 +106,14 @@ const Billing: React.FC = () => {
 
   return (
     <PageContainer>
-      <PageHeader title="💳 Assinatura e Planos" />
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
+            <CreditCard className="h-5 w-5 text-muted-foreground" />
+            Assinatura e Planos
+          </span>
+        }
+      />
       <PageContent>
         <div className="mb-6 flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/50 dark:bg-amber-950/20 dark:text-amber-200">
           <Info className="mt-0.5 h-4 w-4 shrink-0" />

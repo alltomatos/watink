@@ -75,7 +75,7 @@ export function useVersionDashboard(): UseVersionDashboardReturn {
         setUpdateStatus("ok");
         localStorage.removeItem("watink_update_pending");
         localStorage.setItem("watink_update_ok", "1");
-        toast.success("✅ Atualização concluída com sucesso");
+        toast.success("Atualização concluída com sucesso");
       }
 
       setStats(data);

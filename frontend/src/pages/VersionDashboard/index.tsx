@@ -1,5 +1,5 @@
 import React from "react";
-import { Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 
 import { useVersionDashboard } from "./hooks/useVersionDashboard";
 import DashboardHeader from "./components/DashboardHeader";
@@ -68,8 +68,9 @@ export default function VersionDashboard() {
       <TenantConsumptionTable stats={stats} />
 
       {updateStatus === "ok" && (
-        <p className="font-semibold" style={{ color: "var(--status-success)" }}>
-          ✅ Atualização concluída com sucesso. Sistema 100% atualizado.
+        <p className="flex items-center gap-1.5 font-semibold" style={{ color: "var(--status-success)" }}>
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          Atualização concluída com sucesso. Sistema 100% atualizado.
         </p>
       )}
 
