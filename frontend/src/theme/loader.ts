@@ -128,6 +128,10 @@ export const applyThemeTokens = ({
   // 4. Data attributes for CSS selectors
   document.documentElement.dataset.theme = mode;
   document.documentElement.dataset.appTheme = appTheme;
+
+  // 5. `.dark` class so Tailwind `dark:` variants (which key off a class,
+  //    not `data-theme`) also react to theme changes.
+  document.documentElement.classList.toggle('dark', mode === 'dark');
 };
 
 export default applyThemeTokens;
