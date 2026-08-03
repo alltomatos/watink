@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router";
-import { Plus, LayoutGrid } from "lucide-react";
+import { Plus, LayoutGrid, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tabs,
@@ -41,7 +41,10 @@ const Helpdesk: React.FC = () => {
         <div className="mx-auto max-w-7xl p-6">
           <Tabs defaultValue="protocols" className="w-full">
             <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <h1 className="text-3xl font-bold tracking-tight">🎫 Helpdesk</h1>
+              <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight">
+                <Ticket className="h-7 w-7 text-muted-foreground" />
+                Helpdesk
+              </h1>
               <TabsList>
                 <TabsTrigger value="protocols">Protocolos</TabsTrigger>
                 <TabsTrigger value="reports">Relatórios</TabsTrigger>

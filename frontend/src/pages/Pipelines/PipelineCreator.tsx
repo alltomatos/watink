@@ -1,5 +1,5 @@
 import React from "react";
-import { ArrowLeft, Eye, Layers, Loader2, Pencil } from "lucide-react";
+import { ArrowLeft, Eye, Layers, Lightbulb, Loader2, Pencil } from "lucide-react";
 import MainContainer from "@/components/MainContainer";
 import MainHeader from "@/components/MainHeader";
 import { Button } from "@/components/ui/button";
@@ -171,7 +171,7 @@ const PipelineCreator: React.FC = () => {
                                     color: "hsl(var(--status-warning))",
                                 }}
                             >
-                                <span className="shrink-0">💡</span>
+                                <Lightbulb className="h-3.5 w-3.5 shrink-0" />
                                 <span className="font-medium">
                                     Atualiza em tempo real conforme você edita as etapas acima
                                 </span>
