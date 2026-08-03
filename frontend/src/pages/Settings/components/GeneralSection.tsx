@@ -4,6 +4,7 @@ import { SettingsIcon, Copy } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
+import { FormField } from "../../../components/ui/form-field";
 import { Switch } from "../../../components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../../components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
@@ -67,8 +68,7 @@ const GeneralSection: React.FC<GeneralSectionProps> = ({
 
         <Separator />
 
-        <div className="grid gap-2">
-          <Label htmlFor="system-lang">Idioma Global</Label>
+        <FormField htmlFor="system-lang" label="Idioma Global">
           <Select value={getSettingValue("language") || "pt"} onValueChange={handleLanguageChange}>
             <SelectTrigger id="system-lang">
               <SelectValue placeholder="Idioma" />
@@ -79,12 +79,11 @@ const GeneralSection: React.FC<GeneralSectionProps> = ({
               <SelectItem value="es">Español</SelectItem>
             </SelectContent>
           </Select>
-        </div>
+        </FormField>
 
         <Separator />
 
-        <div className="grid gap-2">
-          <Label htmlFor="system-timezone">Fuso Horário (Timezone)</Label>
+        <FormField htmlFor="system-timezone" label="Fuso Horário (Timezone)">
           <Select
             value={getSettingValue("timezone") || "America/Sao_Paulo"}
             onValueChange={(v) => handleUpdateSetting("timezone", v)}
@@ -98,12 +97,11 @@ const GeneralSection: React.FC<GeneralSectionProps> = ({
               ))}
             </SelectContent>
           </Select>
-        </div>
+        </FormField>
 
         <Separator />
 
-        <div className="grid gap-2">
-          <Label htmlFor="api-token">Token de API Global</Label>
+        <FormField htmlFor="api-token" label="Token de API Global">
           <div className="flex gap-2">
             <Input id="api-token" readOnly value={getSettingValue("userApiToken")} className="font-mono bg-muted" />
             <Button variant="outline" size="icon" onClick={() => {
@@ -113,7 +111,7 @@ const GeneralSection: React.FC<GeneralSectionProps> = ({
               <Copy className="h-4 w-4" />
             </Button>
           </div>
-        </div>
+        </FormField>
       </CardContent>
     </Card>
   </div>

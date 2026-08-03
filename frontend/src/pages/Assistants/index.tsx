@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "react-toastify";
 import { Copy, MoreVertical, Pencil, Plus, Search, Sparkles, Trash2 } from "lucide-react";
-import { PageLayout, PageHeader, PageContent } from "@/components/ui/page-layout";
+import { PageContainer, PageHeader, PageContent } from "@/components/ui/page-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -126,7 +126,7 @@ const Assistants: React.FC = () => {
         });
 
     return (
-        <PageLayout>
+        <PageContainer>
             <ConfirmationModal
                 title="Excluir assistente"
                 open={!!assistantToDelete}
@@ -290,7 +290,7 @@ const Assistants: React.FC = () => {
                     </div>
                 )}
             </PageContent>
-        </PageLayout>
+        </PageContainer>
     );
 };
 

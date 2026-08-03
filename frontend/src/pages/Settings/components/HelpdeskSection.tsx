@@ -3,6 +3,7 @@ import { Headphones, Plus, XCircle } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
+import { FormField } from "../../../components/ui/form-field";
 import { Switch } from "../../../components/ui/switch";
 import { Badge } from "../../../components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../../components/ui/card";
@@ -59,17 +60,18 @@ const HelpdeskSection: React.FC<HelpdeskSectionProps> = ({
           <h3 className="text-sm font-semibold mb-4">Tempos de Resolução do SLA (em minutos)</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {(["low", "medium", "high", "urgent"] as const).map((priority) => (
-              <div key={priority} className="grid gap-1.5">
-                <Label htmlFor={`sla-${priority}`}>
-                  {priority === "low" ? "Baixa" : priority === "medium" ? "Média" : priority === "high" ? "Alta" : "Urgente"}
-                </Label>
+              <FormField
+                key={priority}
+                htmlFor={`sla-${priority}`}
+                label={priority === "low" ? "Baixa" : priority === "medium" ? "Média" : priority === "high" ? "Alta" : "Urgente"}
+              >
                 <Input
                   id={`sla-${priority}`}
                   type="number"
                   value={slaConfig[priority]}
                   onChange={(e) => handleUpdateSla(priority, e.target.value)}
                 />
-              </div>
+              </FormField>
             ))}
           </div>
         </div>

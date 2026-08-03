@@ -1,9 +1,9 @@
 import React from "react";
-import { PageLayout } from "../../components/ui/page-layout";
+import { PageContainer } from "../../components/ui/page-layout";
 
 const AdminDashboard: React.FC = () => {
   return (
-    <PageLayout title="Super Admin Dashboard">
+    <PageContainer title="Super Admin Dashboard">
       <div className="p-4">
         <h2 className="text-lg font-semibold text-[var(--foreground)]">
           Bem-vindo ao Painel do Super Admin
@@ -12,7 +12,7 @@ const AdminDashboard: React.FC = () => {
           Gerenciamento de Tenants e Métricas do SaaS.
         </p>
       </div>
-    </PageLayout>
+    </PageContainer>
   );
 };
 

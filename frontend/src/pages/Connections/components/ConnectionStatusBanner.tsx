@@ -31,7 +31,7 @@ const ConnectionStatusBanner: React.FC<ConnectionStatusBannerProps> = ({
             <p className="font-semibold text-green-800">Sessão ativa</p>
             <p className="text-sm text-green-700">Tudo certo — seu número está pronto para enviar e receber.</p>
           </div>
-          <Button variant="default" className="bg-blue-600 hover:bg-blue-700" onClick={onDisconnect}>
+          <Button variant="default" onClick={onDisconnect}>
             <PlugZap className="mr-2 h-4 w-4" /> Desconectar
           </Button>
         </CardContent>

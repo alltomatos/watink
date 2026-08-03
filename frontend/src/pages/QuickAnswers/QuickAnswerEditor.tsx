@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router";
 import { toast } from "react-toastify";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { PageLayout, PageHeader, PageContent } from "@/components/ui/page-layout";
+import { PageContainer, PageHeader, PageContent } from "@/components/ui/page-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -148,7 +148,7 @@ const QuickAnswerEditor: React.FC = () => {
   const selectedType = TYPE_OPTIONS.find((o) => o.value === type);
 
   return (
-    <PageLayout>
+    <PageContainer>
       <PageHeader
         title={isEdit ? "Editar resposta rápida" : "Nova resposta rápida"}
         description={isEdit ? "Atualize o template de mensagem" : "Crie um template para agilizar o atendimento"}
@@ -336,7 +336,7 @@ const QuickAnswerEditor: React.FC = () => {
           </div>
         )}
       </PageContent>
-    </PageLayout>
+    </PageContainer>
   );
 };
 
