@@ -7,7 +7,7 @@ import { AuthContext } from "../../context/Auth/AuthContext";
 import { Can } from "../../components/Can";
 import { Button } from "../../components/ui/button";
 import {
-  PageLayout,
+  PageContainer,
   PageHeader,
   PageContent,
 } from "../../components/ui/page-layout";
@@ -52,7 +52,7 @@ const Settings: React.FC = () => {
   const isSuperAdmin = (user as unknown as { alcance?: string })?.alcance === "plataforma";
 
   return (
-    <PageLayout>
+    <PageContainer>
       <PageHeader title="Configurações do Sistema">
         <div className="flex gap-2">
           <Can
@@ -132,7 +132,7 @@ const Settings: React.FC = () => {
           )}
         </div>
       </PageContent>
-    </PageLayout>
+    </PageContainer>
   );
 };
 

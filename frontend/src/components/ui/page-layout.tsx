@@ -6,7 +6,7 @@ interface PageContainerProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
 }
 
-export const PageLayout: React.FC<PageContainerProps> = ({
+export const PageContainer: React.FC<PageContainerProps> = ({
   children,
   className,
   ...props
@@ -23,8 +23,6 @@ export const PageLayout: React.FC<PageContainerProps> = ({
     </div>
   );
 };
-
-export const PageContainer = PageLayout;
 
 interface PageHeaderProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "title"> {
   title?: React.ReactNode;

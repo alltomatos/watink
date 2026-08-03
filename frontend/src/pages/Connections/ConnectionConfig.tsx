@@ -1,7 +1,7 @@
 import React from "react";
 import { Loader2 } from "lucide-react";
 
-import { PageLayout, PageContent } from "../../components/ui/page-layout";
+import { PageContainer, PageContent } from "../../components/ui/page-layout";
 
 import { useConnectionConfig } from "./hooks/useConnectionConfig";
 import ConnectionModals from "./components/ConnectionModals";
@@ -66,7 +66,7 @@ const ConnectionConfig = () => {
   const openDeleteConfirmation = () => { setConfirmationAction("delete"); setConfirmationOpen(true); };
 
   return (
-    <PageLayout>
+    <PageContainer>
       <ConnectionModals
         whatsappId={whatsappId}
         confirmationOpen={confirmationOpen}
@@ -137,7 +137,7 @@ const ConnectionConfig = () => {
           />
         </div>
       </PageContent>
-    </PageLayout>
+    </PageContainer>
   );
 };
 

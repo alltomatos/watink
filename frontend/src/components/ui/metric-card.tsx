@@ -75,7 +75,7 @@ const MetricCard = React.forwardRef<HTMLDivElement, MetricCardProps>(
         {icon && (
           <div
             className={cn(
-              "mb-4 flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl [&>svg]:h-7 [&>svg]:w-7",
+              "mb-4 flex h-14 w-14 shrink-0 items-center justify-center rounded-xl [&>svg]:h-7 [&>svg]:w-7",
               iconBgStyles[c],
               iconColorStyles[c]
             )}
@@ -92,7 +92,7 @@ const MetricCard = React.forwardRef<HTMLDivElement, MetricCardProps>(
         {/* Valor principal — grande e colorido */}
         <span
           className={cn(
-            "text-[2.5rem] font-extrabold leading-none tracking-tight",
+            "text-[2.5rem] font-extrabold leading-none tracking-tight tabular-nums",
             valueColorStyles[c]
           )}
         >

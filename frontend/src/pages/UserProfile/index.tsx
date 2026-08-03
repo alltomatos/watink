@@ -3,7 +3,7 @@ import React from "react";
 import { i18n } from "../../translate/i18n";
 
 import {
-  PageLayout,
+  PageContainer,
   PageHeader,
   PageContent,
 } from "../../components/ui/page-layout";
@@ -27,7 +27,7 @@ const UserProfile = () => {
   } = useUserProfile();
 
   return (
-    <PageLayout>
+    <PageContainer>
       <PageHeader
         title={i18n.t("userProfile.title")}
         description="Gerencie suas informações pessoais e credenciais de acesso"
@@ -53,7 +53,7 @@ const UserProfile = () => {
           />
         </div>
       </PageContent>
-    </PageLayout>
+    </PageContainer>
   );
 };
 

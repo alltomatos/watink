@@ -4,7 +4,7 @@ import { MessageSquare, Plus } from "lucide-react";
 import { i18n } from "../../translate/i18n";
 
 import {
-  PageLayout,
+  PageContainer,
   PageHeader,
   PageContent,
 } from "../../components/ui/page-layout";
@@ -37,7 +37,7 @@ const QuickAnswers = () => {
   };
 
   return (
-    <PageLayout>
+    <PageContainer>
       <ConfirmationModal
         title={
           selectedQuickAnswer
@@ -96,7 +96,7 @@ const QuickAnswers = () => {
           />
         )}
       </PageContent>
-    </PageLayout>
+    </PageContainer>
   );
 };
 
