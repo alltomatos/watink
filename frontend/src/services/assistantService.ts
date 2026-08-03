@@ -23,7 +23,7 @@ export interface Assistant {
     ignoreGroups: boolean;
     /** "legacy" (padrão) = ignoreGroups decide tudo-ou-nada; "selective" =
      * ignoreGroups é ignorado, cada grupo é ativado individualmente
-     * (ver AssistantGroupsDialog) e só recebe resposta quando o assistente
+     * (ver AssistantGroupsPanel) e só recebe resposta quando o assistente
      * é mencionado — fora isso, ele só observa a conversa. */
     groupsMode: "legacy" | "selective";
     active: boolean;
