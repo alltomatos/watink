@@ -285,6 +285,7 @@ func seedTenant(tx *gorm.DB, data TenantSeedData, plan *models.Plan, provisionKe
 	atendentePermNames := []string{
 		"tickets:read", "tickets:create", "tickets:update",
 		"contacts:read", "contacts:create", "contacts:update",
+		"activities:read",
 	}
 	atendenteCargo := models.Cargo{
 		Name:        "Atendente",

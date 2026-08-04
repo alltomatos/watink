@@ -83,6 +83,11 @@ func Migrate() {
 		&models.Protocol{},
 		&models.ProtocolLog{},
 		&models.ProtocolAttachment{},
+		&models.Activity{},
+		&models.ActivityAssignee{},
+		&models.ActivityChecklistItem{},
+		&models.ActivityMaterial{},
+		&models.ActivityOccurrence{},
 		&models.Assistant{},
 		&models.AssistantRouterOption{},
 		&models.AssistantGroup{},
@@ -168,6 +173,12 @@ func Seed() {
 		{Resource: "clients", Action: "update", Description: "Editar Clientes"},
 		{Resource: "clients", Action: "delete", Description: "Excluir Clientes"},
 		{Resource: "clients", Action: "manage", Description: "Gerenciar vínculos de Contato e Endereços de Clientes"},
+		// activities (Ordens de Serviço)
+		{Resource: "activities", Action: "read", Description: "Visualizar Atividades"},
+		{Resource: "activities", Action: "create", Description: "Criar Atividades"},
+		{Resource: "activities", Action: "update", Description: "Editar/executar Atividades"},
+		{Resource: "activities", Action: "delete", Description: "Excluir Atividades"},
+		{Resource: "activities", Action: "manage", Description: "Gerenciar SLA e atribuição de Atividades"},
 		// connections (WhatsApp/Conexões)
 		{Resource: "connections", Action: "read", Description: "Visualizar Conexões"},
 		{Resource: "connections", Action: "create", Description: "Criar Conexões"},
@@ -210,6 +221,32 @@ func Seed() {
 	}
 
 	fmt.Println("Database seeding completed")
+
+	if err := backfillActivitiesReadForAtendente(); err != nil {
+		log.Printf("Warning: failed to backfill activities:read for Atendente cargos: %v", err)
+	}
+}
+
+// backfillActivitiesReadForAtendente concede activities:read ao Cargo
+// "Atendente" de todo tenant já existente. SetupService.InitializeTenant só
+// anexa a permissão a tenants criados DEPOIS que ela entrou em
+// atendentePermNames — sem este backfill, o técnico de um tenant já
+// provisionado nunca vê o item de menu nem consegue acessar /my-activities
+// (403 no dia 1). Idempotente via ON CONFLICT DO NOTHING sobre a PK composta
+// (cargoId, permissionId) de cargo_permissoes — rodar de novo não duplica.
+func backfillActivitiesReadForAtendente() error {
+	var perm models.Permission
+	if err := DB.Where(`resource = ? AND action = ?`, "activities", "read").First(&perm).Error; err != nil {
+		return fmt.Errorf("activities:read permission not found: %w", err)
+	}
+
+	return DB.Exec(`
+		INSERT INTO cargo_permissoes ("cargoId", "permissionId")
+		SELECT c.id, ?
+		FROM "Cargos" c
+		WHERE c.name = 'Atendente'
+		ON CONFLICT DO NOTHING
+	`, perm.ID).Error
 }
 
 // dropLegacyRBAC remove o schema RBAC legado (Group/Role/RolePermission +
@@ -330,6 +367,17 @@ func addCustomIndexes() error {
 		`CREATE INDEX IF NOT EXISTS idx_protocols_tenant_status ON "Protocols" ("tenantId", "status")`,
 		`CREATE INDEX IF NOT EXISTS idx_protocol_logs_protocol ON "ProtocolLogs" ("protocolId")`,
 		`CREATE INDEX IF NOT EXISTS idx_protocol_attachments_protocol ON "ProtocolAttachments" ("protocolId")`,
+		// Activities: listagem de gestão filtra (tenantId, status); o alerta de
+		// SLA/dashboard varre (tenantId, slaDueAt); os filhos resolvem por
+		// activityId; ActivityAssignees tem UNIQUE (idempotência do PUT
+		// /activities/:id/assignees, que faz upsert por diferença).
+		`CREATE INDEX IF NOT EXISTS idx_activities_tenant_status ON "Activities" ("tenantId", "status")`,
+		`CREATE INDEX IF NOT EXISTS idx_activities_tenant_sladueat ON "Activities" ("tenantId", "slaDueAt")`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_activity_assignees_activity_user ON "ActivityAssignees" ("activityId", "userId")`,
+		`CREATE INDEX IF NOT EXISTS idx_activity_assignees_user ON "ActivityAssignees" ("userId")`,
+		`CREATE INDEX IF NOT EXISTS idx_activity_checklist_items_activity ON "ActivityChecklistItems" ("activityId")`,
+		`CREATE INDEX IF NOT EXISTS idx_activity_materials_activity ON "ActivityMaterials" ("activityId")`,
+		`CREATE INDEX IF NOT EXISTS idx_activity_occurrences_activity ON "ActivityOccurrences" ("activityId")`,
 		// GroupCache (plugin Grupos e Comunidades): uma linha por
 		// (conexão, grupo) -- o sync de background faz delete+reinsert por
 		// conexão (groups_cache_sync.go), a leitura de GET /groups filtra por

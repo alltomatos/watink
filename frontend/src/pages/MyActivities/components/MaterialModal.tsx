@@ -14,8 +14,8 @@ import { Material } from "../activityTypes";
 
 interface MaterialModalProps {
   open: boolean;
-  newMaterial: Omit<Material, "id">;
-  onChange: React.Dispatch<React.SetStateAction<Omit<Material, "id">>>;
+  newMaterial: Omit<Material, "id" | "activityId">;
+  onChange: React.Dispatch<React.SetStateAction<Omit<Material, "id" | "activityId">>>;
   onConfirm: () => void;
   onCancel: () => void;
 }

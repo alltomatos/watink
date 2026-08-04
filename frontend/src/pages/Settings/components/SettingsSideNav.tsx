@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router";
-import { SettingsIcon, Palette, Mail, Globe, Headphones, Brain, Library, HardDrive, Network, MapPin, Info, Zap, Sparkles } from "lucide-react";
+import { SettingsIcon, Palette, Mail, Globe, Headphones, Brain, Library, HardDrive, Network, MapPin, Info, Zap, Sparkles, ClipboardList } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 
 interface SettingsSideNavProps {
@@ -33,6 +33,7 @@ const SettingsSideNav: React.FC<SettingsSideNavProps> = ({ activeSection, active
       {item("smtp", Mail, "E-mail SMTP", activePlugins.includes("smtp"))}
       {item("papi", Globe, "Gateway PAPI", activePlugins.includes("engine-papi"))}
       {item("helpdesk", Headphones, "Helpdesk Atendimento", activePlugins.includes("helpdesk"))}
+      {item("activities", ClipboardList, "Atividades")}
       {item("ai", Brain, "Agente de IA")}
       {item("ai-gateways", Sparkles, "Agentes de IA (Assistentes)", activePlugins.includes("assistant"))}
       {item("address", MapPin, "Endereço (CEP)")}

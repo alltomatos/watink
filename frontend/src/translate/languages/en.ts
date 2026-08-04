@@ -361,6 +361,7 @@ const messages = {
           pipelines: "Pipelines",
           tickets: "Tickets",
           myActivities: "My Activities",
+          activities: "Activities",
           contacts: "Contacts",
           quickAnswers: "Quick Answers",
           flowBuilder: "Flow Builder",

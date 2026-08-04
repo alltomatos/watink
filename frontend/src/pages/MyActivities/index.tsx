@@ -1,63 +1,50 @@
 /* @jsxImportSource react */
-import React, { useState, useEffect } from "react";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { ArrowRight, Clock } from "lucide-react";
-import { toast } from "react-toastify";
+import React, { useState } from "react";
+import { ClipboardList } from "lucide-react";
 
 import { PageContainer, PageHeader, PageContent } from "@/components/ui/page-layout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
+import notify from "@/lib/notify";
 
 import api from "../../services/api";
 import ActivityExecution from "./ActivityExecution";
+import { Activity } from "./activityTypes";
+import { useMyActivities, ActivityTab } from "./hooks/useMyActivities";
+import ActivityKpiCards from "./components/ActivityKpiCards";
+import ActivityFilters from "./components/ActivityFilters";
+import ActivityCard from "./components/ActivityCard";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-interface Activity {
-  id: string;
-  title: string;
-  description?: string;
-  status: "pending" | "in_progress" | "done" | "cancelled";
-  createdAt: string;
-}
-
-// ─── Status Helpers ──────────────────────────────────────────────────────────
-
-const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  pending:       { label: "Pendente",   variant: "outline" },
-  in_progress:   { label: "Em Progresso", variant: "secondary" },
-  done:          { label: "Concluído", variant: "default" },
-  cancelled:     { label: "Cancelado", variant: "destructive" },
-};
-
-// ─── Component ────────────────────────────────────────────────────────────────
+const TABS: { key: ActivityTab; label: string }[] = [
+  { key: "all", label: "Todas" },
+  { key: "overdue", label: "Atrasadas" },
+  { key: "inProgress", label: "Em andamento" },
+  { key: "done", label: "Concluídas" },
+];
 
 const MyActivities: React.FC = () => {
-  const [loading, setLoading] = useState(true);
-  const [activities, setActivities] = useState<Activity[]>([]);
+  const {
+    loading, errorKind, kpis, tab, setTab,
+    search, setSearch, statusFilter, setStatusFilter, priorityFilter, setPriorityFilter,
+    filtered, refetch,
+  } = useMyActivities();
+
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [executionOpen, setExecutionOpen] = useState(false);
 
-  useEffect(() => {
-    fetchActivities();
-  }, []);
-
-  const fetchActivities = async () => {
+  const handleOpenExecution = async (activity: Activity) => {
+    // Início explícito: marca in_progress/startedAt na primeira abertura —
+    // idempotente no backend, base do KPI de tempo médio e do alerta de
+    // "atividade parada" (docs/agents/activities.md §Melhorias de UX).
     try {
-      setLoading(true);
-      const { data } = await api.get<{ activities?: Activity[] }>("/my-activities");
-      setActivities(data.activities ?? []);
+      await api.put(`/activities/${activity.id}/start`);
     } catch (err) {
-      console.error(err);
-      toast.error("Erro ao carregar atividades");
-    } finally {
-      setLoading(false);
+      notify.error(err);
+      return;
     }
-  };
-
-  const handleOpenExecution = (activity: Activity) => {
     setSelectedActivity(activity);
     setExecutionOpen(true);
   };
@@ -65,68 +52,76 @@ const MyActivities: React.FC = () => {
   const handleCloseExecution = () => {
     setExecutionOpen(false);
     setSelectedActivity(null);
-    fetchActivities();
+    refetch();
   };
 
   return (
     <PageContainer>
       <PageHeader title="Minhas Atividades" />
-      <PageContent>
+      <PageContent className="flex flex-col gap-4">
         {loading ? (
-          <div className="flex justify-center py-16">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <div className="space-y-4">
+            <div className="grid gap-4 grid-cols-2 md:grid-cols-5">
+              {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-32 rounded-2xl" />)}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-48 rounded-2xl" />)}
+            </div>
           </div>
-        ) : activities.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <p className="text-lg text-muted-foreground">
-              Nenhuma atividade atribuída no momento.
-            </p>
-          </div>
+        ) : errorKind ? (
+          <ErrorState
+            title={errorKind === "forbidden" ? "Você não tem permissão para ver atividades" : undefined}
+            onRetry={errorKind === "generic" ? refetch : undefined}
+          />
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {activities.map((activity) => {
-              const cfg = STATUS_CONFIG[activity.status] ?? STATUS_CONFIG.pending;
-              return (
-                <Card key={activity.id} className="flex flex-col">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <Badge variant={cfg.variant}>{cfg.label}</Badge>
-                      <span className="text-xs text-muted-foreground">
-                        #{activity.id}
-                      </span>
-                    </div>
-                    <CardTitle className="text-base leading-snug">
-                      {activity.title}
-                    </CardTitle>
-                    <CardDescription className="line-clamp-2">
-                      {activity.description || "Sem descrição"}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="mt-auto flex flex-col gap-4">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Clock className="h-3.5 w-3.5" />
-                      {format(new Date(activity.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                    </div>
-                    <Button
-                      size="sm"
-                      className="w-full"
-                      onClick={() => handleOpenExecution(activity)}
-                    >
-                      Executar
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+          <>
+            <ActivityKpiCards kpis={kpis} />
+
+            <ActivityFilters
+              search={search}
+              onSearchChange={setSearch}
+              status={statusFilter}
+              onStatusChange={setStatusFilter}
+              priority={priorityFilter}
+              onPriorityChange={setPriorityFilter}
+            />
+
+            <Tabs value={tab} onValueChange={(v) => setTab(v as ActivityTab)}>
+              <TabsList>
+                {TABS.map(({ key, label }) => (
+                  <TabsTrigger key={key} value={key} className="gap-1.5">
+                    {label}
+                    <Badge variant="secondary">{kpis.tabCounts[key]}</Badge>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+
+            {filtered.length === 0 ? (
+              <EmptyState
+                icon={<ClipboardList />}
+                title="Nenhuma atividade atribuída no momento."
+              />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filtered.map((activity) => (
+                  <ActivityCard
+                    key={activity.id}
+                    activity={activity}
+                    onExecute={handleOpenExecution}
+                    onOccurrenceRegistered={refetch}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </PageContent>
 
       {selectedActivity && (
         <ActivityExecution
           open={executionOpen}
-          activityId={selectedActivity.id}
+          activityId={String(selectedActivity.id)}
           onClose={handleCloseExecution}
         />
       )}
