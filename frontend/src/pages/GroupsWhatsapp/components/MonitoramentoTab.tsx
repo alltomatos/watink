@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "react-toastify";
 import { Plus, Trash2, Tag, Bell, MessageSquareText } from "lucide-react";
-import { PageContainer, PageHeader, PageContent } from "@/components/ui/page-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,8 +20,8 @@ import {
     listWatchMatches,
     GroupWatchTag,
     GroupWatchMatch,
-} from "../../services/groupService";
-import { subscribeToSocket } from "../../services/sse-client";
+} from "../../../services/groupService";
+import { subscribeToSocket } from "../../../services/sse-client";
 
 const timeAgo = (iso: string): string => {
     const diffMs = Date.now() - new Date(iso).getTime();
@@ -34,7 +33,7 @@ const timeAgo = (iso: string): string => {
     return `${Math.floor(h / 24)}d atrás`;
 };
 
-const WatchTags: React.FC = () => {
+const MonitoramentoTab: React.FC = () => {
     const navigate = useNavigate();
     const [tags, setTags] = useState<GroupWatchTag[]>([]);
     const [matches, setMatches] = useState<GroupWatchMatch[]>([]);
@@ -108,78 +107,74 @@ const WatchTags: React.FC = () => {
     };
 
     return (
-        <PageContainer>
-            <PageHeader title="Monitoramento" description="Acompanhe frases mencionadas em grupos, em tempo real">
-                <Button onClick={() => setNewTagOpen(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
+        <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-2 flex-wrap">
+                <Tag className="h-4 w-4 text-muted-foreground shrink-0" />
+                {tags.length === 0 && !loading ? (
+                    <span className="text-sm text-muted-foreground">
+                        Nenhuma frase monitorada ainda.
+                    </span>
+                ) : (
+                    tags.map((t) => (
+                        <Badge key={t.id} variant="secondary" className="gap-1.5 pr-1">
+                            {t.phrase}
+                            <button
+                                type="button"
+                                onClick={() => handleDeleteTag(t.id)}
+                                className="rounded-full hover:bg-black/10 p-0.5"
+                                aria-label={`Remover "${t.phrase}"`}
+                            >
+                                <Trash2 className="h-3 w-3" />
+                            </button>
+                        </Badge>
+                    ))
+                )}
+                <Button onClick={() => setNewTagOpen(true)} className="ml-auto gap-2">
+                    <Plus className="h-4 w-4" />
                     Nova frase
                 </Button>
-            </PageHeader>
-            <PageContent className="p-6 space-y-6">
-                <div className="flex items-center gap-2 flex-wrap">
-                    <Tag className="h-4 w-4 text-muted-foreground shrink-0" />
-                    {tags.length === 0 && !loading ? (
-                        <span className="text-sm text-muted-foreground">
-                            Nenhuma frase monitorada ainda.
-                        </span>
-                    ) : (
-                        tags.map((t) => (
-                            <Badge key={t.id} variant="secondary" className="gap-1.5 pr-1">
-                                {t.phrase}
-                                <button
-                                    type="button"
-                                    onClick={() => handleDeleteTag(t.id)}
-                                    className="rounded-full hover:bg-black/10 p-0.5"
-                                    aria-label={`Remover "${t.phrase}"`}
-                                >
-                                    <Trash2 className="h-3 w-3" />
-                                </button>
-                            </Badge>
-                        ))
-                    )}
-                </div>
+            </div>
 
-                <div className="flex items-center gap-2 pt-2">
-                    <Bell className="h-4 w-4 text-muted-foreground" />
-                    <h3 className="text-sm font-semibold">Menções recentes</h3>
-                </div>
+            <div className="flex items-center gap-2 pt-2">
+                <Bell className="h-4 w-4 text-muted-foreground" />
+                <h3 className="text-sm font-semibold">Menções recentes</h3>
+            </div>
 
-                {loading ? (
-                    <p className="text-sm text-muted-foreground px-1">Carregando...</p>
-                ) : matches.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center gap-2 text-center px-6 py-16">
-                        <MessageSquareText className="h-8 w-8 text-muted-foreground" />
-                        <h3 className="text-base font-medium">Nenhuma menção ainda</h3>
-                        <p className="text-sm text-muted-foreground max-w-md">
-                            Assim que alguém mencionar uma frase monitorada em um grupo, ela aparece aqui.
-                        </p>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {matches.map((m) => (
-                            <Card
-                                key={m.id}
-                                className="rounded-2xl bg-card shadow-[0px_4px_20px_rgba(0,0,0,0.08)] cursor-pointer hover:shadow-[0px_6px_24px_rgba(0,0,0,0.12)] transition-shadow"
-                                onClick={() => navigate(`/tickets/${m.ticketId}`)}
-                            >
-                                <CardContent className="p-4 space-y-2">
-                                    <div className="flex items-center justify-between gap-2">
-                                        <Badge variant="secondary">{m.phrase}</Badge>
-                                        <span className="text-xs text-muted-foreground shrink-0">
-                                            {timeAgo(m.createdAt)}
-                                        </span>
-                                    </div>
-                                    <p className="text-sm font-medium truncate">{m.groupSubject || "Grupo"}</p>
-                                    <p className="text-xs text-muted-foreground truncate">
-                                        {m.contactName ? `${m.contactName}: ` : ""}
-                                        {m.snippet}
-                                    </p>
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
-                )}
-            </PageContent>
+            {loading ? (
+                <p className="text-sm text-muted-foreground px-1">Carregando...</p>
+            ) : matches.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-2 text-center px-6 py-16">
+                    <MessageSquareText className="h-8 w-8 text-muted-foreground" />
+                    <h3 className="text-base font-medium">Nenhuma menção ainda</h3>
+                    <p className="text-sm text-muted-foreground max-w-md">
+                        Assim que alguém mencionar uma frase monitorada em um grupo, ela aparece aqui.
+                    </p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {matches.map((m) => (
+                        <Card
+                            key={m.id}
+                            className="rounded-2xl bg-card shadow-[0px_4px_20px_rgba(0,0,0,0.08)] cursor-pointer hover:shadow-[0px_6px_24px_rgba(0,0,0,0.12)] transition-shadow"
+                            onClick={() => navigate(`/tickets/${m.ticketId}`)}
+                        >
+                            <CardContent className="p-4 space-y-2">
+                                <div className="flex items-center justify-between gap-2">
+                                    <Badge variant="secondary">{m.phrase}</Badge>
+                                    <span className="text-xs text-muted-foreground shrink-0">
+                                        {timeAgo(m.createdAt)}
+                                    </span>
+                                </div>
+                                <p className="text-sm font-medium truncate">{m.groupSubject || "Grupo"}</p>
+                                <p className="text-xs text-muted-foreground truncate">
+                                    {m.contactName ? `${m.contactName}: ` : ""}
+                                    {m.snippet}
+                                </p>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+            )}
 
             <Dialog open={newTagOpen} onOpenChange={setNewTagOpen}>
                 <DialogContent>
@@ -203,8 +198,8 @@ const WatchTags: React.FC = () => {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </PageContainer>
+        </div>
     );
 };
 
-export default WatchTags;
+export default MonitoramentoTab;

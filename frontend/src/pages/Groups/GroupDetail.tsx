@@ -49,7 +49,7 @@ const GroupDetail: React.FC = () => {
         try {
             await leaveGroup(whatsappId, decodedJid);
             toast.success("Você saiu do grupo");
-            navigate("/groups");
+            navigate("/grupos-whatsapp/grupos");
         } catch (err) {
             toast.error(classifyGroupsApiError(err).message);
         }
@@ -61,7 +61,7 @@ const GroupDetail: React.FC = () => {
                 title={group?.subject ?? "Grupo"}
                 description={group ? `${group.participants.length} participante(s)` : undefined}
             >
-                <Button variant="outline" size="icon" onClick={() => navigate("/groups")}>
+                <Button variant="outline" size="icon" onClick={() => navigate("/grupos-whatsapp/grupos")}>
                     <ArrowLeft className="h-4 w-4" />
                 </Button>
                 {group && (

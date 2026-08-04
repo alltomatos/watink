@@ -17,8 +17,6 @@ import {
   Shield,
   Sparkles,
   Users,
-  Network,
-  Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AuthContext } from "../../../context/Auth/AuthContext";
@@ -189,43 +187,11 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed, isLightSidebar, acti
           perform="whatsappGroups:read"
           yes={() => (
             <SidebarItem
-              to="/groups"
-              label={i18n.t("mainDrawer.listItems.whatsappGroups")}
+              to="/grupos-whatsapp"
+              label={i18n.t("mainDrawer.listItems.whatsappGroupsHub")}
               icon={<Users size={20} />}
               collapsed={collapsed}
               activeColor="var(--nav-icon-green)"
-            />
-          )}
-        />
-      )}
-
-      {activePlugins.includes("groups") && (
-        <Can
-          user={user}
-          perform="whatsappGroups:read"
-          yes={() => (
-            <SidebarItem
-              to="/communities"
-              label={i18n.t("mainDrawer.listItems.whatsappCommunities")}
-              icon={<Network size={20} />}
-              collapsed={collapsed}
-              activeColor="var(--nav-icon-teal)"
-            />
-          )}
-        />
-      )}
-
-      {activePlugins.includes("groups") && (
-        <Can
-          user={user}
-          perform="whatsappGroups:read"
-          yes={() => (
-            <SidebarItem
-              to="/groups/watch"
-              label={i18n.t("mainDrawer.listItems.whatsappGroupsWatch")}
-              icon={<Bell size={20} />}
-              collapsed={collapsed}
-              activeColor="var(--nav-icon-yellow)"
             />
           )}
         />

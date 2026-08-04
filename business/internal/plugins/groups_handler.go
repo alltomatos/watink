@@ -72,6 +72,7 @@ func handleListGroups(svc *groupsService) gin.HandlerFunc {
 		for _, g := range groups {
 			out = append(out, groupsListEntry{GroupInfo: g, IsConnectionAdmin: connectionIsGroupAdmin(g.Participants, w.Number)})
 		}
+		enrichContactsFromGroups(svc.db, tenantID, groups)
 		c.JSON(http.StatusOK, out)
 	}
 }
@@ -96,6 +97,7 @@ func handleGetGroup(svc *groupsService) gin.HandlerFunc {
 			utils.RespondWithFriendlyOrInternalError(c, err, "GroupsPlugin.GetGroup")
 			return
 		}
+		enrichContactsFromGroups(svc.db, tenantID, []domain.GroupInfo{*group})
 		c.JSON(http.StatusOK, group)
 	}
 }

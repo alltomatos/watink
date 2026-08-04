@@ -58,7 +58,7 @@ const CommunityDetail: React.FC = () => {
     return (
         <PageContainer>
             <PageHeader title={community?.subject || "Comunidade"}>
-                <Button variant="outline" size="icon" onClick={() => navigate("/communities")}>
+                <Button variant="outline" size="icon" onClick={() => navigate("/grupos-whatsapp/comunidades")}>
                     <ArrowLeft className="h-4 w-4" />
                 </Button>
                 {community && (
