@@ -35,7 +35,11 @@ linters:
         # Comunidades — plugin de gestão de grupos WhatsApp) e disparam
         # falso positivo do dicionário en-US do misspell ("participants",
         # "memento") — não são typos.
+        - participante
+        - Participante
         - participantes
         - Participantes
         - momento
         - Momento
+        - independente
+        - Independente
