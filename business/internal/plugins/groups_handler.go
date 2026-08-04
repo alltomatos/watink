@@ -35,22 +35,41 @@ type groupsListEntry struct {
 	IsConnectionAdmin bool `json:"isConnectionAdmin"`
 }
 
-// connectionIsGroupAdmin varre Participants em busca de um JID cujo número
-// bata com o da conexão (mesmo split usado em usecases.jidNumber: parte
-// antes de "@", depois antes de ":", já que whatsmeow anexa o device ID
-// nesse formato) e devolve o IsAdmin desse participante. Sem match (número
-// não está listado nos participantes -- não deveria acontecer para um grupo
-// em que a conexão está, mas dado de terceiro nunca é garantia), o
-// fail-safe é false: nunca assumir admin sem confirmação explícita.
+// connectionIsGroupAdmin varre Participants em busca do participante cujo
+// número bate com o da conexão e devolve o IsAdmin desse participante.
+//
+// Checa DOIS campos, não só JID: grupos com a privacidade "LID" da Meta
+// ativada (rollout amplo, ver engine-go/internal/whatsapp/groups_dto.go
+// participantFromWhatsmeow) reportam o próprio participante com JID sendo
+// um "@lid" opaco -- não é o número de telefone, comparar só contra ele
+// nunca bate e todo grupo LID marca a conexão como "não-admin" mesmo sendo.
+// PhoneNumber é o campo que o whatsmeow preenche quando consegue resolver o
+// número real por trás do LID (vazio quando não consegue). Testa PhoneNumber
+// primeiro (mais confiável quando presente) e cai para JID como fallback
+// (grupos sem LID, onde JID já É o número).
+//
+// Sem match (não deveria acontecer para um grupo em que a conexão está, mas
+// dado de terceiro nunca é garantia), o fail-safe é false: nunca assumir
+// admin sem confirmação explícita.
 func connectionIsGroupAdmin(participants []domain.Participant, connectionNumber string) bool {
 	for _, p := range participants {
-		local := strings.SplitN(p.JID, "@", 2)[0]
-		local = strings.SplitN(local, ":", 2)[0]
-		if local == connectionNumber {
+		if p.PhoneNumber != "" && localPart(p.PhoneNumber) == connectionNumber {
+			return p.IsAdmin
+		}
+	}
+	for _, p := range participants {
+		if localPart(p.JID) == connectionNumber {
 			return p.IsAdmin
 		}
 	}
 	return false
+}
+
+// localPart strips "@domain" and a whatsmeow ":device" suffix, same split
+// used by usecases.jidNumber.
+func localPart(jid string) string {
+	local := strings.SplitN(jid, "@", 2)[0]
+	return strings.SplitN(local, ":", 2)[0]
 }
 
 // handleListGroups NUNCA fala com o WhatsApp no caminho comum -- lê

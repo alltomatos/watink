@@ -200,6 +200,22 @@ func TestConnectionIsGroupAdmin(t *testing.T) {
 	assert.False(t, connectionIsGroupAdmin(nil, "5511999990000"), "sem participantes é fail-safe false")
 }
 
+// TestConnectionIsGroupAdmin_LIDPrivacy reproduz o bug real de produção
+// (zap-0991, 164 grupos, 0 detectados como admin): grupo com privacidade
+// LID da Meta ativada reporta o próprio participante com JID = "@lid"
+// opaco, não o número -- só o PhoneNumber (quando o whatsmeow consegue
+// resolver) carrega o número de verdade.
+func TestConnectionIsGroupAdmin_LIDPrivacy(t *testing.T) {
+	participants := []domain.Participant{
+		{JID: "184627193847562@lid", PhoneNumber: "5511999990000", IsAdmin: true},
+		{JID: "298374652918273@lid", PhoneNumber: "5511988880000", IsAdmin: false},
+	}
+
+	assert.True(t, connectionIsGroupAdmin(participants, "5511999990000"), "admin com JID @lid deve casar via PhoneNumber")
+	assert.False(t, connectionIsGroupAdmin(participants, "5511988880000"), "não-admin com JID @lid não vira admin")
+	assert.False(t, connectionIsGroupAdmin(participants, "5511977770000"), "número fora dos participantes é fail-safe false mesmo com @lid")
+}
+
 func TestGroupsPlugin_ListGroups_HappyPath(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := setupPluginTestDB(t)
