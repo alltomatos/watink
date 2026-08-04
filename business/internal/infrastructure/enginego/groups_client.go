@@ -60,6 +60,35 @@ func (e *groupsErrorDetail) Error() string {
 	return fmt.Sprintf("enginego groupsapi: %s: %s", e.Code, e.Message)
 }
 
+// friendlyGroupsError traduz um erro classificado do envelope
+// (engine-go/internal/groupsapi/envelope.go, códigos espelhados aqui em
+// texto por groups-api.md -- os dois módulos Go são binários separados, sem
+// import compartilhado) numa *utils.FriendlyError com o status HTTP que o
+// engine-go já resolveu (mapBackendError) e uma mensagem segura de mostrar
+// direto na UI. Códigos sem tradução conhecida (ex. PROVIDER_ERROR opaco)
+// caem no genérico 500 -- não vale inventar mensagem pra erro que nem o
+// próprio WhatsApp classificou.
+func friendlyGroupsError(status int, e *groupsErrorDetail) error {
+	var msg string
+	switch e.Code {
+	case "NOT_ADMIN":
+		msg = "Você não é administrador deste grupo no WhatsApp -- só administradores podem fazer essa ação."
+	case "NOT_FOUND":
+		msg = "Grupo ou comunidade não encontrado -- pode ter sido excluído ou você não faz mais parte dele."
+	case "SESSION_NOT_CONNECTED":
+		msg = "Esta conexão não está online no momento. Reconecte o WhatsApp e tente de novo."
+	case "RATE_LIMITED":
+		msg = "O WhatsApp limitou essa ação temporariamente (proteção contra banimento). Aguarde um pouco e tente de novo."
+	case "INVALID_INPUT":
+		msg = e.Message
+	case "AUTH_FAILED":
+		msg = "Falha de autenticação com o WhatsApp para esta conexão."
+	default:
+		return e
+	}
+	return utils.NewFriendlyError(status, msg, e)
+}
+
 // groupsDo issues one request against the internal groups API. NO retry —
 // a retried write (e.g. add participant) would duplicate the action; the
 // caller decides whether to retry a read.
@@ -104,7 +133,7 @@ func groupsDo(ctx context.Context, method, path string, body, out interface{}) e
 	}
 	if !env.OK {
 		if env.Error != nil {
-			return env.Error
+			return friendlyGroupsError(resp.StatusCode, env.Error)
 		}
 		return fmt.Errorf("enginego groupsapi: %s %s falhou (status %d)", method, path, resp.StatusCode)
 	}

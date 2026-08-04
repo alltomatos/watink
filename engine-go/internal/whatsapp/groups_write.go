@@ -158,7 +158,15 @@ func (s *WhatsAppService) GetInviteLink(sessionID int, groupJID string) (string,
 	if err != nil {
 		return "", fmt.Errorf("%w: %v", ErrInvalidGroupJID, err)
 	}
-	return client.GetGroupInviteLink(context.Background(), jid, false)
+	link, err := client.GetGroupInviteLink(context.Background(), jid, false)
+	if err != nil {
+		// tenantID vazio é seguro aqui: classifyGroupWriteError só o usa no
+		// branch de risco (401/429/463) do reportIfRiskSignal -- o request
+		// GET desta rota (ao contrário de RevokeInviteLink) não carrega
+		// tenantId no corpo, então não há de onde tirar um valor real.
+		return "", s.classifyGroupWriteError(sessionID, "", "groups.invite.get", err)
+	}
+	return link, nil
 }
 
 // RevokeInviteLink invalidates the current invite link and returns the new one.
