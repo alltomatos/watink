@@ -1,0 +1,165 @@
+import React, { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router";
+import { toast } from "react-toastify";
+import { Plus, Search, Users, Megaphone, Lock } from "lucide-react";
+import { PageContainer, PageHeader, PageContent } from "@/components/ui/page-layout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Avatar } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { listGroups, GroupInfo } from "../../services/groupService";
+import { useGroupsConnection } from "./hooks/useGroups";
+import { classifyGroupsApiError, GroupsApiError } from "./groupTypes";
+import GroupsErrorState from "./GroupsErrorState";
+import CreateGroupDialog from "./CreateGroupDialog";
+
+const Groups: React.FC = () => {
+    const navigate = useNavigate();
+    const { whatsapps, whatsappId, setWhatsappId, loadingConnections } = useGroupsConnection();
+    const [groups, setGroups] = useState<GroupInfo[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [apiError, setApiError] = useState<GroupsApiError | null>(null);
+    const [search, setSearch] = useState("");
+    const [createOpen, setCreateOpen] = useState(false);
+
+    const fetchGroups = useCallback(async () => {
+        if (!whatsappId) return;
+        setLoading(true);
+        setApiError(null);
+        try {
+            setGroups(await listGroups(whatsappId));
+        } catch (err) {
+            setApiError(classifyGroupsApiError(err));
+        } finally {
+            setLoading(false);
+        }
+    }, [whatsappId]);
+
+    useEffect(() => {
+        if (whatsappId) fetchGroups();
+    }, [whatsappId, fetchGroups]);
+
+    const filtered = groups.filter((g) => g.subject.toLowerCase().includes(search.toLowerCase()));
+
+    return (
+        <PageContainer>
+            <PageHeader title="Grupos" description="Gestão de grupos do WhatsApp">
+                <Select
+                    value={whatsappId ? String(whatsappId) : ""}
+                    onValueChange={(v) => setWhatsappId(Number(v))}
+                >
+                    <SelectTrigger className="w-[220px]">
+                        <SelectValue placeholder="Selecione a conexão" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {whatsapps.map((w) => (
+                            <SelectItem key={w.id} value={String(w.id)}>
+                                {w.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Buscar grupo..."
+                        className="pl-8 w-[220px]"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                    />
+                </div>
+                <Button onClick={() => setCreateOpen(true)} disabled={!whatsappId}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Criar grupo
+                </Button>
+            </PageHeader>
+            <PageContent className="p-6">
+                {loadingConnections ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {[...Array(6)].map((_, i) => (
+                            <Skeleton key={i} className="h-28 rounded-2xl" />
+                        ))}
+                    </div>
+                ) : whatsapps.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center gap-4 h-full text-center px-6 py-16">
+                        <h3 className="text-lg font-semibold">Nenhuma conexão disponível</h3>
+                        <p className="text-sm text-muted-foreground max-w-md">
+                            Conecte um número de WhatsApp para gerenciar grupos.
+                        </p>
+                        <Button onClick={() => navigate("/connections")}>Ir para Conexões</Button>
+                    </div>
+                ) : apiError ? (
+                    <GroupsErrorState error={apiError} />
+                ) : loading ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {[...Array(6)].map((_, i) => (
+                            <Skeleton key={i} className="h-28 rounded-2xl" />
+                        ))}
+                    </div>
+                ) : filtered.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center gap-2 h-full text-center px-6 py-16">
+                        <Users className="h-8 w-8 text-muted-foreground" />
+                        <h3 className="text-base font-medium">Nenhum grupo encontrado</h3>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {filtered.map((g) => (
+                            <Card
+                                key={g.jid}
+                                className="rounded-2xl bg-card shadow-[0px_4px_20px_rgba(0,0,0,0.08)] cursor-pointer hover:shadow-[0px_6px_24px_rgba(0,0,0,0.12)] transition-shadow"
+                                onClick={() => navigate(`/groups/${encodeURIComponent(g.jid)}`)}
+                            >
+                                <CardContent className="p-4 flex items-start gap-3">
+                                    <Avatar size="lg" src={g.pictureURL} name={g.subject} isGroup />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-medium truncate">{g.subject}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {g.participants.length} participante{g.participants.length === 1 ? "" : "s"}
+                                        </p>
+                                        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                                            {g.isCommunity && <Badge variant="secondary">Comunidade</Badge>}
+                                            {g.isSubGroup && <Badge variant="outline">Subgrupo</Badge>}
+                                            {g.announce && (
+                                                <Badge variant="outline" className="gap-1">
+                                                    <Megaphone className="h-3 w-3" /> Somente admins
+                                                </Badge>
+                                            )}
+                                            {g.locked && (
+                                                <Badge variant="outline" className="gap-1">
+                                                    <Lock className="h-3 w-3" /> Bloqueado
+                                                </Badge>
+                                            )}
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                )}
+            </PageContent>
+            {whatsappId && (
+                <CreateGroupDialog
+                    open={createOpen}
+                    whatsappId={whatsappId}
+                    onClose={() => setCreateOpen(false)}
+                    onCreated={() => {
+                        setCreateOpen(false);
+                        toast.success("Grupo criado com sucesso!");
+                        fetchGroups();
+                    }}
+                />
+            )}
+        </PageContainer>
+    );
+};
+
+export default Groups;

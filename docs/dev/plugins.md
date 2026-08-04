@@ -33,37 +33,67 @@ frontend (frontend/src/):
 
 ## Integração de Permissões (RBAC)
 
-### 1. Migration de permissões (legacy Node)
+> **Modelo atual (ADR 0022) — substitui o texto anterior desta seção.** O RBAC legado
+> (`Group`/`Role`/migration Sequelize/`view_<plugin>`) foi descontinuado no reset de acessos.
+> O catálogo hoje é `recurso:ação`, semeado em Go, e a barreira real é `auth.RequirePermission`
+> no backend — permissão nunca é só cosmética de menu. Ver
+> [`docs/agents/acessos.md`](../agents/acessos.md) para o modelo completo.
 
-```bash
-npx sequelize migration:create --name seed-permissions-<nome-plugin>
+### 1. Seed de permissões (Go)
+
+Adicione o recurso do plugin ao slice de `business/internal/database/database.go` (não é mais
+migration Sequelize):
+
+```go
+// business/internal/database/database.go
+{Resource: "<plugin>", Action: "read", Description: "Visualizar <Plugin>"},
+{Resource: "<plugin>", Action: "manage", Description: "Gerenciar <Plugin>"},
 ```
 
-```typescript
-// migration
-const permissions = [
-  { name: "view_<plugin>", description: "Visualizar <Plugin>" },
-  { name: "edit_<plugin>", description: "Editar <Plugin>" },
-];
-await queryInterface.bulkInsert("Permissions", permissions, { ignoreDuplicates: true });
-```
+Escolha o nome do recurso com cuidado se o domínio já tem um conceito homônimo no core (ex.:
+o plugin de grupos usa `whatsappGroups`, não `groups`, porque `ConnectionGroup`/`ProxyGroup`/
+`TagGroup` já existem e são coisas totalmente diferentes).
 
 ### 2. Proteção de rota (Backend Go)
 
+Rotas registradas fora de um plugin (controllers comuns) aplicam `auth.RequirePermission`
+diretamente na cadeia do Gin:
+
 ```go
-// router.go
-r.GET("/plugins/<nome>", authMiddleware, checkPermission("<plugin>.view"), handler.Index)
-r.POST("/plugins/<nome>", authMiddleware, checkPermission("<plugin>.edit"), handler.Create)
+// routes.go
+protected.GET("/<plugin>", auth.RequirePermission("<plugin>", "read"), handler.Index)
 ```
+
+**Dentro de um plugin**, `sdk.WatinkCore.RegisterRoute(method, path, handler)` só aceita **um**
+`gin.HandlerFunc` — não há como encadear o middleware do jeito acima. Componha manualmente
+(`auth.RequirePermission` é um middleware que chama `c.Next()`; a composição funciona porque
+verificamos `c.IsAborted()` explicitamente em vez de depender do `c.Next()` interno):
+
+```go
+func withPermission(resource, action string, next gin.HandlerFunc) gin.HandlerFunc {
+	check := auth.RequirePermission(resource, action)
+	return func(c *gin.Context) {
+		check(c)
+		if c.IsAborted() {
+			return
+		}
+		next(c)
+	}
+}
+
+core.RegisterRoute("GET", "/<plugin>", withPermission("<plugin>", "read", handler.Index))
+```
+
+Lembre-se: `RegisterRoute` já embrulha o **gating de licença** (ADR 0024) — `RequirePermission`
+é uma camada **adicional**, não um substituto. Uma rota de plugin sem `withPermission` fica
+protegida por licença mas não por RBAC granular.
 
 ### 3. Proteção de interface (Frontend)
 
 ```tsx
-import { useAuth } from "@/hooks/useAuth"
+import { Can } from "@/components/Can"
 
-const { hasPermission } = useAuth()
-
-{hasPermission("view_<plugin>") && <MenuItem>Plugin</MenuItem>}
+<Can user={user} perform="<plugin>:read" yes={() => <MenuItem>Plugin</MenuItem>} />
 ```
 
 ## Tipagem e Multitenancy

@@ -370,6 +370,8 @@ const messages = {
           flowBuilder: "Flow Builder",
           clients: "Clientes",
           helpdesk: "Helpdesk",
+          whatsappGroups: "Grupos",
+          whatsappCommunities: "Comunidades",
           administration: "Administración",
           tags: "Etiquetas",
           groups: "Grupos",

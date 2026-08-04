@@ -1,18 +1,18 @@
 /* @jsxImportSource react */
-import React from "react";
+import React, { useContext } from "react";
 import { Search, Plus, Users } from "lucide-react";
 import { PageContainer, PageHeader, PageContent } from "@/components/ui/page-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Can } from "../../components/Can";
-import useAuth from "../../hooks/useAuth";
+import { AuthContext } from "../../context/Auth/AuthContext";
 import ClientModal from "./ClientModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import { ClientsTable } from "./components/ClientsTable";
 import { useClients } from "./hooks/useClients";
 
 const Clients: React.FC = () => {
-  const { user } = useAuth();
+  const { user } = useContext(AuthContext);
   const {
     clients,
     loading,

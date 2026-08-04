@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/alltomatos/watinkdev/engine-go/internal/command"
+	"github.com/alltomatos/watinkdev/engine-go/internal/groupsapi"
 	"github.com/alltomatos/watinkdev/engine-go/internal/health"
 	"github.com/alltomatos/watinkdev/engine-go/internal/rabbitmq"
 	"github.com/alltomatos/watinkdev/engine-go/internal/whatsapp"
@@ -42,6 +43,10 @@ func main() {
 
 	sessionLoader := whatsapp.NewPostgresSessionLoader(whatsapp.BuildPostgresDSN())
 	waService := whatsapp.NewWhatsAppService(rabbit, sessionLoader)
+
+	// API interna de grupos/comunidades (T1.1, docker-internal only) — no-op
+	// se GROUPS_API_TOKEN não estiver configurado (fail-closed).
+	go groupsapi.Start(ctx, waService)
 
 	go func() {
 		time.Sleep(5 * time.Second)
