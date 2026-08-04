@@ -90,6 +90,7 @@ func Migrate() {
 		&models.AssistantProactiveLog{},
 		&models.GroupWatchTag{},
 		&models.GroupWatchMatch{},
+		&models.GroupCache{},
 	)
 
 	if err != nil {
@@ -329,6 +330,12 @@ func addCustomIndexes() error {
 		`CREATE INDEX IF NOT EXISTS idx_protocols_tenant_status ON "Protocols" ("tenantId", "status")`,
 		`CREATE INDEX IF NOT EXISTS idx_protocol_logs_protocol ON "ProtocolLogs" ("protocolId")`,
 		`CREATE INDEX IF NOT EXISTS idx_protocol_attachments_protocol ON "ProtocolAttachments" ("protocolId")`,
+		// GroupCache (plugin Grupos e Comunidades): uma linha por
+		// (conexão, grupo) -- o sync de background faz delete+reinsert por
+		// conexão (groups_cache_sync.go), a leitura de GET /groups filtra por
+		// ("tenantId", "whatsappId").
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_group_caches_whatsapp_jid ON "group_caches" ("whatsappId", jid)`,
+		`CREATE INDEX IF NOT EXISTS idx_group_caches_tenant_whatsapp ON "group_caches" ("tenantId", "whatsappId")`,
 	}
 
 	// Best-effort: um índice que falha (ex.: tabela de plugin ainda não migrada

@@ -147,5 +147,8 @@ func allModels() []interface{} {
 		&models.AssistantGroup{},
 		&models.AiGateway{},
 		&models.AssistantProactiveLog{},
+		&models.GroupWatchTag{},
+		&models.GroupWatchMatch{},
+		&models.GroupCache{},
 	}
 }

@@ -82,6 +82,7 @@ func (gp *GroupsPlugin) OnActivate(core sdk.WatinkCore) error {
 	core.RegisterRoute("DELETE", "/groups/watch-tags/:id", withPermission("whatsappGroups", "manage", handleDeleteGroupWatchTag(core)))
 	core.RegisterRoute("GET", "/groups/watch-matches", withPermission("whatsappGroups", "read", handleListGroupWatchMatches(core)))
 	registerGroupWatchEvents(core)
+	registerGroupsCacheSync(core, gp.Resolver)
 
 	return nil
 }

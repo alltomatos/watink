@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -52,6 +53,13 @@ func connectionIsGroupAdmin(participants []domain.Participant, connectionNumber 
 	return false
 }
 
+// handleListGroups NUNCA fala com o WhatsApp no caminho comum -- lê
+// GroupCache (groups_cache.go), mantido quente pelo sync de background
+// (groups_cache_sync.go, a cada 15min, em lotes de 5 conexões). Só faz um
+// fetch ao vivo na primeira vez que a conexão é vista (cache vazio) --
+// depois disso vira a única fonte, evitando tanto o risco de ban de bater
+// no WhatsApp a cada abertura da tela quanto o timeout visto em conexões
+// com muitos grupos.
 func handleListGroups(svc *groupsService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		_, tenantID, ok := auth.GetScoped(c, "Whatsapps")
@@ -63,16 +71,31 @@ func handleListGroups(svc *groupsService) gin.HandlerFunc {
 			utils.RespondWithFriendlyOrInternalError(c, err, "GroupsPlugin.ListGroups")
 			return
 		}
+
+		cached, found, err := loadGroupsCache(svc.db, tenantID, w.ID)
+		if err != nil {
+			utils.RespondWithInternalError(c, err, "GroupsPlugin.ListGroups")
+			return
+		}
+		if found {
+			c.JSON(http.StatusOK, cached)
+			return
+		}
+
 		groups, err := engine.ListGroups(groupsCtx(c), w)
 		if err != nil {
 			utils.RespondWithFriendlyOrInternalError(c, err, "GroupsPlugin.ListGroups")
 			return
 		}
+		if err := saveGroupsToCache(svc.db, tenantID, w, groups); err != nil {
+			log.Printf("[groups] bootstrap: saveGroupsToCache falhou (tenant %s, conexão %d): %v", tenantID, w.ID, err)
+		}
+		enrichContactsFromGroups(svc.db, tenantID, groups)
+
 		out := make([]groupsListEntry, 0, len(groups))
 		for _, g := range groups {
 			out = append(out, groupsListEntry{GroupInfo: g, IsConnectionAdmin: connectionIsGroupAdmin(g.Participants, w.Number)})
 		}
-		enrichContactsFromGroups(svc.db, tenantID, groups)
 		c.JSON(http.StatusOK, out)
 	}
 }
@@ -98,6 +121,7 @@ func handleGetGroup(svc *groupsService) gin.HandlerFunc {
 			return
 		}
 		enrichContactsFromGroups(svc.db, tenantID, []domain.GroupInfo{*group})
+		upsertOneGroupCache(svc.db, tenantID, w, *group)
 		c.JSON(http.StatusOK, group)
 	}
 }

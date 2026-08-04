@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/alltomatos/watinkdev/business/internal/domain"
@@ -19,6 +20,11 @@ import (
 // upstream or a Watink-side heuristic (e.g. inferring from
 // GetCommunity succeeding) — out of scope for this issue, tracked as a
 // follow-up rather than silently shipped as "it just works".
+// Mesma leitura de GroupCache que handleListGroups (groups_handler.go) --
+// nunca fala com o WhatsApp no caminho comum, só no bootstrap da primeira
+// vez que a conexão é vista. Reaproveita a MESMA cache linha-a-grupo
+// populada por ela/pelo sync de background, só filtrando IsCommunity aqui;
+// não existe uma "communities cache" separada.
 func handleListCommunities(svc *groupsService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		_, tenantID, ok := auth.GetScoped(c, "Whatsapps")
@@ -30,19 +36,46 @@ func handleListCommunities(svc *groupsService) gin.HandlerFunc {
 			utils.RespondWithFriendlyOrInternalError(c, err, "GroupsPlugin.ListCommunities")
 			return
 		}
+
+		cached, found, err := loadGroupsCache(svc.db, tenantID, w.ID)
+		if err != nil {
+			utils.RespondWithInternalError(c, err, "GroupsPlugin.ListCommunities")
+			return
+		}
+		if found {
+			c.JSON(http.StatusOK, filterCommunities(entriesToGroupInfo(cached)))
+			return
+		}
+
 		groups, err := engine.ListGroups(groupsCtx(c), w)
 		if err != nil {
 			utils.RespondWithFriendlyOrInternalError(c, err, "GroupsPlugin.ListCommunities")
 			return
 		}
-		communities := make([]domain.GroupInfo, 0, len(groups))
-		for _, g := range groups {
-			if g.IsCommunity {
-				communities = append(communities, g)
-			}
+		if err := saveGroupsToCache(svc.db, tenantID, w, groups); err != nil {
+			log.Printf("[groups] bootstrap (communities): saveGroupsToCache falhou (tenant %s, conexão %d): %v", tenantID, w.ID, err)
 		}
-		c.JSON(http.StatusOK, communities)
+		enrichContactsFromGroups(svc.db, tenantID, groups)
+		c.JSON(http.StatusOK, filterCommunities(groups))
 	}
+}
+
+func entriesToGroupInfo(entries []groupsListEntry) []domain.GroupInfo {
+	out := make([]domain.GroupInfo, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, e.GroupInfo)
+	}
+	return out
+}
+
+func filterCommunities(groups []domain.GroupInfo) []domain.GroupInfo {
+	communities := make([]domain.GroupInfo, 0, len(groups))
+	for _, g := range groups {
+		if g.IsCommunity {
+			communities = append(communities, g)
+		}
+	}
+	return communities
 }
 
 func handleCreateCommunity(svc *groupsService) gin.HandlerFunc {
