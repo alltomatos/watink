@@ -17,6 +17,7 @@ import {
   Shield,
   Sparkles,
   Users,
+  ListChecks,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AuthContext } from "../../../context/Auth/AuthContext";
@@ -85,15 +86,33 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed, isLightSidebar, acti
         )}
       />
 
-      {activePlugins.includes("helpdesk") && (
-        <SidebarItem
-          to="/my-activities"
-          label={i18n.t("mainDrawer.listItems.myActivities")}
-          icon={<ClipboardList size={20} />}
-          collapsed={collapsed}
-          activeColor="var(--nav-icon-blue)"
-        />
-      )}
+      <Can
+        user={user}
+        perform="activities:read"
+        yes={() => (
+          <SidebarItem
+            to="/my-activities"
+            label={i18n.t("mainDrawer.listItems.myActivities")}
+            icon={<ClipboardList size={20} />}
+            collapsed={collapsed}
+            activeColor="var(--nav-icon-blue)"
+          />
+        )}
+      />
+
+      <Can
+        user={user}
+        perform="activities:manage"
+        yes={() => (
+          <SidebarItem
+            to="/activities"
+            label={i18n.t("mainDrawer.listItems.activities")}
+            icon={<ListChecks size={20} />}
+            collapsed={collapsed}
+            activeColor="var(--nav-icon-blue)"
+          />
+        )}
+      />
 
       <Can
         user={user}

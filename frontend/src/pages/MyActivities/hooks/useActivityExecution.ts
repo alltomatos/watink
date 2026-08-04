@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { toast } from "react-toastify";
+import notify from "@/lib/notify";
 import api from "../../../services/api";
 import { timeToMinutes } from "../activityHelpers";
 import {
@@ -15,23 +15,23 @@ export interface UseActivityExecutionReturn {
   materialModalOpen: boolean;
   occurrenceModalOpen: boolean;
   signatureModalOpen: boolean;
-  newMaterial: Omit<Material, "id">;
+  newMaterial: Omit<Material, "id" | "activityId">;
   newOccurrence: NewOccurrence;
   setMaterialModalOpen: (v: boolean) => void;
   setOccurrenceModalOpen: (v: boolean) => void;
   setSignatureModalOpen: (v: boolean) => void;
-  setNewMaterial: React.Dispatch<React.SetStateAction<Omit<Material, "id">>>;
+  setNewMaterial: React.Dispatch<React.SetStateAction<Omit<Material, "id" | "activityId">>>;
   setNewOccurrence: React.Dispatch<React.SetStateAction<NewOccurrence>>;
   handleItemChange: (item: ChecklistItem, field: string, value: unknown) => Promise<void>;
   handleFileUpload: (item: ChecklistItem, file: File) => Promise<void>;
   handleAddMaterial: () => Promise<void>;
-  handleDeleteMaterial: (id: string) => Promise<void>;
+  handleDeleteMaterial: (id: number) => Promise<void>;
   handleAddOccurrence: () => Promise<void>;
-  handleDeleteOccurrence: (id: string) => Promise<void>;
+  handleDeleteOccurrence: (id: number) => Promise<void>;
   handleFinish: (signatureDataUrl: string) => Promise<void>;
 }
 
-const DEFAULT_MATERIAL: Omit<Material, "id"> = {
+const DEFAULT_MATERIAL: Omit<Material, "id" | "activityId"> = {
   materialName: "", quantity: 1, unit: "un", isBillable: false, notes: "",
 };
 
@@ -52,7 +52,7 @@ export const useActivityExecution = (
   const [materialModalOpen, setMaterialModalOpen] = useState(false);
   const [occurrenceModalOpen, setOccurrenceModalOpen] = useState(false);
   const [signatureModalOpen, setSignatureModalOpen] = useState(false);
-  const [newMaterial, setNewMaterial] = useState<Omit<Material, "id">>(DEFAULT_MATERIAL);
+  const [newMaterial, setNewMaterial] = useState<Omit<Material, "id" | "activityId">>(DEFAULT_MATERIAL);
   const [newOccurrence, setNewOccurrence] = useState<NewOccurrence>(DEFAULT_OCCURRENCE);
 
   useEffect(() => {
@@ -65,8 +65,8 @@ export const useActivityExecution = (
         setItems(data.items ?? []);
         setMaterials(data.materials ?? []);
         setOccurrences(data.occurrences ?? []);
-      } catch {
-        toast.error("Erro ao carregar detalhes da atividade");
+      } catch (err) {
+        notify.error(err);
         onClose();
       } finally {
         setLoading(false);
@@ -81,8 +81,8 @@ export const useActivityExecution = (
     if (field === "isDone" || field === "value") {
       try {
         await api.put(`/activities/${activityId}/items/${item.id}`, { [field]: value });
-      } catch {
-        toast.error("Erro ao salvar item");
+      } catch (err) {
+        notify.error(err);
       }
     }
   };
@@ -96,8 +96,8 @@ export const useActivityExecution = (
         formData,
       );
       await handleItemChange(item, "value", data.photoUrl);
-    } catch {
-      toast.error("Erro ao enviar foto");
+    } catch (err) {
+      notify.error(err);
     }
   };
 
@@ -114,18 +114,18 @@ export const useActivityExecution = (
       setMaterials((prev) => [...prev, data]);
       setMaterialModalOpen(false);
       setNewMaterial(DEFAULT_MATERIAL);
-      toast.success("Material adicionado");
-    } catch {
-      toast.error("Erro ao adicionar material");
+      notify.success("Material adicionado");
+    } catch (err) {
+      notify.error(err);
     }
   };
 
-  const handleDeleteMaterial = async (id: string) => {
+  const handleDeleteMaterial = async (id: number) => {
     try {
       await api.delete(`/activities/${activityId}/materials/${id}`);
       setMaterials((prev) => prev.filter((m) => m.id !== id));
-    } catch {
-      toast.error("Erro ao remover material");
+    } catch (err) {
+      notify.error(err);
     }
   };
 
@@ -140,29 +140,29 @@ export const useActivityExecution = (
       setOccurrences((prev) => [...prev, data]);
       setOccurrenceModalOpen(false);
       setNewOccurrence(DEFAULT_OCCURRENCE);
-      toast.success("Ocorrência registrada");
-    } catch {
-      toast.error("Erro ao adicionar ocorrência");
+      notify.success("Ocorrência registrada");
+    } catch (err) {
+      notify.error(err);
     }
   };
 
-  const handleDeleteOccurrence = async (id: string) => {
+  const handleDeleteOccurrence = async (id: number) => {
     try {
       await api.delete(`/activities/${activityId}/occurrences/${id}`);
       setOccurrences((prev) => prev.filter((o) => o.id !== id));
-    } catch {
-      toast.error("Erro ao remover ocorrência");
+    } catch (err) {
+      notify.error(err);
     }
   };
 
   const handleFinish = async (signatureDataUrl: string) => {
     try {
       await api.post(`/activities/${activityId}/finalize`, { clientSignature: signatureDataUrl });
-      toast.success("Atividade concluída com sucesso!");
+      notify.success("Atividade concluída com sucesso!");
       setSignatureModalOpen(false);
       onClose();
-    } catch {
-      toast.error("Erro ao finalizar atividade");
+    } catch (err) {
+      notify.error(err);
     }
   };
 

@@ -6,7 +6,7 @@ import { Material } from "../activityTypes";
 
 interface MaterialsTabProps {
   materials: Material[];
-  onDelete: (id: string) => void;
+  onDelete: (id: number) => void;
   onAdd: () => void;
 }
 

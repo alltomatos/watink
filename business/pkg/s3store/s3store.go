@@ -122,5 +122,17 @@ func (s *Store) Download(ctx context.Context, key string) (io.ReadCloser, error)
 	return obj, nil
 }
 
+// PresignedGetURL devolve uma URL temporária e assinada para leitura direta
+// do objeto (ex.: <img src=...>) — usada pelo módulo Activities (ADR 0029)
+// pra servir fotos de checklist sem expor credenciais nem exigir header
+// Authorization, que um <img> não envia.
+func (s *Store) PresignedGetURL(ctx context.Context, key string, ttl time.Duration) (string, error) {
+	u, err := s.client.PresignedGetObject(ctx, s.bucket, key, ttl, nil)
+	if err != nil {
+		return "", fmt.Errorf("s3store: presign %q: %w", key, err)
+	}
+	return u.String(), nil
+}
+
 // Bucket returns the configured bucket name.
 func (s *Store) Bucket() string { return s.bucket }

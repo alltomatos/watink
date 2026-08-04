@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"time"
 
 	"github.com/alltomatos/watinkdev/business/internal/models"
 	"github.com/google/uuid"
@@ -209,6 +210,11 @@ type ObjectStore interface {
 	// Download retrieves a previously uploaded object — used by the ingestion
 	// worker to read a source file's bytes for parsing. Caller must Close().
 	Download(ctx context.Context, key string) (io.ReadCloser, error)
+	// PresignedGetURL devolve uma URL temporária e assinada para leitura
+	// direta do objeto (ex.: <img src=...>), sem expor credenciais nem exigir
+	// header Authorization — usada pelo módulo Activities para servir fotos
+	// de checklist (ADR 0029). TTL curto; nunca cachear a URL além dele.
+	PresignedGetURL(ctx context.Context, key string, ttl time.Duration) (string, error)
 	// Describe returns the non-sensitive store configuration (no credentials).
 	Describe() map[string]any
 }

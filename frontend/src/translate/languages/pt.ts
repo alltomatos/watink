@@ -486,6 +486,7 @@ const messages = {
           connections: "Conexões",
           tickets: "Chats",
           myActivities: "Minhas Atividades",
+          activities: "Atividades",
           contacts: "Contatos",
           quickAnswers: "Respostas Rápidas",
           flowBuilder: "Flow Builder",

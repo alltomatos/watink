@@ -7,7 +7,7 @@ import { minutesToTime } from "../activityHelpers";
 
 interface OccurrencesTabProps {
   occurrences: Occurrence[];
-  onDelete: (id: string) => void;
+  onDelete: (id: number) => void;
   onAdd: () => void;
 }
 
