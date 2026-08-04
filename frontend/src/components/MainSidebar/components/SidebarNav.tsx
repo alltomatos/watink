@@ -18,6 +18,7 @@ import {
   Sparkles,
   Users,
   Network,
+  Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AuthContext } from "../../../context/Auth/AuthContext";
@@ -209,6 +210,22 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed, isLightSidebar, acti
               icon={<Network size={20} />}
               collapsed={collapsed}
               activeColor="var(--nav-icon-teal)"
+            />
+          )}
+        />
+      )}
+
+      {activePlugins.includes("groups") && (
+        <Can
+          user={user}
+          perform="whatsappGroups:read"
+          yes={() => (
+            <SidebarItem
+              to="/groups/watch"
+              label={i18n.t("mainDrawer.listItems.whatsappGroupsWatch")}
+              icon={<Bell size={20} />}
+              collapsed={collapsed}
+              activeColor="var(--nav-icon-yellow)"
             />
           )}
         />

@@ -3,6 +3,7 @@ package plugins
 import (
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/alltomatos/watinkdev/business/internal/domain"
 	"github.com/alltomatos/watinkdev/business/pkg/auth"
@@ -22,6 +23,35 @@ func groupJIDParam(c *gin.Context, name string) (string, bool) {
 	return jid, true
 }
 
+// groupsListEntry adiciona ao domain.GroupInfo canônico o único dado que só
+// faz sentido no contexto "esta conexão, este grupo": se o número conectado
+// é admin do grupo ou só participa. Não vira campo em domain.GroupInfo
+// porque ali é o shape neutro que os dois providers preenchem a partir do
+// transporte deles -- isso aqui é derivado depois, olhando Participants
+// contra w.Number.
+type groupsListEntry struct {
+	domain.GroupInfo
+	IsConnectionAdmin bool `json:"isConnectionAdmin"`
+}
+
+// connectionIsGroupAdmin varre Participants em busca de um JID cujo número
+// bata com o da conexão (mesmo split usado em usecases.jidNumber: parte
+// antes de "@", depois antes de ":", já que whatsmeow anexa o device ID
+// nesse formato) e devolve o IsAdmin desse participante. Sem match (número
+// não está listado nos participantes -- não deveria acontecer para um grupo
+// em que a conexão está, mas dado de terceiro nunca é garantia), o
+// fail-safe é false: nunca assumir admin sem confirmação explícita.
+func connectionIsGroupAdmin(participants []domain.Participant, connectionNumber string) bool {
+	for _, p := range participants {
+		local := strings.SplitN(p.JID, "@", 2)[0]
+		local = strings.SplitN(local, ":", 2)[0]
+		if local == connectionNumber {
+			return p.IsAdmin
+		}
+	}
+	return false
+}
+
 func handleListGroups(svc *groupsService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		_, tenantID, ok := auth.GetScoped(c, "Whatsapps")
@@ -38,7 +68,11 @@ func handleListGroups(svc *groupsService) gin.HandlerFunc {
 			utils.RespondWithFriendlyOrInternalError(c, err, "GroupsPlugin.ListGroups")
 			return
 		}
-		c.JSON(http.StatusOK, groups)
+		out := make([]groupsListEntry, 0, len(groups))
+		for _, g := range groups {
+			out = append(out, groupsListEntry{GroupInfo: g, IsConnectionAdmin: connectionIsGroupAdmin(g.Participants, w.Number)})
+		}
+		c.JSON(http.StatusOK, out)
 	}
 }
 

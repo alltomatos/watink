@@ -88,6 +88,8 @@ func Migrate() {
 		&models.AssistantGroup{},
 		&models.AiGateway{},
 		&models.AssistantProactiveLog{},
+		&models.GroupWatchTag{},
+		&models.GroupWatchMatch{},
 	)
 
 	if err != nil {

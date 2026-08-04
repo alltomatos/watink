@@ -27,6 +27,10 @@ export interface GroupInfo {
     pictureURL?: string;
     createdAt: number;
     participants: Participant[];
+    /** Só presente na listagem (GET /groups) -- calculado pelo backend a
+     * partir de Participants x número da conexão (groups_handler.go
+     * connectionIsGroupAdmin). Undefined em respostas de detalhe/criação. */
+    isConnectionAdmin?: boolean;
 }
 
 export interface CommunityInfo extends GroupInfo {
@@ -154,4 +158,46 @@ export const unlinkCommunityGroup = async (whatsappId: number, communityJid: str
         `/communities/${encodeURIComponent(communityJid)}/groups/${encodeURIComponent(groupJid)}`,
         { params: { whatsappId } }
     );
+};
+
+// ── Monitoramento de frase (mirrors business/internal/models/group_watch.go) ──
+
+export interface GroupWatchTag {
+    id: number;
+    tenantId: string;
+    phrase: string;
+    active: boolean;
+    createdAt: string;
+}
+
+export interface GroupWatchMatch {
+    id: number;
+    tenantId: string;
+    tagId: number;
+    phrase: string;
+    ticketId: number;
+    messageId: string;
+    groupSubject: string;
+    contactName: string;
+    snippet: string;
+    createdAt: string;
+}
+
+export const listWatchTags = async (): Promise<GroupWatchTag[]> => {
+    const { data } = await api.get("/groups/watch-tags");
+    return Array.isArray(data) ? data : [];
+};
+
+export const createWatchTag = async (phrase: string): Promise<GroupWatchTag> => {
+    const { data } = await api.post("/groups/watch-tags", { phrase });
+    return data;
+};
+
+export const deleteWatchTag = async (id: number): Promise<void> => {
+    await api.delete(`/groups/watch-tags/${id}`);
+};
+
+export const listWatchMatches = async (): Promise<GroupWatchMatch[]> => {
+    const { data } = await api.get("/groups/watch-matches");
+    return Array.isArray(data) ? data : [];
 };

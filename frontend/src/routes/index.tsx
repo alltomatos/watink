@@ -38,6 +38,7 @@ const PluginDetail = lazy(() => import("../pages/Marketplace/PluginDetail"));
 const Clients = lazy(() => import("../pages/Clients"));
 const Groups = lazy(() => import("../pages/Groups"));
 const GroupDetail = lazy(() => import("../pages/Groups/GroupDetail"));
+const GroupWatchTags = lazy(() => import("../pages/Groups/WatchTags"));
 const Communities = lazy(() => import("../pages/Communities"));
 const CommunityDetail = lazy(() => import("../pages/Communities/CommunityDetail"));
 const Helpdesk = lazy(() => import("../pages/Helpdesk"));
@@ -102,6 +103,7 @@ const PrivateRoutes = () => {
      <Route path="/admin/settings/marketplace/:slug" element={<PrivateRoute isPrivate><PluginDetail /></PrivateRoute>} />
      <Route path="/clients" element={<PrivateRoute isPrivate><Clients /></PrivateRoute>} />
      <Route path="/groups" element={<PrivateRoute isPrivate><Groups /></PrivateRoute>} />
+     <Route path="/groups/watch" element={<PrivateRoute isPrivate><GroupWatchTags /></PrivateRoute>} />
      <Route path="/groups/:jid" element={<PrivateRoute isPrivate><GroupDetail /></PrivateRoute>} />
      <Route path="/communities" element={<PrivateRoute isPrivate><Communities /></PrivateRoute>} />
      <Route path="/communities/:jid" element={<PrivateRoute isPrivate><CommunityDetail /></PrivateRoute>} />

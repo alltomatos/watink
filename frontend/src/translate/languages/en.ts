@@ -368,6 +368,7 @@ const messages = {
           helpdesk: "Helpdesk",
           whatsappGroups: "Groups",
           whatsappCommunities: "Communities",
+          whatsappGroupsWatch: "Monitoring",
           administration: "Administration",
           tags: "Tags",
           groups: "Groups",

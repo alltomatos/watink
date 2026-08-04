@@ -140,6 +140,10 @@ func TestGroupsPlugin_OnActivate_RegistersAllRoutes(t *testing.T) {
 		{Method: "GET", Path: "/communities/:id"},
 		{Method: "POST", Path: "/communities/:id/groups/:groupId"},
 		{Method: "DELETE", Path: "/communities/:id/groups/:groupId"},
+		{Method: "GET", Path: "/groups/watch-tags"},
+		{Method: "POST", Path: "/groups/watch-tags"},
+		{Method: "DELETE", Path: "/groups/watch-tags/:id"},
+		{Method: "GET", Path: "/groups/watch-matches"},
 	}
 	assert.Len(t, mockCore.registeredRoutes, len(expected))
 	for _, want := range expected {
@@ -182,6 +186,18 @@ func TestGroupsPlugin_ListGroups_501WhenEngineIsNotGroupEngine(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusNotImplemented, w.Code)
+}
+
+func TestConnectionIsGroupAdmin(t *testing.T) {
+	participants := []domain.Participant{
+		{JID: "5511999990000:1@s.whatsapp.net", IsAdmin: true},
+		{JID: "5511988880000@s.whatsapp.net", IsAdmin: false},
+	}
+
+	assert.True(t, connectionIsGroupAdmin(participants, "5511999990000"), "número admin com sufixo :device deve casar")
+	assert.False(t, connectionIsGroupAdmin(participants, "5511988880000"), "participante não-admin não vira admin")
+	assert.False(t, connectionIsGroupAdmin(participants, "5511977770000"), "número fora dos participantes é fail-safe false")
+	assert.False(t, connectionIsGroupAdmin(nil, "5511999990000"), "sem participantes é fail-safe false")
 }
 
 func TestGroupsPlugin_ListGroups_HappyPath(t *testing.T) {

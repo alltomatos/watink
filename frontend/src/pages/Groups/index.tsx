@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "react-toastify";
-import { Plus, Search, Users, Megaphone, Lock } from "lucide-react";
+import { Plus, Search, Users, Megaphone, Lock, ShieldCheck } from "lucide-react";
 import { PageContainer, PageHeader, PageContent } from "@/components/ui/page-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { listGroups, GroupInfo } from "../../services/groupService";
 import { useGroupsConnection } from "./hooks/useGroups";
 import { classifyGroupsApiError, GroupsApiError } from "./groupTypes";
@@ -49,6 +50,40 @@ const Groups: React.FC = () => {
     }, [whatsappId, fetchGroups]);
 
     const filtered = groups.filter((g) => g.subject.toLowerCase().includes(search.toLowerCase()));
+    const adminGroups = filtered.filter((g) => g.isConnectionAdmin);
+    const memberGroups = filtered.filter((g) => !g.isConnectionAdmin);
+
+    const renderGroupCard = (g: GroupInfo) => (
+        <Card
+            key={g.jid}
+            className="rounded-2xl bg-card shadow-[0px_4px_20px_rgba(0,0,0,0.08)] cursor-pointer hover:shadow-[0px_6px_24px_rgba(0,0,0,0.12)] transition-shadow"
+            onClick={() => navigate(`/groups/${encodeURIComponent(g.jid)}`)}
+        >
+            <CardContent className="p-4 flex items-start gap-3">
+                <Avatar size="lg" src={g.pictureURL} name={g.subject} isGroup />
+                <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{g.subject}</p>
+                    <p className="text-xs text-muted-foreground">
+                        {g.participants.length} participante{g.participants.length === 1 ? "" : "s"}
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                        {g.isCommunity && <Badge variant="secondary">Comunidade</Badge>}
+                        {g.isSubGroup && <Badge variant="outline">Subgrupo</Badge>}
+                        {g.announce && (
+                            <Badge variant="outline" className="gap-1">
+                                <Megaphone className="h-3 w-3" /> Somente admins
+                            </Badge>
+                        )}
+                        {g.locked && (
+                            <Badge variant="outline" className="gap-1">
+                                <Lock className="h-3 w-3" /> Bloqueado
+                            </Badge>
+                        )}
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
 
     return (
         <PageContainer>
@@ -111,39 +146,42 @@ const Groups: React.FC = () => {
                         <h3 className="text-base font-medium">Nenhum grupo encontrado</h3>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {filtered.map((g) => (
-                            <Card
-                                key={g.jid}
-                                className="rounded-2xl bg-card shadow-[0px_4px_20px_rgba(0,0,0,0.08)] cursor-pointer hover:shadow-[0px_6px_24px_rgba(0,0,0,0.12)] transition-shadow"
-                                onClick={() => navigate(`/groups/${encodeURIComponent(g.jid)}`)}
-                            >
-                                <CardContent className="p-4 flex items-start gap-3">
-                                    <Avatar size="lg" src={g.pictureURL} name={g.subject} isGroup />
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-medium truncate">{g.subject}</p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {g.participants.length} participante{g.participants.length === 1 ? "" : "s"}
-                                        </p>
-                                        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                                            {g.isCommunity && <Badge variant="secondary">Comunidade</Badge>}
-                                            {g.isSubGroup && <Badge variant="outline">Subgrupo</Badge>}
-                                            {g.announce && (
-                                                <Badge variant="outline" className="gap-1">
-                                                    <Megaphone className="h-3 w-3" /> Somente admins
-                                                </Badge>
-                                            )}
-                                            {g.locked && (
-                                                <Badge variant="outline" className="gap-1">
-                                                    <Lock className="h-3 w-3" /> Bloqueado
-                                                </Badge>
-                                            )}
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
+                    <Tabs defaultValue="admin">
+                        <TabsList>
+                            <TabsTrigger value="admin" className="gap-1.5">
+                                <ShieldCheck className="h-4 w-4" />
+                                Você é admin
+                                <Badge variant="secondary">{adminGroups.length}</Badge>
+                            </TabsTrigger>
+                            <TabsTrigger value="member" className="gap-1.5">
+                                <Users className="h-4 w-4" />
+                                Você participa
+                                <Badge variant="secondary">{memberGroups.length}</Badge>
+                            </TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="admin">
+                            {adminGroups.length === 0 ? (
+                                <p className="text-sm text-muted-foreground px-1 py-8 text-center">
+                                    Nenhum grupo em que esta conexão é administradora.
+                                </p>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
+                                    {adminGroups.map(renderGroupCard)}
+                                </div>
+                            )}
+                        </TabsContent>
+                        <TabsContent value="member">
+                            {memberGroups.length === 0 ? (
+                                <p className="text-sm text-muted-foreground px-1 py-8 text-center">
+                                    Nenhum grupo em que esta conexão é só participante.
+                                </p>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
+                                    {memberGroups.map(renderGroupCard)}
+                                </div>
+                            )}
+                        </TabsContent>
+                    </Tabs>
                 )}
             </PageContent>
             {whatsappId && (
