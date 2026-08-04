@@ -41,6 +41,34 @@ const useAuth = (): UseAuthResult => {
 
   // Axios interceptors: attach token + refresh on 401
   useEffect(() => {
+    // Várias chamadas de API disparam em paralelo na montagem (sidebar,
+    // tickets, whatsapp, settings, plugins) — sem um token ainda em
+    // memória (ex.: recarregou a página, só resta o cookie httpOnly de
+    // refresh), todas batem 401 ao mesmo tempo. Sem esta variável
+    // compartilhada, CADA requisição 401 disparava seu próprio
+    // POST /auth/refresh_token independente (visto ao vivo: 4 chamadas
+    // paralelas e redundantes para uma única sessão) — round-trips
+    // desperdiçados que pesam justamente na primeira carga, quando a
+    // rede já está mais lenta. Agora todas as 401 concorrentes aguardam
+    // a MESMA promise de refresh em vez de cada uma renovar sozinha.
+    let refreshPromise: Promise<string> | null = null;
+    const refreshToken = () => {
+      if (!refreshPromise) {
+        refreshPromise = api
+          .post<{ token: string }>("/auth/refresh_token")
+          .then(({ data }) => {
+            const store = localStorage.getItem("token") ? localStorage : sessionStorage;
+            store.setItem("token", JSON.stringify(data.token));
+            api.defaults.headers.common["Authorization"] = `Bearer ${data.token}`;
+            return data.token;
+          })
+          .finally(() => {
+            refreshPromise = null;
+          });
+      }
+      return refreshPromise;
+    };
+
     const requestInterceptor = api.interceptors.request.use(
       (config) => {
         const token =
@@ -72,18 +100,7 @@ const useAuth = (): UseAuthResult => {
         if (status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
           try {
-            const { data } = await api.post<{ token: string }>(
-              "/auth/refresh_token"
-            );
-            if (data) {
-              const store = localStorage.getItem("token")
-                ? localStorage
-                : sessionStorage;
-              store.setItem("token", JSON.stringify(data.token));
-              api.defaults.headers.common[
-                "Authorization"
-              ] = `Bearer ${data.token}`;
-            }
+            await refreshToken();
             return api(originalRequest);
           } catch (err) {
             console.error("RefreshToken failed", err);
