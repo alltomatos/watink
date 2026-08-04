@@ -119,6 +119,12 @@ services:
       - S3_SECRET_KEY=${MINIO_ROOT_PASSWORD}
       - S3_USE_SSL=false
       - S3_REGION=us-east-1
+      # API interna de grupos/comunidades do engine-go (plugin "groups",
+      # docs/agents/plugin-grupos-comunidades.md) — fail-closed dos dois
+      # lados sem essas duas envs (ver enginego/groups_client.go
+      # groupsAPIConfig e engine-go/internal/groupsapi/server.go).
+      - GROUPS_API_URL=http://watink-engine:8084
+      - GROUPS_API_TOKEN=${GROUPS_API_TOKEN}
     depends_on:
       postgres:
         condition: service_healthy
@@ -161,6 +167,12 @@ services:
       - DB_PASS=${DB_PASS}
       - DB_NAME=watink
       - HEALTH_PORT=8083
+      # Mesma API interna de grupos referenciada em watink-business acima —
+      # a porta NÃO é publicada no host de propósito (docs/agents/
+      # plugin-grupos-comunidades.md: só a rede interna do stack fala com
+      # ela, nunca a internet).
+      - GROUPS_API_PORT=8084
+      - GROUPS_API_TOKEN=${GROUPS_API_TOKEN}
     depends_on:
       postgres:
         condition: service_healthy
