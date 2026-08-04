@@ -23,7 +23,16 @@ import (
 // rather than threaded through enginego.New's constructor, to avoid
 // widening that signature for every existing call site
 // (internal/services/whatsapp_session.go and its tests).
-var groupsHTTPClient = &http.Client{Timeout: 8 * time.Second}
+//
+// 45s (not 8s): GET .../groups (ListGroups) is a single whatsmeow
+// GetJoinedGroups() call on the engine-go side, no per-group round-trip on
+// our end -- but for a connection with many joined groups (each carrying
+// its full Participants list) whatsmeow's own processing can genuinely take
+// longer than a few seconds, worse under concurrent message traffic
+// contending for the same client/store. Observed in production: an old,
+// high-volume number timed out ListGroups at 8s ("Internal server error"),
+// nothing wrong on the business/engine-go side -- just too tight a budget.
+var groupsHTTPClient = &http.Client{Timeout: 45 * time.Second}
 
 // groupsAPIConfig returns the internal API's base URL and token, or a
 // friendly, actionable error if either is unset — fail-closed, matching
