@@ -61,6 +61,7 @@ Frontend (React/Vite) ←REST/SSE→ Backend Go (Gin/GORM) ←SQL→ PostgreSQL
 | Plugins — Redesenho Marketplace + Licenciamento via Hub (ADR 0024; Hub em `watink-ecosistema/hub`) | ✅ Concluída (auditado 2026-07-04) |
 | Plugins — Marketplace de terceiros (ADR 0025 + Hub ADR 0004; plano em `docs/agents/marketplace-terceiros.md`) | 🔧 Fase 0 implementada (2026-07-04) — pendente review/commit; Fase 1 não iniciada |
 | Plugins — Marketplace respeita instância gerida por Watink SaaS (ADR 0026; ADRs irmãos: Hub ADR 0005, watink-saas ADR 0008) | 🟡 Desenho aceito e verificado; implementação a fazer (mudança cirúrgica em `PluginController.Activate`) |
+| Plugins — Grupos e Comunidades (slug `groups`, `pro`): API interna de grupos no engine-go, providers `enginego`/`izapia`, plugin embarcado, frontend, catálogo do Hub (plano em `docs/agents/plugin-grupos-comunidades.md`) | ✅ Concluída (código+testes; issues #515-#524) — catálogo do Hub em `status: draft`, preço pendente de definição pelo dono antes de publicar |
 
 ## Services & Ports
 
@@ -471,6 +472,56 @@ MUI v4 **completamente removido** — `@material-ui/*` não é dependência do p
 - Não confundir `AiGateway` (plugin, plural) com `omniroute` (core, singular, usado por embeddings/RAG)
 
 **Referência:** [`docs/agents/assistants.md`](docs/agents/assistants.md) · ADR 0020 (Agent Runtime) · ADR novo (Flow sintético + extensão do SDK — a criar)
+
+## Módulo: Grupos e Comunidades
+
+**Responsabilidade:** Plugin `pro` (slug `groups`) de gestão ativa de grupos/comunidades
+WhatsApp — CRUD de grupo, participantes, convite, configurações, comunidades — funcionando
+nos dois providers de conexão (`enginego` via API HTTP interna nova no engine-go, `izapia` via
+API HTTP já existente). Catálogo do Hub em `status: draft` — preço ainda não definido pelo
+dono, plugin não aparece no Marketplace até ser publicado.
+
+**Arquitetura:** `domain.GroupEngine` (`business/internal/domain/group_engine.go`) é uma
+extensão opcional de `domain.WhatsAppEngine`, mesmo padrão de `RichMessageEngine` —
+type-assertion sobre o engine resolvido, nunca método novo na interface base.
+`enginego.Provider`/`izapia.Provider` implementam a interface contra transportes distintos
+(HTTP interno docker-only vs HTTP público da izapia), e o plugin (`internal/plugins/groups*.go`)
+resolve o provider da conexão e devolve 501 claro quando ele não suporta grupos.
+
+**Invariants:**
+- Recurso RBAC `whatsappGroups` (ações `read`|`manage`|`admin`) — não `groups`, que colidiria
+  com `ConnectionGroup`/`ProxyGroup`/`TagGroup`, conceitos homônimos já existentes no core.
+- Grupo/comunidade identificado pelo **JID completo** ponta a ponta — nunca um ID numérico
+  próprio do Watink.
+- **Dois limitadores de taxa, não um**: o principal (`groups_throttle.go`, no plugin) cobre
+  **ambos** os providers; o do engine-go (`internal/groupsapi/throttle.go`) só vê tráfego
+  `enginego` — é defesa em profundidade, não o limitador de referência. Os dois são in-memory
+  por processo — em deploy multi-nó o teto efetivo é `nós × limite` (dívida conhecida,
+  documentada no código; o SDK de plugins não expõe Redis).
+- `PUT /groups/:id` é um único payload com todos os campos de configuração alterados — não uma
+  rota por campo (desenho inicial revisado durante a implementação, ver
+  `engine-go/docs/groups-api.md`).
+- A resposta real da izapia para grupo/comunidade **não** inclui `announce`/`locked`/
+  `memberAddMode`/`joinApprovalMode`/`pictureURL`, e o detalhe de comunidade não tem
+  `subject`/`owner`/`description` nem participantes com nome/admin — confirmado ao vivo contra
+  a API, documentado em `engine-go/docs/groups-api.md`. Não é bug de mapeamento.
+- `GET /communities` deriva de `ListGroups()` filtrado por `isCommunity` (não existe
+  `ListCommunities` na interface) — funciona em conexões `enginego`, fica sempre vazio em
+  `izapia` pelo motivo acima.
+
+**O que NÃO fazer:**
+- Não expor a API HTTP interna do engine-go fora da rede docker (`expose:`, nunca `ports:`) —
+  nem subir o servidor sem `GROUPS_API_TOKEN` configurado (fail-closed).
+- Não confundir `whatsappGroups` (RBAC deste plugin) com `ConnectionGroup`/`ProxyGroup`/
+  `TagGroup` do core.
+- Não tratar `PluginInstallations.active` como prova de licença (mesma regra do resto do
+  sistema de plugins).
+- Não assumir que os campos ausentes na resposta da izapia (ver invariants) são um bug a
+  corrigir sem antes checar se a própria API de origem os retorna.
+
+**Referência:** [`docs/agents/plugin-grupos-comunidades.md`](docs/agents/plugin-grupos-comunidades.md) ·
+[`engine-go/docs/groups-api.md`](engine-go/docs/groups-api.md) ·
+[`docs/frontend/groups/OVERVIEW.md`](docs/frontend/groups/OVERVIEW.md) · Issues #514-#524
 
 ## Domain Docs
 

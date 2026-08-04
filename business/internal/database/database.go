@@ -194,6 +194,10 @@ func Seed() {
 		{Resource: "queues", Action: "create", Description: "Criar Filas"},
 		{Resource: "queues", Action: "update", Description: "Editar Filas"},
 		{Resource: "queues", Action: "delete", Description: "Excluir Filas"},
+		// whatsappGroups (plugin "groups" — gestão de grupos/comunidades WhatsApp)
+		{Resource: "whatsappGroups", Action: "read", Description: "Visualizar grupos e comunidades do WhatsApp"},
+		{Resource: "whatsappGroups", Action: "manage", Description: "Criar/configurar grupos e comunidades, vincular/desvincular subgrupos"},
+		{Resource: "whatsappGroups", Action: "admin", Description: "Gerenciar participantes (adicionar/remover/promover/rebaixar), aprovar solicitações de entrada, sair de grupos"},
 		// swagger
 		{Resource: "swagger", Action: "view", Description: "Visualizar documentação Swagger"},
 	}
