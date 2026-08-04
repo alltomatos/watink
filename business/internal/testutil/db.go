@@ -114,6 +114,11 @@ func allModels() []interface{} {
 		&models.Protocol{},
 		&models.ProtocolLog{},
 		&models.ProtocolAttachment{},
+		&models.Activity{},
+		&models.ActivityAssignee{},
+		&models.ActivityChecklistItem{},
+		&models.ActivityMaterial{},
+		&models.ActivityOccurrence{},
 		&models.Whatsapp{},
 		&models.Queue{},
 		&models.Ticket{},
@@ -147,5 +152,8 @@ func allModels() []interface{} {
 		&models.AssistantGroup{},
 		&models.AiGateway{},
 		&models.AssistantProactiveLog{},
+		&models.GroupWatchTag{},
+		&models.GroupWatchMatch{},
+		&models.GroupCache{},
 	}
 }

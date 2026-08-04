@@ -13,6 +13,8 @@ export type RuleKey =
   | "quick_answers:read"
   | "flows:read"
   | "clients:read"
+  | "activities:read"
+  | "activities:manage"
   | "helpdesk:read"
   | "tags:read"
   | "connections:read"

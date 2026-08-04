@@ -62,6 +62,8 @@ Frontend (React/Vite) ←REST/SSE→ Backend Go (Gin/GORM) ←SQL→ PostgreSQL
 | Plugins — Marketplace de terceiros (ADR 0025 + Hub ADR 0004; plano em `docs/agents/marketplace-terceiros.md`) | 🔧 Fase 0 implementada (2026-07-04) — pendente review/commit; Fase 1 não iniciada |
 | Plugins — Marketplace respeita instância gerida por Watink SaaS (ADR 0026; ADRs irmãos: Hub ADR 0005, watink-saas ADR 0008) | 🟡 Desenho aceito e verificado; implementação a fazer (mudança cirúrgica em `PluginController.Activate`) |
 | Frontend — Redesign corporativo: paleta, componentes compartilhados (DataTable/EmptyState/ErrorState/FormField/notify), telas de referência | ✅ Concluída (PRs #507-#510) — rollout das ~25 páginas restantes é trabalho incremental futuro, ver [`docs/frontend/design-system.md`](docs/frontend/design-system.md) |
+| Plugins — Grupos e Comunidades (slug `groups`, `pro`): API interna de grupos no engine-go, providers `enginego`/`izapia`, plugin embarcado, frontend, catálogo do Hub (plano em `docs/agents/plugin-grupos-comunidades.md`) | ✅ Concluída (código+testes; issues #515-#524) — catálogo do Hub em `status: draft`, preço pendente de definição pelo dono antes de publicar |
+| Atividades (Ordens de Serviço) — entidade core (ADR 0029): model+migration+RBAC+backfill, SLA real (não placeholder como o Helpdesk), CRUD+execução+evidência S3+KPIs, listagem redesenhada + tela de gestão (lista/criar/editar/atribuir/checklist) | ✅ Fase 0 concluída (código+testes contra Postgres real+verificação manual no browser; issues #527-#537) — Fase 1 (integração Helpdesk) não iniciada |
 
 ## Services & Ports
 
@@ -434,6 +436,47 @@ MUI v4 **completamente removido** — `@material-ui/*` não é dependência do p
 
 **Referência:** [`docs/agents/clients.md`](docs/agents/clients.md) · ADR 0023
 
+## Módulo: Atividades (Ordens de Serviço)
+
+**Responsabilidade:** Entidade core (`Activity`, ADR 0029) que modela execução de ordem de
+serviço em campo — checklist com evidência (foto/texto/número), materiais usados, ocorrências
+(informativo/impedimento/atraso) e assinatura do cliente ao finalizar. Não é recurso do plugin
+Helpdesk — `ProtocolID`/`DealID` são vínculos opcionais e nullable; o único acoplamento herdado
+era uma condição de exibição de menu, nunca uma dependência arquitetural real.
+
+**Invariants:**
+- Sempre `auth.GetScoped(c, "Activities")` — nunca `c.Get("tenantId")` bruto.
+- `GET /my-activities` (visão do executor) filtra por assignee de forma **incondicional**, fora
+  de qualquer branch de alcance — `GetScopedDB` retorna cedo para `alcance IN (tenant,
+  plataforma)`, então sem esse filtro explícito um Administrador veria o tenant inteiro.
+  `GET /activities` (visão de gestão) é deliberadamente tenant-wide — não confundir as duas.
+- `slaDueAt` é calculado por uma função única (`CalculateSLADueAt`) a partir de
+  `activities_sla_config` + `priority`, e **congelado** a partir de `status=in_progress` — mudar
+  a config depois não move o prazo de uma atividade já em execução. Diferente do Helpdesk
+  (`helpdesk_sla_config` é escrita mas nunca lida — heurística fixa de 24h hardcoded), aqui a
+  config é lida de verdade desde a Fase 0.
+- Atribuição é N:N (`ActivityAssignee`) desde a Fase 0 — nunca `userId` único na tabela.
+- Cliente exibido é sempre resolvido por transitividade (`Protocol.Contact.ClientID`) — nunca
+  desnormalizar `ClientID` em `Activity`, mesmo princípio do ADR 0023.
+- Fotos/assinaturas no S3 Storage Driver — nunca base64 no banco. O que é persistido é sempre a
+  **chave** do objeto, nunca uma URL assinada (que expira); a URL é gerada fresca a cada leitura
+  via `PresignedGetURL` (extensão de `domain.ObjectStore`).
+- `Session(&gorm.Session{NewDB: true})` precisa de uma instância nova **por operação** — reusar o
+  mesmo handle em duas queries sequenciais acumula condições `Where` e faz a segunda casar zero
+  linhas silenciosamente (bug real pego pelos testes durante a implementação).
+
+**O que NÃO fazer:**
+- Não acoplar `Activity` ao plugin Helpdesk (nem via import, nem via rota) — o vínculo é sempre
+  opcional por FK nullable, com o plugin chamando o core (Fase 1, ainda não implementada).
+- Não recalcular `slaDueAt` fora da calculadora única, nem silenciosamente após `in_progress`.
+- Não editar checklist de uma Activity já criada pela UI de gestão — o backend não tem rota para
+  isso nesta fase (só `PUT .../items/:itemId` para `isDone`/`value`); `ActivityChecklistBuilder`
+  é intencionalmente só-criação.
+- Não gravar foto de checklist ou assinatura como base64 nem como URL assinada persistida.
+
+**Referência:** [`docs/agents/activities.md`](docs/agents/activities.md) · ADR 0029 ·
+[`docs/frontend/activities/OVERVIEW.md`](docs/frontend/activities/OVERVIEW.md)
+
 ## Módulo: Plugins (Marketplace + Licenciamento)
 
 **Responsabilidade:** Ativação **opt-in por tenant** de features (plugins) via Marketplace, com gating real de licença para as pagas. O core é **cliente** do licenciamento; a autoridade de catálogo/licença é o **Watink Hub** (`watink-ecosistema/hub`), alcançado sempre pelo `plugin-manager` local — nunca direto. Substitui o modelo "flag no banco" (ADR 0024, supera 0003).
@@ -480,10 +523,60 @@ MUI v4 **completamente removido** — `@material-ui/*` não é dependência do p
 
 **Referência:** [`docs/agents/assistants.md`](docs/agents/assistants.md) · ADR 0020 (Agent Runtime) · ADR novo (Flow sintético + extensão do SDK — a criar)
 
+## Módulo: Grupos e Comunidades
+
+**Responsabilidade:** Plugin `pro` (slug `groups`) de gestão ativa de grupos/comunidades
+WhatsApp — CRUD de grupo, participantes, convite, configurações, comunidades — funcionando
+nos dois providers de conexão (`enginego` via API HTTP interna nova no engine-go, `izapia` via
+API HTTP já existente). Catálogo do Hub em `status: draft` — preço ainda não definido pelo
+dono, plugin não aparece no Marketplace até ser publicado.
+
+**Arquitetura:** `domain.GroupEngine` (`business/internal/domain/group_engine.go`) é uma
+extensão opcional de `domain.WhatsAppEngine`, mesmo padrão de `RichMessageEngine` —
+type-assertion sobre o engine resolvido, nunca método novo na interface base.
+`enginego.Provider`/`izapia.Provider` implementam a interface contra transportes distintos
+(HTTP interno docker-only vs HTTP público da izapia), e o plugin (`internal/plugins/groups*.go`)
+resolve o provider da conexão e devolve 501 claro quando ele não suporta grupos.
+
+**Invariants:**
+- Recurso RBAC `whatsappGroups` (ações `read`|`manage`|`admin`) — não `groups`, que colidiria
+  com `ConnectionGroup`/`ProxyGroup`/`TagGroup`, conceitos homônimos já existentes no core.
+- Grupo/comunidade identificado pelo **JID completo** ponta a ponta — nunca um ID numérico
+  próprio do Watink.
+- **Dois limitadores de taxa, não um**: o principal (`groups_throttle.go`, no plugin) cobre
+  **ambos** os providers; o do engine-go (`internal/groupsapi/throttle.go`) só vê tráfego
+  `enginego` — é defesa em profundidade, não o limitador de referência. Os dois são in-memory
+  por processo — em deploy multi-nó o teto efetivo é `nós × limite` (dívida conhecida,
+  documentada no código; o SDK de plugins não expõe Redis).
+- `PUT /groups/:id` é um único payload com todos os campos de configuração alterados — não uma
+  rota por campo (desenho inicial revisado durante a implementação, ver
+  `engine-go/docs/groups-api.md`).
+- A resposta real da izapia para grupo/comunidade **não** inclui `announce`/`locked`/
+  `memberAddMode`/`joinApprovalMode`/`pictureURL`, e o detalhe de comunidade não tem
+  `subject`/`owner`/`description` nem participantes com nome/admin — confirmado ao vivo contra
+  a API, documentado em `engine-go/docs/groups-api.md`. Não é bug de mapeamento.
+- `GET /communities` deriva de `ListGroups()` filtrado por `isCommunity` (não existe
+  `ListCommunities` na interface) — funciona em conexões `enginego`, fica sempre vazio em
+  `izapia` pelo motivo acima.
+
+**O que NÃO fazer:**
+- Não expor a API HTTP interna do engine-go fora da rede docker (`expose:`, nunca `ports:`) —
+  nem subir o servidor sem `GROUPS_API_TOKEN` configurado (fail-closed).
+- Não confundir `whatsappGroups` (RBAC deste plugin) com `ConnectionGroup`/`ProxyGroup`/
+  `TagGroup` do core.
+- Não tratar `PluginInstallations.active` como prova de licença (mesma regra do resto do
+  sistema de plugins).
+- Não assumir que os campos ausentes na resposta da izapia (ver invariants) são um bug a
+  corrigir sem antes checar se a própria API de origem os retorna.
+
+**Referência:** [`docs/agents/plugin-grupos-comunidades.md`](docs/agents/plugin-grupos-comunidades.md) ·
+[`engine-go/docs/groups-api.md`](engine-go/docs/groups-api.md) ·
+[`docs/frontend/groups/OVERVIEW.md`](docs/frontend/groups/OVERVIEW.md) · Issues #514-#524
+
 ## Domain Docs
 
 - **Glossário**: [`CONTEXT.md`](CONTEXT.md)
-- **ADRs**: [`docs/adr/`](docs/adr/) — ver **ADR 0009** para stage upsert, **ADR 0008** para política anti-MUI, **ADR 0007** para decomposição de componentes. **FlowBuilder/Automação**: **0011** FlowRun unificado · **0012** trigger polimórfico · **0013** contrato versionado FlowGraph · **0014** channel adapters · **0015** pgvector RAG · **0016** campanhas anti-ban (risco estrutural + opt-in + roadmap BSP) · **0017** scheduler multi-node. **Base de Conhecimento/RAG**: **0028** RAG nativo em Go (supera **0018**, microsserviço descomissionado) · **0015** (atualizado) pgvector RAG · **0018** microsserviço watink-knowledge + trust boundary (histórico, superado e removido) · **0019** S3 Storage Driver · **0020** (atualizado) Agent Runtime. **Acessos/RBAC**: **0022** modelo Cargo/Setor/Alcance + enforcement real (supera **0005**, ABAC via RolePermission.Scope/Conditions nunca implementado). **Clientes/CRM**: **0023** Client como entidade core (sai do plugin "pro"), transitividade Contact→Client, documento cifrado at-rest. **Plugins/Licenciamento**: **0024** redesenho do sistema de plugins (Watink Hub como autoridade, token assinado Ed25519, trilho duplo, licença por instância+teto, fronteira core/plugin = ativação; supera **0003** no ponto da flag) · **0025** marketplace de terceiros (publishers, artefatos assinados, runtime out-of-process em fases; plano executável em `docs/agents/marketplace-terceiros.md`; ADR irmão: Hub 0004)
+- **ADRs**: [`docs/adr/`](docs/adr/) — ver **ADR 0009** para stage upsert, **ADR 0008** para política anti-MUI, **ADR 0007** para decomposição de componentes. **FlowBuilder/Automação**: **0011** FlowRun unificado · **0012** trigger polimórfico · **0013** contrato versionado FlowGraph · **0014** channel adapters · **0015** pgvector RAG · **0016** campanhas anti-ban (risco estrutural + opt-in + roadmap BSP) · **0017** scheduler multi-node. **Base de Conhecimento/RAG**: **0028** RAG nativo em Go (supera **0018**, microsserviço descomissionado) · **0015** (atualizado) pgvector RAG · **0018** microsserviço watink-knowledge + trust boundary (histórico, superado e removido) · **0019** S3 Storage Driver · **0020** (atualizado) Agent Runtime. **Acessos/RBAC**: **0022** modelo Cargo/Setor/Alcance + enforcement real (supera **0005**, ABAC via RolePermission.Scope/Conditions nunca implementado). **Clientes/CRM**: **0023** Client como entidade core (sai do plugin "pro"), transitividade Contact→Client, documento cifrado at-rest. **Plugins/Licenciamento**: **0024** redesenho do sistema de plugins (Watink Hub como autoridade, token assinado Ed25519, trilho duplo, licença por instância+teto, fronteira core/plugin = ativação; supera **0003** no ponto da flag) · **0025** marketplace de terceiros (publishers, artefatos assinados, runtime out-of-process em fases; plano executável em `docs/agents/marketplace-terceiros.md`; ADR irmão: Hub 0004). **Atividades/Ordens de Serviço**: **0029** Activity como entidade core (análogo ao 0023 de Clientes), SLA lido de verdade desde a Fase 0 (ao contrário do placeholder do Helpdesk), presign de evidência em S3.
 - **Arquitetura**: [`docs/dev/architecture.md`](docs/dev/architecture.md)
 - **Frontend DS**: [`docs/frontend/design-system.md`](docs/frontend/design-system.md)
 - **Git Workflow**: [`docs/dev/git_workflow_policy.md`](docs/dev/git_workflow_policy.md)

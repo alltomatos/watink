@@ -74,6 +74,28 @@ _Avoid_: Label, marca, categoria
 **Protocol**: Registro formal de atendimento no Helpdesk. Vincula-se a um Contact e opcionalmente a um Ticket.
 _Avoid_: Atendimento, registro, chamado helpdesk
 
+**Activity**: Entidade core (ADR 0029) que modela execução de ordem de serviço em campo —
+checklist com evidência (foto/texto/número), materiais usados, ocorrências e assinatura do
+cliente ao finalizar. Não é recurso do plugin Helpdesk: `ProtocolID`/`DealID` são vínculos
+opcionais e nullable, a Activity existe de pé próprio. `slaDueAt` é calculado por prioridade e
+**congelado** a partir de `status=in_progress`.
+_Avoid_: Tarefa, Ordem de Serviço (isolado, sem capitalização — usar sempre **Activity**), ticket
+de campo — não confundir com **Ticket** (atendimento WhatsApp) nem com **Protocol** (Helpdesk).
+
+**Responsável (Activity)**: Vínculo N:N entre uma Activity e 1+ Users (`ActivityAssignee`) —
+suporta equipe, não só um técnico. Distinto de "atendente" de Ticket.
+_Avoid_: Atribuído, owner, assignee (usar o termo em português nas superfícies do produto)
+
+**Item de checklist**: Etapa de execução de uma Activity (`ActivityChecklistItem`) — `label` +
+`inputType` (`text`|`number`|`photo`) + `isRequired` + `isDone`. Editável na criação da Activity;
+depois de criada, só `isDone`/`value` são atualizáveis (sem rota de add/remove pós-criação nesta
+fase).
+_Avoid_: Task item, subtarefa
+
+**Ocorrência (Activity)**: Registro de evento durante a execução de uma Activity
+(`ActivityOccurrence`) — `info`|`impediment`|`delay`, com `timeImpact` opcional em minutos.
+_Avoid_: Incidente, evento (genérico) — não confundir com evento de domínio/AMQP
+
 **KnowledgeBase**: Coleção nomeada de fontes (KnowledgeBaseSource) vetorizadas para RAG, consumida pelos nós `knowledge`/`agent` do FlowBuilder e pelo plugin Assistants (modo `persona`). Ingestão e retrieval rodam nativamente no `business` (`internal/knowledge/`, ADR 0028); metadados (base/fontes) também ficam no `business`. Tenant-scoped.
 _Avoid_: FAQ, wiki, documentação
 

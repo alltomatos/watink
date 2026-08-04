@@ -23,6 +23,615 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/activities": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "summary": "Listar Atividades (gestão, tenant inteiro)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Busca por título",
+                        "name": "searchParam",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filtro por status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filtro por prioridade",
+                        "name": "priority",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "summary": "Criar Atividade",
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.Activity"
+                        }
+                    }
+                }
+            }
+        },
+        "/activities/sla-config": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "summary": "Obter configuração de SLA das Atividades",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.activitySLAConfigResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "summary": "Atualizar configuração de SLA das Atividades",
+                "parameters": [
+                    {
+                        "description": "Configuração de SLA",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.updateActivitySLAConfigRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.activitySLAConfigResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/activities/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "summary": "Detalhar Atividade",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID da Atividade",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.activityDetailDTO"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "summary": "Atualizar Atividade",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID da Atividade",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Activity"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "summary": "Remover Atividade",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID da Atividade",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/activities/{id}/assignees": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "summary": "Atribuir responsáveis à Atividade",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID da Atividade",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Lista completa de userIds",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.updateActivityAssigneesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/activities/{id}/finalize": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "summary": "Finalizar Atividade com assinatura do cliente",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID da Atividade",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Assinatura (dataURL PNG)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.finalizeActivityRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Activity"
+                        }
+                    }
+                }
+            }
+        },
+        "/activities/{id}/items/{itemId}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "summary": "Atualizar item de checklist",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID da Atividade",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "ID do item",
+                        "name": "itemId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.ActivityChecklistItem"
+                        }
+                    }
+                }
+            }
+        },
+        "/activities/{id}/items/{itemId}/photo": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "summary": "Upload de foto de item de checklist",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID da Atividade",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "ID do item",
+                        "name": "itemId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Arquivo de imagem",
+                        "name": "photo",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/activities/{id}/materials": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "summary": "Adicionar material à Atividade",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID da Atividade",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.ActivityMaterial"
+                        }
+                    }
+                }
+            }
+        },
+        "/activities/{id}/materials/{materialId}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "summary": "Remover material da Atividade",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID da Atividade",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "ID do material",
+                        "name": "materialId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/activities/{id}/occurrences": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "summary": "Registrar ocorrência na Atividade",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID da Atividade",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.ActivityOccurrence"
+                        }
+                    }
+                }
+            }
+        },
+        "/activities/{id}/occurrences/{occurrenceId}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "summary": "Remover ocorrência da Atividade",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID da Atividade",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "ID da ocorrência",
+                        "name": "occurrenceId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/activities/{id}/start": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "summary": "Iniciar execução da Atividade",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID da Atividade",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Activity"
+                        }
+                    }
+                }
+            }
+        },
         "/addresses/lookup": {
             "get": {
                 "security": [
@@ -2807,6 +3416,55 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/my-activities": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "summary": "Minhas Atividades (atribuídas ao usuário logado)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/my-activities/kpis": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "summary": "KPIs de Minhas Atividades",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.activityKpisResponse"
                         }
                     }
                 }
@@ -5935,6 +6593,23 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "controllers.ActivitySLAConfig": {
+            "type": "object",
+            "properties": {
+                "high": {
+                    "type": "integer"
+                },
+                "low": {
+                    "type": "integer"
+                },
+                "medium": {
+                    "type": "integer"
+                },
+                "urgent": {
+                    "type": "integer"
+                }
+            }
+        },
         "controllers.LoginRequest": {
             "type": "object",
             "required": [
@@ -5950,6 +6625,178 @@ const docTemplate = `{
                 }
             }
         },
+        "controllers.activityDetailDTO": {
+            "type": "object",
+            "properties": {
+                "assignees": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ActivityAssignee"
+                    }
+                },
+                "clientSignatureUrl": {
+                    "description": "ClientSignatureUrl/TechnicianSignatureUrl guardam a chave/URL do\nobjeto no S3 Storage Driver — nunca base64 gravado direto no banco.",
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "dealId": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "finishedAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ActivityChecklistItem"
+                    }
+                },
+                "lastActivityAt": {
+                    "description": "LastActivityAt é atualizado a cada mutação em item/material/ocorrência\n— base do alerta de \"atividade parada\" (staleSince).",
+                    "type": "string"
+                },
+                "materials": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ActivityMaterial"
+                    }
+                },
+                "occurrences": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ActivityOccurrence"
+                    }
+                },
+                "priority": {
+                    "description": "Priority: low | medium | high | urgent — usada pela calculadora de SLA.",
+                    "type": "string"
+                },
+                "protocol": {
+                    "$ref": "#/definitions/controllers.activityProtocolDTO"
+                },
+                "protocolId": {
+                    "description": "ProtocolID/DealID são vínculos opcionais (Fase 1/2) — o plugin Helpdesk\nou o módulo Pipeline chamam o core para criar a Activity, nunca o\ninverso.",
+                    "type": "integer"
+                },
+                "scheduledAt": {
+                    "type": "string"
+                },
+                "slaDueAt": {
+                    "description": "SlaDueAt é calculado no create/start a partir de activities_sla_config\n+ priority, e congelado a partir de status=in_progress — nunca\nrecalculado silenciosamente depois que a atividade já está em\nexecução (evita a dívida do Helpdesk: helpdesk_kanban.go hardcoda um\nthreshold fixo de 24h e ignora priority).",
+                    "type": "string"
+                },
+                "startedAt": {
+                    "type": "string"
+                },
+                "status": {
+                    "description": "Status: pending | in_progress | done | cancelled.",
+                    "type": "string"
+                },
+                "technicianSignatureUrl": {
+                    "type": "string"
+                },
+                "tenantId": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.activityKpisResponse": {
+            "type": "object",
+            "properties": {
+                "avgExecutionMinutes": {
+                    "description": "AvgExecutionMinutes é a média de (finishedAt - startedAt) das últimas\nN concluídas — 0 quando não há amostra suficiente (nunca divide por\nzero, nunca aparece como NaN no JSON).",
+                    "type": "number"
+                },
+                "completedThisWeek": {
+                    "type": "integer"
+                },
+                "inProgress": {
+                    "type": "integer"
+                },
+                "overdue": {
+                    "type": "integer"
+                },
+                "tabCounts": {
+                    "description": "Contagens por aba — mesmo payload, sem fetch adicional.",
+                    "type": "object",
+                    "properties": {
+                        "all": {
+                            "type": "integer"
+                        },
+                        "done": {
+                            "type": "integer"
+                        },
+                        "inProgress": {
+                            "type": "integer"
+                        },
+                        "overdue": {
+                            "type": "integer"
+                        }
+                    }
+                },
+                "today": {
+                    "type": "integer"
+                }
+            }
+        },
+        "controllers.activityProtocolClientDTO": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.activityProtocolDTO": {
+            "type": "object",
+            "properties": {
+                "client": {
+                    "$ref": "#/definitions/controllers.activityProtocolClientDTO"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "subject": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.activitySLAConfigResponse": {
+            "type": "object",
+            "properties": {
+                "slaConfig": {
+                    "$ref": "#/definitions/controllers.ActivitySLAConfig"
+                },
+                "staleThresholdMinutes": {
+                    "type": "integer"
+                }
+            }
+        },
+        "controllers.finalizeActivityRequest": {
+            "type": "object",
+            "required": [
+                "clientSignature"
+            ],
+            "properties": {
+                "clientSignature": {
+                    "type": "string"
+                }
+            }
+        },
         "controllers.izapiaConfigResponse": {
             "type": "object",
             "properties": {
@@ -5958,6 +6805,251 @@ const docTemplate = `{
                 },
                 "hasApiKey": {
                     "type": "boolean"
+                }
+            }
+        },
+        "controllers.updateActivityAssigneesRequest": {
+            "type": "object",
+            "properties": {
+                "userIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "controllers.updateActivitySLAConfigRequest": {
+            "type": "object",
+            "required": [
+                "slaConfig",
+                "staleThresholdMinutes"
+            ],
+            "properties": {
+                "slaConfig": {
+                    "$ref": "#/definitions/controllers.ActivitySLAConfig"
+                },
+                "staleThresholdMinutes": {
+                    "type": "integer",
+                    "minimum": 1
+                }
+            }
+        },
+        "models.Activity": {
+            "type": "object",
+            "properties": {
+                "assignees": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ActivityAssignee"
+                    }
+                },
+                "clientSignatureUrl": {
+                    "description": "ClientSignatureUrl/TechnicianSignatureUrl guardam a chave/URL do\nobjeto no S3 Storage Driver — nunca base64 gravado direto no banco.",
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "dealId": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "finishedAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ActivityChecklistItem"
+                    }
+                },
+                "lastActivityAt": {
+                    "description": "LastActivityAt é atualizado a cada mutação em item/material/ocorrência\n— base do alerta de \"atividade parada\" (staleSince).",
+                    "type": "string"
+                },
+                "materials": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ActivityMaterial"
+                    }
+                },
+                "occurrences": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ActivityOccurrence"
+                    }
+                },
+                "priority": {
+                    "description": "Priority: low | medium | high | urgent — usada pela calculadora de SLA.",
+                    "type": "string"
+                },
+                "protocol": {
+                    "description": "Relations",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.Protocol"
+                        }
+                    ]
+                },
+                "protocolId": {
+                    "description": "ProtocolID/DealID são vínculos opcionais (Fase 1/2) — o plugin Helpdesk\nou o módulo Pipeline chamam o core para criar a Activity, nunca o\ninverso.",
+                    "type": "integer"
+                },
+                "scheduledAt": {
+                    "type": "string"
+                },
+                "slaDueAt": {
+                    "description": "SlaDueAt é calculado no create/start a partir de activities_sla_config\n+ priority, e congelado a partir de status=in_progress — nunca\nrecalculado silenciosamente depois que a atividade já está em\nexecução (evita a dívida do Helpdesk: helpdesk_kanban.go hardcoda um\nthreshold fixo de 24h e ignora priority).",
+                    "type": "string"
+                },
+                "startedAt": {
+                    "type": "string"
+                },
+                "status": {
+                    "description": "Status: pending | in_progress | done | cancelled.",
+                    "type": "string"
+                },
+                "technicianSignatureUrl": {
+                    "type": "string"
+                },
+                "tenantId": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ActivityAssignee": {
+            "type": "object",
+            "properties": {
+                "activityId": {
+                    "type": "integer"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "tenantId": {
+                    "type": "string"
+                },
+                "user": {
+                    "description": "Relations",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.User"
+                        }
+                    ]
+                },
+                "userId": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.ActivityChecklistItem": {
+            "type": "object",
+            "properties": {
+                "activityId": {
+                    "type": "integer"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "inputType": {
+                    "type": "string"
+                },
+                "isDone": {
+                    "type": "boolean"
+                },
+                "isRequired": {
+                    "type": "boolean"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "position": {
+                    "type": "integer"
+                },
+                "tenantId": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ActivityMaterial": {
+            "type": "object",
+            "properties": {
+                "activityId": {
+                    "type": "integer"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "isBillable": {
+                    "type": "boolean"
+                },
+                "materialName": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "number"
+                },
+                "tenantId": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ActivityOccurrence": {
+            "type": "object",
+            "properties": {
+                "activityId": {
+                    "type": "integer"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "tenantId": {
+                    "type": "string"
+                },
+                "timeImpact": {
+                    "type": "integer"
+                },
+                "type": {
+                    "type": "string"
                 }
             }
         },
@@ -6117,6 +7209,10 @@ const docTemplate = `{
                 "email": {
                     "type": "string"
                 },
+                "groupParticipantCount": {
+                    "description": "GroupParticipantCount é preenchido só para IsGroup=true, via\nenriquecimento oportunista (plugins/groups_watch.go\nenrichContactFromGroup) toda vez que o plugin Grupos busca\nGroupInfo.Participants do WhatsApp -- nunca setado para contato\nindividual. nil = nunca enriquecido (grupo listado só via mensagem\nrecebida, sem passar pelo plugin Grupos ainda).",
+                    "type": "integer"
+                },
                 "id": {
                     "type": "integer"
                 },
@@ -6239,6 +7335,59 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "resource": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Protocol": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "contact": {
+                    "description": "Relations",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.Contact"
+                        }
+                    ]
+                },
+                "contactId": {
+                    "type": "integer"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "priority": {
+                    "type": "string"
+                },
+                "protocolNumber": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "subject": {
+                    "type": "string"
+                },
+                "tenantId": {
+                    "type": "string"
+                },
+                "ticketId": {
+                    "type": "integer"
+                },
+                "token": {
+                    "description": "Token autoriza o acesso público sem login (GET /public/protocols/:token) —\ngerado uma vez na criação (crypto/rand), nunca reaproveitado.",
                     "type": "string"
                 },
                 "updatedAt": {

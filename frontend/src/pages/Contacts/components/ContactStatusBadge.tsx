@@ -1,4 +1,5 @@
 import React from "react";
+import { Users } from "lucide-react";
 import { Badge } from "../../../components/ui/badge";
 import { Contact } from "../contactsTypes";
 
@@ -8,7 +9,17 @@ interface ContactStatusBadgeProps {
 
 const ContactStatusBadge: React.FC<ContactStatusBadgeProps> = ({ contact }) => {
   if (contact.isGroup || contact.number?.includes("@g.us")) {
-    return <Badge variant="secondary">Grupo</Badge>;
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <Badge variant="secondary">Grupo</Badge>
+        {typeof contact.groupParticipantCount === "number" && (
+          <Badge variant="outline" className="gap-1">
+            <Users className="h-3 w-3" />
+            {contact.groupParticipantCount}
+          </Badge>
+        )}
+      </span>
+    );
   }
   if (contact.lid) {
     return (

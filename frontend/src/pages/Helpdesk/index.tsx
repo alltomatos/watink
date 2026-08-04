@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useContext } from "react";
 import { useNavigate } from "react-router";
 import { Plus, LayoutGrid, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/tabs";
 
 import { Can } from "../../components/Can";
-import useAuth from "../../hooks/useAuth";
+import { AuthContext } from "../../context/Auth/AuthContext";
 import ProtocolModal from "./ProtocolModal";
 import HelpdeskReports from "./HelpdeskReports";
 import { useHelpdesk } from "./hooks/useHelpdesk";
@@ -19,7 +19,7 @@ import ProtocolsTable from "./components/ProtocolsTable";
 
 const Helpdesk: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user } = useContext(AuthContext);
   const {
     protocols,
     loading,

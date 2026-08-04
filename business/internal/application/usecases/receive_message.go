@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/alltomatos/watinkdev/business/internal/domain"
+	"github.com/alltomatos/watinkdev/business/internal/plugins"
 	"github.com/alltomatos/watinkdev/business/pkg/mediastore"
 	"github.com/google/uuid"
 )
@@ -258,6 +259,19 @@ func (uc *ReceiveMessageUseCase) Execute(ctx context.Context, input ReceiveMessa
 	ticket.UpdatedAt = time.Now()
 
 	_ = uc.eventBus.Publish(ctx, domain.NewMessageReceivedEvent(msg.ID, ticket.ID, input.TenantID))
+
+	// "message.received" no barramento local de plugins (mesmo padrão de
+	// controllers.DealController "pipeline.deal.*") -- ponto de extensão pra
+	// plugin reagir a mensagem nova sem o core saber que ele existe (hoje:
+	// Groups e Comunidades, monitoramento de frase em mensagens de grupo).
+	// Publica sempre, não só pra IsGroup=true: quem decide o que importa é o
+	// assinante, não o publisher.
+	plugins.PublishDomainEvent(ctx, "message.received", map[string]any{
+		"tenantId":  input.TenantID.String(),
+		"ticketId":  ticket.ID,
+		"messageId": msg.ID,
+		"isGroup":   input.IsGroup,
+	})
 
 	return &ReceiveMessageResult{
 		Contact: contact,

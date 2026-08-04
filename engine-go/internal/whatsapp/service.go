@@ -75,7 +75,7 @@ func (s *WhatsAppService) getConnectedClient(sessionID int) (*whatsmeow.Client, 
 	defer s.mu.RUnlock()
 	client, ok := s.clients[sessionID]
 	if !ok || !client.IsConnected() || !client.IsLoggedIn() {
-		return nil, fmt.Errorf("session %d is not connected", sessionID)
+		return nil, fmt.Errorf("%w: session %d", ErrSessionNotConnected, sessionID)
 	}
 	return client, nil
 }

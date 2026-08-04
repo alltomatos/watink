@@ -24,6 +24,7 @@ import PersonalizationSection from "./components/PersonalizationSection";
 import SMTPSection from "./components/SMTPSection";
 import PAPISection from "./components/PAPISection";
 import HelpdeskSection from "./components/HelpdeskSection";
+import ActivitiesSection from "./components/ActivitiesSection";
 import AiGatewaysSection from "./components/AiGatewaysSection";
 import SettingsSideNav from "./components/SettingsSideNav";
 
@@ -106,6 +107,9 @@ const Settings: React.FC = () => {
                   handleAddCategory={handleAddCategory}
                   handleRemoveCategory={handleRemoveCategory}
                 />
+              )}
+              {activeSection === "activities" && (
+                <ActivitiesSection />
               )}
               {activeSection === "ai" && (
                 <AISettings {...sharedProps} />

@@ -1,5 +1,16 @@
 basePath: /api/v1
 definitions:
+  controllers.ActivitySLAConfig:
+    properties:
+      high:
+        type: integer
+      low:
+        type: integer
+      medium:
+        type: integer
+      urgent:
+        type: integer
+    type: object
   controllers.LoginRequest:
     properties:
       email:
@@ -10,12 +21,317 @@ definitions:
     - email
     - password
     type: object
+  controllers.activityDetailDTO:
+    properties:
+      assignees:
+        items:
+          $ref: '#/definitions/models.ActivityAssignee'
+        type: array
+      clientSignatureUrl:
+        description: |-
+          ClientSignatureUrl/TechnicianSignatureUrl guardam a chave/URL do
+          objeto no S3 Storage Driver — nunca base64 gravado direto no banco.
+        type: string
+      createdAt:
+        type: string
+      dealId:
+        type: integer
+      description:
+        type: string
+      finishedAt:
+        type: string
+      id:
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/models.ActivityChecklistItem'
+        type: array
+      lastActivityAt:
+        description: |-
+          LastActivityAt é atualizado a cada mutação em item/material/ocorrência
+          — base do alerta de "atividade parada" (staleSince).
+        type: string
+      materials:
+        items:
+          $ref: '#/definitions/models.ActivityMaterial'
+        type: array
+      occurrences:
+        items:
+          $ref: '#/definitions/models.ActivityOccurrence'
+        type: array
+      priority:
+        description: 'Priority: low | medium | high | urgent — usada pela calculadora
+          de SLA.'
+        type: string
+      protocol:
+        $ref: '#/definitions/controllers.activityProtocolDTO'
+      protocolId:
+        description: |-
+          ProtocolID/DealID são vínculos opcionais (Fase 1/2) — o plugin Helpdesk
+          ou o módulo Pipeline chamam o core para criar a Activity, nunca o
+          inverso.
+        type: integer
+      scheduledAt:
+        type: string
+      slaDueAt:
+        description: |-
+          SlaDueAt é calculado no create/start a partir de activities_sla_config
+          + priority, e congelado a partir de status=in_progress — nunca
+          recalculado silenciosamente depois que a atividade já está em
+          execução (evita a dívida do Helpdesk: helpdesk_kanban.go hardcoda um
+          threshold fixo de 24h e ignora priority).
+        type: string
+      startedAt:
+        type: string
+      status:
+        description: 'Status: pending | in_progress | done | cancelled.'
+        type: string
+      technicianSignatureUrl:
+        type: string
+      tenantId:
+        type: string
+      title:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  controllers.activityKpisResponse:
+    properties:
+      avgExecutionMinutes:
+        description: |-
+          AvgExecutionMinutes é a média de (finishedAt - startedAt) das últimas
+          N concluídas — 0 quando não há amostra suficiente (nunca divide por
+          zero, nunca aparece como NaN no JSON).
+        type: number
+      completedThisWeek:
+        type: integer
+      inProgress:
+        type: integer
+      overdue:
+        type: integer
+      tabCounts:
+        description: Contagens por aba — mesmo payload, sem fetch adicional.
+        properties:
+          all:
+            type: integer
+          done:
+            type: integer
+          inProgress:
+            type: integer
+          overdue:
+            type: integer
+        type: object
+      today:
+        type: integer
+    type: object
+  controllers.activityProtocolClientDTO:
+    properties:
+      name:
+        type: string
+    type: object
+  controllers.activityProtocolDTO:
+    properties:
+      client:
+        $ref: '#/definitions/controllers.activityProtocolClientDTO'
+      id:
+        type: integer
+      subject:
+        type: string
+    type: object
+  controllers.activitySLAConfigResponse:
+    properties:
+      slaConfig:
+        $ref: '#/definitions/controllers.ActivitySLAConfig'
+      staleThresholdMinutes:
+        type: integer
+    type: object
+  controllers.finalizeActivityRequest:
+    properties:
+      clientSignature:
+        type: string
+    required:
+    - clientSignature
+    type: object
   controllers.izapiaConfigResponse:
     properties:
       baseUrl:
         type: string
       hasApiKey:
         type: boolean
+    type: object
+  controllers.updateActivityAssigneesRequest:
+    properties:
+      userIds:
+        items:
+          type: integer
+        type: array
+    type: object
+  controllers.updateActivitySLAConfigRequest:
+    properties:
+      slaConfig:
+        $ref: '#/definitions/controllers.ActivitySLAConfig'
+      staleThresholdMinutes:
+        minimum: 1
+        type: integer
+    required:
+    - slaConfig
+    - staleThresholdMinutes
+    type: object
+  models.Activity:
+    properties:
+      assignees:
+        items:
+          $ref: '#/definitions/models.ActivityAssignee'
+        type: array
+      clientSignatureUrl:
+        description: |-
+          ClientSignatureUrl/TechnicianSignatureUrl guardam a chave/URL do
+          objeto no S3 Storage Driver — nunca base64 gravado direto no banco.
+        type: string
+      createdAt:
+        type: string
+      dealId:
+        type: integer
+      description:
+        type: string
+      finishedAt:
+        type: string
+      id:
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/models.ActivityChecklistItem'
+        type: array
+      lastActivityAt:
+        description: |-
+          LastActivityAt é atualizado a cada mutação em item/material/ocorrência
+          — base do alerta de "atividade parada" (staleSince).
+        type: string
+      materials:
+        items:
+          $ref: '#/definitions/models.ActivityMaterial'
+        type: array
+      occurrences:
+        items:
+          $ref: '#/definitions/models.ActivityOccurrence'
+        type: array
+      priority:
+        description: 'Priority: low | medium | high | urgent — usada pela calculadora
+          de SLA.'
+        type: string
+      protocol:
+        allOf:
+        - $ref: '#/definitions/models.Protocol'
+        description: Relations
+      protocolId:
+        description: |-
+          ProtocolID/DealID são vínculos opcionais (Fase 1/2) — o plugin Helpdesk
+          ou o módulo Pipeline chamam o core para criar a Activity, nunca o
+          inverso.
+        type: integer
+      scheduledAt:
+        type: string
+      slaDueAt:
+        description: |-
+          SlaDueAt é calculado no create/start a partir de activities_sla_config
+          + priority, e congelado a partir de status=in_progress — nunca
+          recalculado silenciosamente depois que a atividade já está em
+          execução (evita a dívida do Helpdesk: helpdesk_kanban.go hardcoda um
+          threshold fixo de 24h e ignora priority).
+        type: string
+      startedAt:
+        type: string
+      status:
+        description: 'Status: pending | in_progress | done | cancelled.'
+        type: string
+      technicianSignatureUrl:
+        type: string
+      tenantId:
+        type: string
+      title:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  models.ActivityAssignee:
+    properties:
+      activityId:
+        type: integer
+      createdAt:
+        type: string
+      id:
+        type: integer
+      tenantId:
+        type: string
+      user:
+        allOf:
+        - $ref: '#/definitions/models.User'
+        description: Relations
+      userId:
+        type: integer
+    type: object
+  models.ActivityChecklistItem:
+    properties:
+      activityId:
+        type: integer
+      createdAt:
+        type: string
+      id:
+        type: integer
+      inputType:
+        type: string
+      isDone:
+        type: boolean
+      isRequired:
+        type: boolean
+      label:
+        type: string
+      position:
+        type: integer
+      tenantId:
+        type: string
+      updatedAt:
+        type: string
+      value:
+        type: string
+    type: object
+  models.ActivityMaterial:
+    properties:
+      activityId:
+        type: integer
+      createdAt:
+        type: string
+      id:
+        type: integer
+      isBillable:
+        type: boolean
+      materialName:
+        type: string
+      notes:
+        type: string
+      quantity:
+        type: number
+      tenantId:
+        type: string
+      unit:
+        type: string
+    type: object
+  models.ActivityOccurrence:
+    properties:
+      activityId:
+        type: integer
+      createdAt:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      tenantId:
+        type: string
+      timeImpact:
+        type: integer
+      type:
+        type: string
     type: object
   models.Cargo:
     properties:
@@ -138,6 +454,15 @@ definitions:
         type: string
       email:
         type: string
+      groupParticipantCount:
+        description: |-
+          GroupParticipantCount é preenchido só para IsGroup=true, via
+          enriquecimento oportunista (plugins/groups_watch.go
+          enrichContactFromGroup) toda vez que o plugin Grupos busca
+          GroupInfo.Participants do WhatsApp -- nunca setado para contato
+          individual. nil = nunca enriquecido (grupo listado só via mensagem
+          recebida, sem passar pelo plugin Grupos ainda).
+        type: integer
       id:
         type: integer
       isGroup:
@@ -218,6 +543,42 @@ definitions:
       isSystem:
         type: boolean
       resource:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  models.Protocol:
+    properties:
+      category:
+        type: string
+      contact:
+        allOf:
+        - $ref: '#/definitions/models.Contact'
+        description: Relations
+      contactId:
+        type: integer
+      createdAt:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      priority:
+        type: string
+      protocolNumber:
+        type: string
+      status:
+        type: string
+      subject:
+        type: string
+      tenantId:
+        type: string
+      ticketId:
+        type: integer
+      token:
+        description: |-
+          Token autoriza o acesso público sem login (GET /public/protocols/:token) —
+          gerado uma vez na criação (crypto/rand), nunca reaproveitado.
         type: string
       updatedAt:
         type: string
@@ -559,6 +920,383 @@ info:
   title: Watink Business API
   version: 2.0.0
 paths:
+  /activities:
+    get:
+      parameters:
+      - description: Busca por título
+        in: query
+        name: searchParam
+        type: string
+      - description: Filtro por status
+        in: query
+        name: status
+        type: string
+      - description: Filtro por prioridade
+        in: query
+        name: priority
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Listar Atividades (gestão, tenant inteiro)
+      tags:
+      - activities
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Activity'
+      security:
+      - BearerAuth: []
+      summary: Criar Atividade
+      tags:
+      - activities
+  /activities/{id}:
+    delete:
+      parameters:
+      - description: ID da Atividade
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Remover Atividade
+      tags:
+      - activities
+    get:
+      parameters:
+      - description: ID da Atividade
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.activityDetailDTO'
+      security:
+      - BearerAuth: []
+      summary: Detalhar Atividade
+      tags:
+      - activities
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID da Atividade
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Activity'
+      security:
+      - BearerAuth: []
+      summary: Atualizar Atividade
+      tags:
+      - activities
+  /activities/{id}/assignees:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID da Atividade
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Lista completa de userIds
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.updateActivityAssigneesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Atribuir responsáveis à Atividade
+      tags:
+      - activities
+  /activities/{id}/finalize:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID da Atividade
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Assinatura (dataURL PNG)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.finalizeActivityRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Activity'
+      security:
+      - BearerAuth: []
+      summary: Finalizar Atividade com assinatura do cliente
+      tags:
+      - activities
+  /activities/{id}/items/{itemId}:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID da Atividade
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ID do item
+        in: path
+        name: itemId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ActivityChecklistItem'
+      security:
+      - BearerAuth: []
+      summary: Atualizar item de checklist
+      tags:
+      - activities
+  /activities/{id}/items/{itemId}/photo:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: ID da Atividade
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ID do item
+        in: path
+        name: itemId
+        required: true
+        type: integer
+      - description: Arquivo de imagem
+        in: formData
+        name: photo
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Upload de foto de item de checklist
+      tags:
+      - activities
+  /activities/{id}/materials:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID da Atividade
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.ActivityMaterial'
+      security:
+      - BearerAuth: []
+      summary: Adicionar material à Atividade
+      tags:
+      - activities
+  /activities/{id}/materials/{materialId}:
+    delete:
+      parameters:
+      - description: ID da Atividade
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ID do material
+        in: path
+        name: materialId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Remover material da Atividade
+      tags:
+      - activities
+  /activities/{id}/occurrences:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID da Atividade
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.ActivityOccurrence'
+      security:
+      - BearerAuth: []
+      summary: Registrar ocorrência na Atividade
+      tags:
+      - activities
+  /activities/{id}/occurrences/{occurrenceId}:
+    delete:
+      parameters:
+      - description: ID da Atividade
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ID da ocorrência
+        in: path
+        name: occurrenceId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Remover ocorrência da Atividade
+      tags:
+      - activities
+  /activities/{id}/start:
+    put:
+      parameters:
+      - description: ID da Atividade
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Activity'
+      security:
+      - BearerAuth: []
+      summary: Iniciar execução da Atividade
+      tags:
+      - activities
+  /activities/sla-config:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.activitySLAConfigResponse'
+      security:
+      - BearerAuth: []
+      summary: Obter configuração de SLA das Atividades
+      tags:
+      - activities
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Configuração de SLA
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.updateActivitySLAConfigRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.activitySLAConfigResponse'
+      security:
+      - BearerAuth: []
+      summary: Atualizar configuração de SLA das Atividades
+      tags:
+      - activities
   /addresses/lookup:
     get:
       parameters:
@@ -2318,6 +3056,35 @@ paths:
       summary: Enviar mensagem
       tags:
       - messages
+  /my-activities:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Minhas Atividades (atribuídas ao usuário logado)
+      tags:
+      - activities
+  /my-activities/kpis:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.activityKpisResponse'
+      security:
+      - BearerAuth: []
+      summary: KPIs de Minhas Atividades
+      tags:
+      - activities
   /pipelines:
     get:
       produces:

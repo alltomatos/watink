@@ -13,6 +13,13 @@ type Contact struct {
 	ProfilePicUrl string    `gorm:"column:profilePicUrl" json:"profilePicUrl"`
 	Email         string    `gorm:"not null;default:''" json:"email"`
 	IsGroup       bool      `gorm:"column:isGroup;not null;default:false" json:"isGroup"`
+	// GroupParticipantCount é preenchido só para IsGroup=true, via
+	// enriquecimento oportunista (plugins/groups_watch.go
+	// enrichContactFromGroup) toda vez que o plugin Grupos busca
+	// GroupInfo.Participants do WhatsApp -- nunca setado para contato
+	// individual. nil = nunca enriquecido (grupo listado só via mensagem
+	// recebida, sem passar pelo plugin Grupos ainda).
+	GroupParticipantCount *int `gorm:"column:groupParticipantCount" json:"groupParticipantCount,omitempty"`
 	TenantID      uuid.UUID `gorm:"column:tenantId;type:uuid" json:"tenantId"`
 	Lid           *string   `gorm:"unique" json:"lid"`
 	WalletUserID  *int      `gorm:"column:walletUserId" json:"walletUserId"`

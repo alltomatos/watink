@@ -1,0 +1,171 @@
+package enginego
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"os"
+	"strconv"
+	"time"
+
+	"github.com/alltomatos/watinkdev/business/pkg/utils"
+)
+
+// groupsHTTPClient is a small, timeout-bounded HTTP client for the
+// engine-go internal groups API (engine-go/docs/groups-api.md). Resolved
+// lazily from env (GROUPS_API_URL, GROUPS_API_TOKEN) on each call — same
+// pattern as izapia.Provider.clientFor resolving per-tenant credentials —
+// rather than threaded through enginego.New's constructor, to avoid
+// widening that signature for every existing call site
+// (internal/services/whatsapp_session.go and its tests).
+//
+// 45s (not 8s): GET .../groups (ListGroups) is a single whatsmeow
+// GetJoinedGroups() call on the engine-go side, no per-group round-trip on
+// our end -- but for a connection with many joined groups (each carrying
+// its full Participants list) whatsmeow's own processing can genuinely take
+// longer than a few seconds, worse under concurrent message traffic
+// contending for the same client/store. Observed in production: an old,
+// high-volume number timed out ListGroups at 8s ("Internal server error"),
+// nothing wrong on the business/engine-go side -- just too tight a budget.
+var groupsHTTPClient = &http.Client{Timeout: 45 * time.Second}
+
+// groupsAPIConfig returns the internal API's base URL and token, or a
+// friendly, actionable error if either is unset — fail-closed, matching
+// the engine-go side's own refusal to start without GROUPS_API_TOKEN.
+func groupsAPIConfig() (baseURL, token string, err error) {
+	baseURL = os.Getenv("GROUPS_API_URL")
+	token = os.Getenv("GROUPS_API_TOKEN")
+	if baseURL == "" || token == "" {
+		return "", "", utils.NewFriendlyError(http.StatusServiceUnavailable,
+			"Gestão de grupos indisponível para esta conexão no momento.",
+			errors.New("enginego: GROUPS_API_URL/GROUPS_API_TOKEN não configurados"))
+	}
+	return baseURL, token, nil
+}
+
+// groupsEnvelope mirrors engine-go's response envelope exactly
+// (engine-go/docs/groups-api.md "Envelope") — enginego.Provider and
+// izapia.Provider are meant to stay code-mirrors of each other.
+type groupsEnvelope struct {
+	OK    bool               `json:"ok"`
+	Data  json.RawMessage    `json:"data"`
+	Error *groupsErrorDetail `json:"error"`
+}
+
+type groupsErrorDetail struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+func (e *groupsErrorDetail) Error() string {
+	if e == nil {
+		return "enginego groupsapi: erro desconhecido"
+	}
+	return fmt.Sprintf("enginego groupsapi: %s: %s", e.Code, e.Message)
+}
+
+// friendlyGroupsError traduz um erro classificado do envelope
+// (engine-go/internal/groupsapi/envelope.go, códigos espelhados aqui em
+// texto por groups-api.md -- os dois módulos Go são binários separados, sem
+// import compartilhado) numa *utils.FriendlyError com o status HTTP que o
+// engine-go já resolveu (mapBackendError) e uma mensagem segura de mostrar
+// direto na UI. Códigos sem tradução conhecida (ex. PROVIDER_ERROR opaco)
+// caem no genérico 500 -- não vale inventar mensagem pra erro que nem o
+// próprio WhatsApp classificou.
+func friendlyGroupsError(status int, e *groupsErrorDetail) error {
+	var msg string
+	switch e.Code {
+	case "NOT_ADMIN":
+		msg = "Você não é administrador deste grupo no WhatsApp -- só administradores podem fazer essa ação."
+	case "NOT_FOUND":
+		msg = "Grupo ou comunidade não encontrado -- pode ter sido excluído ou você não faz mais parte dele."
+	case "SESSION_NOT_CONNECTED":
+		msg = "Esta conexão não está online no momento. Reconecte o WhatsApp e tente de novo."
+	case "RATE_LIMITED":
+		msg = "O WhatsApp limitou essa ação temporariamente (proteção contra banimento). Aguarde um pouco e tente de novo."
+	case "INVALID_INPUT":
+		msg = e.Message
+	case "AUTH_FAILED":
+		msg = "Falha de autenticação com o WhatsApp para esta conexão."
+	default:
+		return e
+	}
+	return utils.NewFriendlyError(status, msg, e)
+}
+
+// groupsDo issues one request against the internal groups API. NO retry —
+// a retried write (e.g. add participant) would duplicate the action; the
+// caller decides whether to retry a read.
+func groupsDo(ctx context.Context, method, path string, body, out interface{}) error {
+	baseURL, token, err := groupsAPIConfig()
+	if err != nil {
+		return err
+	}
+
+	var reqBody io.Reader
+	if body != nil {
+		b, err := json.Marshal(body)
+		if err != nil {
+			return fmt.Errorf("enginego groupsapi: encode request: %w", err)
+		}
+		reqBody = bytes.NewReader(b)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, baseURL+path, reqBody)
+	if err != nil {
+		return fmt.Errorf("enginego groupsapi: build request: %w", err)
+	}
+	req.Header.Set("X-Internal-Token", token)
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	resp, err := groupsHTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("enginego groupsapi: request %s %s: %w", method, path, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("enginego groupsapi: read response %s %s: %w", method, path, err)
+	}
+
+	var env groupsEnvelope
+	if err := json.Unmarshal(respBody, &env); err != nil {
+		return fmt.Errorf("enginego groupsapi: decode response %s %s (status %d): %w", method, path, resp.StatusCode, err)
+	}
+	if !env.OK {
+		if env.Error != nil {
+			return friendlyGroupsError(resp.StatusCode, env.Error)
+		}
+		return fmt.Errorf("enginego groupsapi: %s %s falhou (status %d)", method, path, resp.StatusCode)
+	}
+	if out != nil && len(env.Data) > 0 {
+		if err := json.Unmarshal(env.Data, out); err != nil {
+			return fmt.Errorf("enginego groupsapi: decode data %s %s: %w", method, path, err)
+		}
+	}
+	return nil
+}
+
+func sessionGroupsPath(sessionID int) string {
+	return "/sessions/" + strconv.Itoa(sessionID) + "/groups"
+}
+
+func sessionGroupItemPath(sessionID int, groupJID string) string {
+	return sessionGroupsPath(sessionID) + "/" + url.PathEscape(groupJID)
+}
+
+func sessionCommunitiesPath(sessionID int) string {
+	return "/sessions/" + strconv.Itoa(sessionID) + "/communities"
+}
+
+func sessionCommunityItemPath(sessionID int, communityJID string) string {
+	return sessionCommunitiesPath(sessionID) + "/" + url.PathEscape(communityJID)
+}

@@ -8,6 +8,10 @@ export interface Contact {
   profilePicUrl?: string;
   isGroup?: boolean;
   lid?: string;
+  /** Só presente em contatos de grupo (isGroup=true), enriquecido a partir
+   * do plugin Grupos e Comunidades toda vez que o grupo é consultado por
+   * lá (business/internal/plugins/groups_contact_enrich.go). */
+  groupParticipantCount?: number;
 }
 
 export type ContactsAction =

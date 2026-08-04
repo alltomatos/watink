@@ -40,6 +40,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 	contactController := controllers.NewContactController(container.ContactRepo, container.ChannelSessionRepo, rabbitMQ, container.Broadcast, container.IzapiaProvider)
 	clientController := controllers.NewClientController()
 	addressLookupController := controllers.NewAddressLookupController()
+	activityController := controllers.NewActivityController(s3Store)
 	sessionController := controllers.NewSessionController(container.ChannelSessionRepo, container.Broadcast, container.SessionService)
 	ticketController := controllers.NewTicketController(container.UpdateTicket, container.Broadcast, container.MessageRepo, rabbitMQ)
 	whatsappController := controllers.NewWhatsappController(container.ChannelSessionRepo, container.PlanLimitSvc, container.Broadcast, container.SessionService)
@@ -178,6 +179,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		pluginManager.Register(&plugins.HelpdeskPlugin{})
 		pluginManager.Register(&plugins.WebchatPlugin{})
 		pluginManager.Register(&plugins.AssistantPlugin{})
+		pluginManager.Register(&plugins.GroupsPlugin{Resolver: container.SessionService})
 
 		// Auth
 		protected.DELETE("/auth/logout", authController.Logout)
@@ -285,6 +287,31 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		protected.POST("/clients/:id/contacts/:contactId/link", auth.RequirePermission("clients", "manage"), clientController.LinkContact)
 		protected.DELETE("/clients/:id/contacts/:contactId", auth.RequirePermission("clients", "manage"), clientController.UnlinkContact)
 		protected.GET("/addresses/lookup", auth.RequirePermission("clients", "read"), addressLookupController.Lookup)
+
+		// Activities (Ordens de Serviço) — ADR 0029. Todas as rotas irmãs sob
+		// /activities/ usam o MESMO nome de wildcard ":id" — dois nomes
+		// diferentes na mesma posição de path fazem o Gin entrar em pânico no
+		// boot. GET /my-activities é a visão do EXECUTOR (filtro incondicional
+		// por assignee, mesmo pra alcance=tenant); GET /activities é a visão de
+		// GESTÃO (tenant inteiro) — não confundir as duas.
+		protected.GET("/activities/sla-config", auth.RequirePermission("activities", "manage"), activityController.GetSLAConfig)
+		protected.PUT("/activities/sla-config", auth.RequirePermission("activities", "manage"), activityController.UpdateSLAConfig)
+		protected.GET("/my-activities", auth.RequirePermission("activities", "read"), activityController.MyActivities)
+		protected.GET("/my-activities/kpis", auth.RequirePermission("activities", "read"), activityController.MyActivitiesKPIs)
+		protected.GET("/activities", auth.RequirePermission("activities", "read"), activityController.List)
+		protected.POST("/activities", auth.RequirePermission("activities", "create"), activityController.Create)
+		protected.GET("/activities/:id", auth.RequirePermission("activities", "read"), activityController.Show)
+		protected.PUT("/activities/:id", auth.RequirePermission("activities", "update"), activityController.Update)
+		protected.DELETE("/activities/:id", auth.RequirePermission("activities", "delete"), activityController.Delete)
+		protected.PUT("/activities/:id/assignees", auth.RequirePermission("activities", "manage"), activityController.UpdateAssignees)
+		protected.PUT("/activities/:id/start", auth.RequirePermission("activities", "update"), activityController.Start)
+		protected.PUT("/activities/:id/items/:itemId", auth.RequirePermission("activities", "update"), activityController.UpdateItem)
+		protected.POST("/activities/:id/items/:itemId/photo", auth.RequirePermission("activities", "update"), activityController.UploadItemPhoto)
+		protected.POST("/activities/:id/finalize", auth.RequirePermission("activities", "update"), activityController.Finalize)
+		protected.POST("/activities/:id/materials", auth.RequirePermission("activities", "update"), activityController.AddMaterial)
+		protected.DELETE("/activities/:id/materials/:materialId", auth.RequirePermission("activities", "update"), activityController.DeleteMaterial)
+		protected.POST("/activities/:id/occurrences", auth.RequirePermission("activities", "update"), activityController.AddOccurrence)
+		protected.DELETE("/activities/:id/occurrences/:occurrenceId", auth.RequirePermission("activities", "update"), activityController.DeleteOccurrence)
 
 		// Queues
 		protected.GET("/queue", queueController.ListQueues)

@@ -31,3 +31,25 @@ linters:
         - Protocolo
         - protocolos
         - Protocolos
+        # "participantes"/"momento" são português comum (módulo Grupos e
+        # Comunidades — plugin de gestão de grupos WhatsApp) e disparam
+        # falso positivo do dicionário en-US do misspell ("participants",
+        # "memento") — não são typos.
+        - participante
+        - Participante
+        - participantes
+        - Participantes
+        - momento
+        - Momento
+        - independente
+        - Independente
+        # Português comum do módulo Atividades (ADR 0029) que colide com o
+        # dicionário en-US do misspell — "validade" ~ "validated",
+        # "progresso" ~ "progression", "informativo" ~ "information". Não
+        # são typos.
+        - validade
+        - Validade
+        - progresso
+        - Progresso
+        - informativo
+        - Informativo

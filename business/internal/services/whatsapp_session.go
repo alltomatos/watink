@@ -136,17 +136,3 @@ func (wss *WhatsAppSessionService) DeleteWhatsAppSession(whatsapp models.Whatsap
 	}
 	return engine.DeleteSession(context.Background(), whatsapp)
 }
-
-// Legacy global functions — deprecated. Use NewWhatsAppSessionService instead.
-// Kept for compilation and to fail-closed.
-func StartWhatsAppSession(whatsapp models.Whatsapp, usePairingCode bool, phoneNumber string, force bool) error {
-	return fmt.Errorf("legacy global functions disabled — use NewWhatsAppSessionService(db, pub, redisSvc, broadcast)")
-}
-
-func StopWhatsAppSession(whatsapp models.Whatsapp) error {
-	return fmt.Errorf("legacy global functions disabled — use NewWhatsAppSessionService(db, pub, redisSvc, broadcast)")
-}
-
-func DeleteWhatsAppSession(whatsapp models.Whatsapp) error {
-	return fmt.Errorf("legacy global functions disabled — use NewWhatsAppSessionService(db, pub, redisSvc, broadcast)")
-}
