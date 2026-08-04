@@ -43,3 +43,13 @@ linters:
         - Momento
         - independente
         - Independente
+        # Português comum do módulo Atividades (ADR 0029) que colide com o
+        # dicionário en-US do misspell — "validade" ~ "validated",
+        # "progresso" ~ "progression", "informativo" ~ "information". Não
+        # são typos.
+        - validade
+        - Validade
+        - progresso
+        - Progresso
+        - informativo
+        - Informativo

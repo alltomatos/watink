@@ -187,8 +187,5 @@ func (ac *ActivityController) UpdateSLAConfig(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, activitySLAConfigResponse{
-		SlaConfig:             req.SlaConfig,
-		StaleThresholdMinutes: req.StaleThresholdMinutes,
-	})
+	c.JSON(http.StatusOK, activitySLAConfigResponse(req))
 }
