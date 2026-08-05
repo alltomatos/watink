@@ -136,7 +136,7 @@ func resolveOpenAIBaseURL(cfg Config) string {
 
 // Transcribe envia audioBytes para {baseURL}/audio/transcriptions (OpenAI-
 // compatible: multipart/form-data, campo "file" + "model") e devolve o texto
-// transcrito. model é obrigatório (não há default seguro — nomes de modelo
+// resultante. model é obrigatório (não há default seguro — nomes de modelo
 // de transcrição variam muito entre gateways, ex. "whisper-1" pode não ter
 // credencial num gateway multi-provider onde só "openrouter/openai/whisper-
 // large-v3-turbo" está funded).

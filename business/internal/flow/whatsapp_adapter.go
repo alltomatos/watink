@@ -118,7 +118,7 @@ func (a *WhatsAppAdapter) Send(ctx context.Context, msg OutboundMessage) error {
 	mimeType := metaString(msg.Meta, "mimeType")
 	// mediaData: bytes crus em base64 — usado pelo Assistant Runtime pra
 	// enviar áudio sintetizado (SendAssistantMedia) sem precisar de uma URL
-	// pública alcançável pelo engine-go (o mesmo host já publica o comando
+	// pública alcançável pelo engine-go (o mesmo host já publica a mensagem
 	// AMQP; engine-go decodifica direto, ver resolveMediaBytes). mediaUrl
 	// continua o caminho normal do resto do FlowBuilder (nó "message" etc.).
 	mediaData := metaString(msg.Meta, "mediaData")

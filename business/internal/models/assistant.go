@@ -53,8 +53,8 @@ type Assistant struct {
 	// AcceptsAudio: quando false (padrão), uma mensagem de áudio recebida
 	// gera uma resposta fixa avisando que o Assistant não entende áudio, sem
 	// tentar transcrever. Quando true, o áudio é baixado do engine-go/izapia,
-	// transcrito via o AiGateway configurado (cfg.AiGatewayID) e o texto vira
-	// a pergunta do turno — mesmo caminho de um texto normal.
+	// convertido em texto via o AiGateway configurado (cfg.AiGatewayID) e
+	// vira a pergunta do turno — mesmo caminho de um texto normal.
 	AcceptsAudio bool `gorm:"column:acceptsAudio;default:false" json:"acceptsAudio"`
 	// RespondsWithAudio: quando true, a resposta do modo persona é
 	// sintetizada em voz (TTS via o mesmo AiGateway) e enviada como nota de
