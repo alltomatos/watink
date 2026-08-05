@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { Palette, CloudUpload, Trash2, Layout, Eye, Check, X } from "lucide-react";
+import { Palette, CloudUpload, Trash2, Layout, Eye, Check, X, Loader2 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../..
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
 import { Separator } from "../../../components/ui/separator";
 import ImagePreview from "./ImagePreview";
+import { compressImage } from "../../../lib/imageCompression";
+import toastError from "../../../errors/toastError";
 import {
   Dialog,
   DialogContent,
@@ -20,23 +22,23 @@ import {
 interface PersonalizationSectionProps {
   getSettingValue: (key: string) => string;
   handleUpdateSetting: (key: string, value: string) => Promise<void>;
-  handleImageUpload: (key: string, file: File | undefined) => Promise<void>;
 }
 
 const PersonalizationSection: React.FC<PersonalizationSectionProps> = ({
   getSettingValue,
   handleUpdateSetting,
-  handleImageUpload,
 }) => {
   const logoInputRef = useRef<HTMLInputElement>(null);
   const faviconInputRef = useRef<HTMLInputElement>(null);
   const mobileLogoInputRef = useRef<HTMLInputElement>(null);
   const loginBackgroundInputRef = useRef<HTMLInputElement>(null);
 
-  // Estado local para mudanças não salvas
+  // Estado local para mudanças não salvas — inclui imagens já comprimidas,
+  // aguardando o clique em "Aplicar" para de fato persistir no backend.
   const [localChanges, setLocalChanges] = useState<Record<string, string>>({});
   const [previewOpen, setPreviewOpen] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [compressingKey, setCompressingKey] = useState<string | null>(null);
 
   const hasChanges = Object.keys(localChanges).length > 0;
 
@@ -51,6 +53,22 @@ const PersonalizationSection: React.FC<PersonalizationSectionProps> = ({
     }));
   };
 
+  // Comprime/redimensiona a imagem no cliente antes de só ficar em staging —
+  // evita que uma foto direto da câmera (vários MB) estoure o limite de
+  // 65535 caracteres da coluna `value` quando o usuário clicar em Aplicar.
+  const handleImageSelected = async (key: string, file: File | undefined) => {
+    if (!file) return;
+    setCompressingKey(key);
+    try {
+      const compressed = await compressImage(file);
+      handleLocalChange(key, compressed);
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setCompressingKey(null);
+    }
+  };
+
   const handleReset = () => {
     setLocalChanges({});
   };
@@ -60,6 +78,15 @@ const PersonalizationSection: React.FC<PersonalizationSectionProps> = ({
     try {
       for (const [key, value] of Object.entries(localChanges)) {
         await handleUpdateSetting(key, value);
+      }
+      if (localChanges.systemFavicon !== undefined) {
+        let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+        if (!link) {
+          link = document.createElement("link");
+          link.rel = "icon";
+          document.head.appendChild(link);
+        }
+        link.href = localChanges.systemFavicon;
       }
       setLocalChanges({});
       setPreviewOpen(false);
@@ -102,10 +129,11 @@ const PersonalizationSection: React.FC<PersonalizationSectionProps> = ({
               </div>
               <div className="border border-dashed rounded-lg p-4 flex flex-col items-center justify-center gap-3 bg-muted/10">
                 <ImagePreview value={getDisplayValue("systemLogo")} alt="systemLogo" />
-                <input type="file" accept="image/*" ref={logoInputRef} className="hidden" onChange={(e) => handleImageUpload("systemLogo", e.target.files?.[0])} />
+                <input type="file" accept="image/*" ref={logoInputRef} className="hidden" onChange={(e) => handleImageSelected("systemLogo", e.target.files?.[0])} />
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => logoInputRef.current?.click()}>
-                    <CloudUpload className="mr-2 h-4 w-4" /> Alterar Logo
+                  <Button size="sm" variant="outline" disabled={compressingKey === "systemLogo"} onClick={() => logoInputRef.current?.click()}>
+                    {compressingKey === "systemLogo" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CloudUpload className="mr-2 h-4 w-4" />}
+                    Alterar Logo
                   </Button>
                   <Button size="sm" variant="destructive-ghost" onClick={() => handleLocalChange("systemLogo", "")}>
                     <Trash2 className="h-4 w-4" />
@@ -118,10 +146,11 @@ const PersonalizationSection: React.FC<PersonalizationSectionProps> = ({
               <Label>Favicon (Ícone do Navegador)</Label>
               <div className="border border-dashed rounded-lg p-4 flex flex-col items-center justify-center gap-3 bg-muted/10">
                 <ImagePreview value={getDisplayValue("systemFavicon")} alt="systemFavicon" />
-                <input type="file" accept="image/x-icon,image/png,image/jpeg" ref={faviconInputRef} className="hidden" onChange={(e) => handleImageUpload("systemFavicon", e.target.files?.[0])} />
+                <input type="file" accept="image/x-icon,image/png,image/jpeg" ref={faviconInputRef} className="hidden" onChange={(e) => handleImageSelected("systemFavicon", e.target.files?.[0])} />
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => faviconInputRef.current?.click()}>
-                    <CloudUpload className="mr-2 h-4 w-4" /> Alterar Favicon
+                  <Button size="sm" variant="outline" disabled={compressingKey === "systemFavicon"} onClick={() => faviconInputRef.current?.click()}>
+                    {compressingKey === "systemFavicon" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CloudUpload className="mr-2 h-4 w-4" />}
+                    Alterar Favicon
                   </Button>
                   <Button size="sm" variant="destructive-ghost" onClick={() => handleLocalChange("systemFavicon", "")}>
                     <Trash2 className="h-4 w-4" />
@@ -134,10 +163,11 @@ const PersonalizationSection: React.FC<PersonalizationSectionProps> = ({
               <Label>Logotipo Mobile</Label>
               <div className="border border-dashed rounded-lg p-4 flex flex-col items-center justify-center gap-3 bg-muted/10">
                 <ImagePreview value={getDisplayValue("mobileLogo")} alt="mobileLogo" />
-                <input type="file" accept="image/*" ref={mobileLogoInputRef} className="hidden" onChange={(e) => handleImageUpload("mobileLogo", e.target.files?.[0])} />
+                <input type="file" accept="image/*" ref={mobileLogoInputRef} className="hidden" onChange={(e) => handleImageSelected("mobileLogo", e.target.files?.[0])} />
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => mobileLogoInputRef.current?.click()}>
-                    <CloudUpload className="mr-2 h-4 w-4" /> Alterar Mobile
+                  <Button size="sm" variant="outline" disabled={compressingKey === "mobileLogo"} onClick={() => mobileLogoInputRef.current?.click()}>
+                    {compressingKey === "mobileLogo" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CloudUpload className="mr-2 h-4 w-4" />}
+                    Alterar Mobile
                   </Button>
                   <Button size="sm" variant="destructive-ghost" onClick={() => handleLocalChange("mobileLogo", "")}>
                     <Trash2 className="h-4 w-4" />
@@ -191,10 +221,11 @@ const PersonalizationSection: React.FC<PersonalizationSectionProps> = ({
               <Label>Imagem de Fundo (Login)</Label>
               <div className="border border-dashed rounded-lg p-4 flex flex-col items-center justify-center gap-3 bg-muted/10">
                 <ImagePreview value={getDisplayValue("login_backgroundImage")} alt="login_backgroundImage" />
-                <input type="file" accept="image/*" ref={loginBackgroundInputRef} className="hidden" onChange={(e) => handleImageUpload("login_backgroundImage", e.target.files?.[0])} />
+                <input type="file" accept="image/*" ref={loginBackgroundInputRef} className="hidden" onChange={(e) => handleImageSelected("login_backgroundImage", e.target.files?.[0])} />
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => loginBackgroundInputRef.current?.click()}>
-                    <CloudUpload className="mr-2 h-4 w-4" /> Alterar Fundo
+                  <Button size="sm" variant="outline" disabled={compressingKey === "login_backgroundImage"} onClick={() => loginBackgroundInputRef.current?.click()}>
+                    {compressingKey === "login_backgroundImage" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CloudUpload className="mr-2 h-4 w-4" />}
+                    Alterar Fundo
                   </Button>
                   <Button size="sm" variant="destructive-ghost" onClick={() => handleLocalChange("login_backgroundImage", "")}>
                     <Trash2 className="h-4 w-4" />
@@ -206,11 +237,16 @@ const PersonalizationSection: React.FC<PersonalizationSectionProps> = ({
         </CardContent>
       </Card>
 
-      {/* Botões de ação flutuantes quando houver mudanças */}
+      {/* Barra de ação: sticky no rodapé da coluna de conteúdo, nunca sobrepõe
+          outros elementos da página (diferente de um floating fixo no canto) */}
       {hasChanges && (
-        <div className="fixed bottom-6 right-6 flex gap-3 z-50">
+        <div className="sticky bottom-4 z-40 flex justify-end gap-2 rounded-2xl border bg-background/95 backdrop-blur px-4 py-3 shadow-[0px_4px_20px_rgba(0,0,0,0.12)]">
+          <span className="mr-auto self-center text-sm text-muted-foreground">
+            Você tem alterações não salvas
+          </span>
           <Button
             variant="outline"
+            size="sm"
             onClick={handleReset}
             className="gap-2"
           >
@@ -219,6 +255,7 @@ const PersonalizationSection: React.FC<PersonalizationSectionProps> = ({
           </Button>
           <Button
             variant="outline"
+            size="sm"
             onClick={() => setPreviewOpen(true)}
             className="gap-2"
           >
@@ -226,6 +263,7 @@ const PersonalizationSection: React.FC<PersonalizationSectionProps> = ({
             Preview
           </Button>
           <Button
+            size="sm"
             onClick={handleApply}
             disabled={applying}
             className="gap-2"
