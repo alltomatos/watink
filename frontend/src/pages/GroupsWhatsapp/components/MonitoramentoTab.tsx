@@ -306,14 +306,15 @@ const MonitoramentoTab: React.FC = () => {
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="contains">
-                                        Derivativa — casa em qualquer parte da mensagem (ex.: "ajuda" acha "preciso de ajuda")
-                                    </SelectItem>
-                                    <SelectItem value="exact">
-                                        Exata — a mensagem precisa ser exatamente igual à frase
-                                    </SelectItem>
+                                    <SelectItem value="contains">Derivativa</SelectItem>
+                                    <SelectItem value="exact">Exata</SelectItem>
                                 </SelectContent>
                             </Select>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                {form.matchMode === "exact"
+                                    ? "A mensagem precisa ser exatamente igual à frase."
+                                    : 'Casa em qualquer parte da mensagem (ex.: "ajuda" acha "preciso de ajuda").'}
+                            </p>
                         </div>
                         <div className="flex items-center justify-between">
                             <div>
