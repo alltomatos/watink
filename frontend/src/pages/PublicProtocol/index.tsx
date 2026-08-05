@@ -1,7 +1,6 @@
 /* @jsxImportSource react */
 import React from "react";
 import { useParams } from "react-router";
-import { i18n } from "../../translate/i18n";
 
 import { usePublicProtocol } from "./hooks/usePublicProtocol";
 import ProtocolLoadingScreen from "./components/ProtocolLoadingScreen";
@@ -9,6 +8,7 @@ import ProtocolNotFound from "./components/ProtocolNotFound";
 import ProtocolHeader from "./components/ProtocolHeader";
 import ProtocolDetails from "./components/ProtocolDetails";
 import ProtocolTimeline from "./components/ProtocolTimeline";
+import CompanyHeader from "./components/CompanyHeader";
 
 const PublicProtocol: React.FC = () => {
   const { token } = useParams<{ token: string }>();
@@ -21,11 +21,7 @@ const PublicProtocol: React.FC = () => {
     <div className="min-h-screen bg-muted/10 py-8">
       <div className="container mx-auto max-w-5xl px-4 space-y-6">
 
-        <div className="text-center">
-          <p className="text-2xl font-bold text-primary">
-            {protocol.tenant?.name || i18n.t("publicProtocol.defaultTenant")}
-          </p>
-        </div>
+        <CompanyHeader tenantName={protocol.tenant?.name} company={protocol.company} />
 
         <ProtocolHeader protocol={protocol} />
 

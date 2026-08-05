@@ -20,6 +20,7 @@ import AddressLookupSettings from "./components/AddressLookupSettings";
 
 import { useSettings } from "./hooks/useSettings";
 import GeneralSection from "./components/GeneralSection";
+import CompanySection from "./components/CompanySection";
 import PersonalizationSection from "./components/PersonalizationSection";
 import SMTPSection from "./components/SMTPSection";
 import PAPISection from "./components/PAPISection";
@@ -85,6 +86,9 @@ const Settings: React.FC = () => {
             <>
               {activeSection === "general" && (
                 <GeneralSection {...sharedProps} handleLanguageChange={handleLanguageChange} />
+              )}
+              {activeSection === "company" && (
+                <CompanySection {...sharedProps} />
               )}
               {activeSection === "personalization" && (
                 <PersonalizationSection {...sharedProps} />

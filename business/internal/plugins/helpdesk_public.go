@@ -29,6 +29,25 @@ func handlePublicProtocol(core sdk.WatinkCore) gin.HandlerFunc {
 		var tenant models.Tenant
 		db.Where("id = ?", protocol.TenantID).First(&tenant)
 
+		// Dados da Empresa (cadastro em Configurações > Empresa) exibidos na
+		// página pública — mesma tabela Setting key-value do resto do sistema,
+		// escopada ao tenant do protocolo (não ao "primeiro tenant" que
+		// GetPublicSettings usa para a tela de login single-tenant).
+		companyKeys := []string{
+			"systemLogo", "companyTradeName", "companyLegalName", "companyDocument",
+			"companyAddressStreet", "companyAddressNumber", "companyAddressComplement",
+			"companyAddressNeighborhood", "companyAddressCity", "companyAddressState",
+			"companyAddressZip", "companyPhone", "companyEmail", "companyWebsite",
+		}
+		var companySettings []models.Setting
+		db.Where(`"tenantId" = ? AND key IN ?`, protocol.TenantID, companyKeys).Find(&companySettings)
+		company := gin.H{}
+		for _, s := range companySettings {
+			if s.Value != "" {
+				company[s.Key] = s.Value
+			}
+		}
+
 		var history []models.ProtocolLog
 		db.Preload("User").Where(`"protocolId" = ?`, protocol.ID).Order(`"createdAt" ASC`).Find(&history)
 
@@ -60,6 +79,7 @@ func handlePublicProtocol(core sdk.WatinkCore) gin.HandlerFunc {
 			"category":       protocol.Category,
 			"createdAt":      protocol.CreatedAt,
 			"tenant":         gin.H{"name": tenant.Name},
+			"company":        company,
 			"history":        items,
 		})
 	}
