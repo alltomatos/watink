@@ -1,11 +1,18 @@
-# Onboarding (Setup Wizard + Checklist Pós-Login) — Contexto para Agentes
+# Onboarding (Setup Wizard) — Contexto para Agentes
+
+> **Status:** o Checklist pós-login (card no Dashboard, item 2 abaixo) foi
+> **removido** do frontend por decisão de produto — `OnboardingChecklistCard`
+> e `useOnboardingChecklist` foram deletados de
+> `frontend/src/pages/Dashboard/`. O restante deste documento descreve o
+> desenho original para o caso de reintrodução futura; não afirme que o
+> checklist existe no produto atual.
 
 ## Responsabilidade
-Reduzir o "time to value" do primeiro acesso: (1) Wizard de Setup Inicial
+Reduzir o "time to value" do primeiro acesso: Wizard de Setup Inicial
 (`POST /initial-setup`) cria o Tenant + Cargo/Setor/Queue/User Administrador
-em uma submissão rápida (single-step); (2) Checklist pós-login guia o
-Administrador a criar seu primeiro Setor real (com Queue vinculada) e seu
-primeiro usuário adicional, sem bloquear o uso do sistema.
+em uma submissão rápida (single-step). O Checklist pós-login que guiava o
+Administrador a criar seu primeiro Setor real e primeiro usuário adicional
+não faz mais parte do produto (ver Status acima).
 
 ## Arquitetura / fluxo
 - **Wizard** (`frontend/src/pages/InitialSetup/`): formulário único e curto —

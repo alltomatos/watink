@@ -387,22 +387,16 @@ MUI v4 **completamente removido** — `@material-ui/*` não é dependência do p
 
 **Referência:** [`docs/agents/acessos.md`](docs/agents/acessos.md) · ADR 0022 (modelo Cargo/Setor/Alcance + enforcement real)
 
-## Módulo: Onboarding (Setup Wizard + Checklist)
+## Módulo: Onboarding (Setup Wizard)
 
-**Responsabilidade:** Reduzir o time-to-value do primeiro acesso — Wizard de Setup Inicial (`POST /initial-setup`, single-step) cria Tenant+Cargo/Setor/Queue/User Administrador; Checklist pós-login (card no Dashboard) guia a criação do primeiro Setor real (com Queue vinculada) e do primeiro usuário adicional.
+**Responsabilidade:** Reduzir o time-to-value do primeiro acesso — Wizard de Setup Inicial (`POST /initial-setup`, single-step) cria Tenant+Cargo/Setor/Queue/User Administrador. O Checklist pós-login (card no Dashboard) foi **removido** do frontend (decisão de produto) — o componente/hook (`OnboardingChecklistCard`/`useOnboardingChecklist`) foi deletado do código; o backend não tinha endpoint dedicado a ele (consumia `GET /setores`/`GET /users` já existentes), então não há nada a reverter ali.
 
 **Invariants:**
-- Wizard continua **single-step** — Nome Fantasia (novo, obrigatório, vira `Tenant.Name`) + dados do admin. Não expandir para multi-step sem nova mentoria.
-- Checklist usa **estado derivado**, nunca persistido: item completo quando a contagem de Setores/Usuários do tenant excede o criado automaticamente no setup (`> 1`). Não introduzir uma flag de "onboarding completo" no banco.
-- Checklist **não cria nada por conta própria** — só linka para os fluxos reais já existentes na Central de Acessos (SetorController, UserController). Nenhum endpoint novo de criação.
-- Checklist só é visível para `alcance IN (tenant, plataforma)` — quem não tem permissão de criar Setor/Usuário não deve ver a sugestão.
-- "Criar setor" no checklist faz **auto-open do formulário de criação de Setor** (`/acessos/setores?autoOpen=create&suggestedName=...`, com chips Atendimento/Vendas/Suporte/Financeiro) — **não** cria Queue junto: `SetorController.Create` só faz `db.Create(&setor)`. A Queue é vinculada **depois**, na edição do Setor (`SetorQueuesSection` → `PUT /setores/:id/queues`). Não documentar um bundle "Setor + Queue numa ação só" que não existe.
+- Wizard continua **single-step** — Nome Fantasia (obrigatório, vira `Tenant.Name`) + dados do admin. Não expandir para multi-step sem nova mentoria.
 
 **O que NÃO fazer:**
-- Não transformar o wizard em multi-step para acomodar o guia de primeiro uso — isso é escopo do checklist pós-login, não do setup.
-- Não persistir estado de progresso do checklist (flag/Setting) — a contagem em tempo real já resolve, inclusive para quem cria por fora do checklist.
-- Não bloquear o uso do sistema até o checklist ser completado — ele é dispensável a qualquer momento.
-- Não mostrar o checklist para Cargos sem alcance tenant/plataforma.
+- Não transformar o wizard em multi-step.
+- Não reintroduzir o Checklist pós-login sem decisão de produto explícita — se voltar, seguir o desenho documentado em `docs/agents/onboarding.md` (estado derivado, nunca persistido; nenhum endpoint novo).
 
 **Referência:** [`docs/agents/onboarding.md`](docs/agents/onboarding.md)
 
