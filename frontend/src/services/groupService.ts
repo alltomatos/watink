@@ -8,6 +8,10 @@ export interface Participant {
     jid: string;
     phoneNumber?: string;
     displayName?: string;
+    /** Best-effort — só presente quando o participante já tem um Contact
+     * existente no tenant (mesmo participante já conversou individualmente
+     * em algum momento). Nunca dispara uma chamada nova ao WhatsApp. */
+    pictureURL?: string;
     isAdmin: boolean;
     isSuperAdmin: boolean;
 }
@@ -162,11 +166,15 @@ export const unlinkCommunityGroup = async (whatsappId: number, communityJid: str
 
 // ── Monitoramento de frase (mirrors business/internal/models/group_watch.go) ──
 
+export type GroupWatchMatchMode = "contains" | "exact";
+
 export interface GroupWatchTag {
     id: number;
     tenantId: string;
     phrase: string;
     active: boolean;
+    matchMode: GroupWatchMatchMode;
+    notifyGlobally: boolean;
     createdAt: string;
 }
 
@@ -180,7 +188,14 @@ export interface GroupWatchMatch {
     groupSubject: string;
     contactName: string;
     snippet: string;
+    notifyGlobally: boolean;
     createdAt: string;
+}
+
+export interface GroupWatchTagInput {
+    phrase: string;
+    matchMode: GroupWatchMatchMode;
+    notifyGlobally: boolean;
 }
 
 export const listWatchTags = async (): Promise<GroupWatchTag[]> => {
@@ -188,8 +203,16 @@ export const listWatchTags = async (): Promise<GroupWatchTag[]> => {
     return Array.isArray(data) ? data : [];
 };
 
-export const createWatchTag = async (phrase: string): Promise<GroupWatchTag> => {
-    const { data } = await api.post("/groups/watch-tags", { phrase });
+export const createWatchTag = async (input: GroupWatchTagInput): Promise<GroupWatchTag> => {
+    const { data } = await api.post("/groups/watch-tags", input);
+    return data;
+};
+
+export const updateWatchTag = async (
+    id: number,
+    input: GroupWatchTagInput & { active: boolean }
+): Promise<GroupWatchTag> => {
+    const { data } = await api.put(`/groups/watch-tags/${id}`, input);
     return data;
 };
 
@@ -197,7 +220,9 @@ export const deleteWatchTag = async (id: number): Promise<void> => {
     await api.delete(`/groups/watch-tags/${id}`);
 };
 
-export const listWatchMatches = async (): Promise<GroupWatchMatch[]> => {
-    const { data } = await api.get("/groups/watch-matches");
+export const listWatchMatches = async (tagId?: number): Promise<GroupWatchMatch[]> => {
+    const { data } = await api.get("/groups/watch-matches", {
+        params: tagId ? { tagId } : undefined,
+    });
     return Array.isArray(data) ? data : [];
 };

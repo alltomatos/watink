@@ -142,6 +142,7 @@ func TestGroupsPlugin_OnActivate_RegistersAllRoutes(t *testing.T) {
 		{Method: "DELETE", Path: "/communities/:id/groups/:groupId"},
 		{Method: "GET", Path: "/groups/watch-tags"},
 		{Method: "POST", Path: "/groups/watch-tags"},
+		{Method: "PUT", Path: "/groups/watch-tags/:id"},
 		{Method: "DELETE", Path: "/groups/watch-tags/:id"},
 		{Method: "GET", Path: "/groups/watch-matches"},
 	}
