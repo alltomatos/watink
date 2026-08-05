@@ -72,6 +72,39 @@ type WatinkCoreScheduler interface {
 	Subscribe(eventType string, fn func(ctx context.Context, payload map[string]any)) error
 }
 
+// ActivityInput is the write DTO for WatinkCoreActivities.CreateActivity —
+// deliberately not models.Activity, same reasoning as controllers'
+// activityInput (never let a caller smuggle tenantId/slaDueAt/deletedAt
+// through the call). Only the fields the Fase 1 Helpdesk integration needs:
+// no DealID (Fase 2), no ScheduledAt/Items (out of scope for this call).
+type ActivityInput struct {
+	Title       string
+	Description string
+	// Priority: low | medium | high | urgent. Empty falls back to "medium",
+	// same default as the HTTP CRUD.
+	Priority    string
+	ProtocolID  *int
+	AssigneeIDs []int
+}
+
+// WatinkCoreActivities is an OPTIONAL extension of WatinkCore (ADR 0029
+// addendum) for plugins that create Activities — same precedent as
+// WatinkCoreScheduler (ADR 0027): a separate interface, discovered by
+// type-assertion, so existing plugins (HelpdeskPlugin, WebchatPlugin,
+// AssistantPlugin, GroupsPlugin) keep compiling untouched. A plugin that
+// needs it type-asserts:
+//
+//	if activities, ok := core.(sdk.WatinkCoreActivities); ok {
+//	    activities.CreateActivity(ctx, tenantID, sdk.ActivityInput{...})
+//	}
+type WatinkCoreActivities interface {
+	// CreateActivity creates an Activity for tenantID. AssigneeIDs may be
+	// empty (e.g. no resolvable human user in the caller's context) — the
+	// Activity is still created, just unassigned. Returns the new
+	// Activity's id.
+	CreateActivity(ctx context.Context, tenantID uuid.UUID, input ActivityInput) (int, error)
+}
+
 // WatinkPlugin is the interface that every backend plugin must implement
 type WatinkPlugin interface {
 	GetManifest() PluginManifest
