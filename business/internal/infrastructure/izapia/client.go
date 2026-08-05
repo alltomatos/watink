@@ -199,6 +199,14 @@ func (c *Client) SendText(ctx context.Context, sid, to, text string) (string, er
 	return out.MessageID, nil
 }
 
+// SetTyping signals the chat-composing indicator ("digitando...") for one
+// chat. state is "composing" or "paused" (izapia's own enum, POST
+// /api/v1/sessions/{sid}/presence/typing).
+func (c *Client) SetTyping(ctx context.Context, sid, to, state string) error {
+	body := map[string]string{"to": to, "state": state, "media": "text"}
+	return c.do(ctx, http.MethodPost, "/api/v1/sessions/"+sid+"/presence/typing", body, nil)
+}
+
 // SendMedia sends a media message by URL (kind inferred from mimeType by the
 // caller) and returns the provider message id.
 func (c *Client) SendMedia(ctx context.Context, sid, to, kind, url, mimetype, caption string) (string, error) {

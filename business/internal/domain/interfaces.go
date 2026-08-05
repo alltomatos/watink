@@ -178,6 +178,16 @@ type RichMessageEngine interface {
 	SendInteractive(ctx context.Context, w models.Whatsapp, to, messageID string, req RichMessageRequest) error
 }
 
+// PresenceEngine is an OPTIONAL extension of WhatsAppEngine for engines that
+// can set the chat-composing indicator ("digitando..."). Same type-assertion
+// pattern as RichMessageEngine — an engine without it (or a transient send
+// error) is never fatal to the actual message send, which always proceeds
+// regardless (see flow.WhatsAppAdapter humanPacing). State is "composing" or
+// "paused".
+type PresenceEngine interface {
+	SendPresence(ctx context.Context, w models.Whatsapp, to, state string) error
+}
+
 // Channel Adapter Interface
 type ChannelAdapter interface {
 	SendMessage(ctx context.Context, ticket Ticket, message Message) error

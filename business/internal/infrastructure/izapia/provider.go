@@ -69,6 +69,7 @@ func New(db *gorm.DB, broadcast domain.Broadcaster) *Provider {
 }
 
 var _ domain.WhatsAppEngine = (*Provider)(nil)
+var _ domain.PresenceEngine = (*Provider)(nil)
 
 // clientFor resolves the izapia HTTP client for a connection's tenant.
 func (p *Provider) clientFor(w models.Whatsapp) (*Client, error) {
@@ -290,6 +291,19 @@ func (p *Provider) SendText(ctx context.Context, w models.Whatsapp, to, messageI
 	}
 	_, err = client.SendText(ctx, *w.IzapiaSessionID, to, body)
 	return err
+}
+
+// SendPresence implements domain.PresenceEngine. state is "composing" or
+// "paused".
+func (p *Provider) SendPresence(ctx context.Context, w models.Whatsapp, to, state string) error {
+	if w.IzapiaSessionID == nil || *w.IzapiaSessionID == "" {
+		return fmt.Errorf("izapia: conexão %d sem sessão izapia ativa", w.ID)
+	}
+	client, err := p.clientFor(w)
+	if err != nil {
+		return err
+	}
+	return client.SetTyping(ctx, *w.IzapiaSessionID, to, state)
 }
 
 // GetContactPictureURL resolves the profile picture URL for a contact/group

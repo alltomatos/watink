@@ -74,19 +74,25 @@ func (a *WhatsAppAdapter) Send(ctx context.Context, msg OutboundMessage) error {
 		}
 	}
 
-	// Non-AMQP engines (e.g. izapia) are resolved by the connection's
-	// EngineType and dispatched via domain.WhatsAppEngine instead of AMQP.
-	// Only when deps are wired (call sites that don't need it keep the
-	// original AMQP-only behavior).
+	// Resolve a conexão/engine cedo — usada tanto para desviar engines
+	// não-AMQP (izapia) quanto para o "digitando..." abaixo, que vale para
+	// QUALQUER engine (whatsmeow via AMQP inclusive), não só as não-AMQP.
+	// Só quando deps são injetadas (call sites que não precisam mantêm o
+	// comportamento AMQP-only original).
+	var whatsapp models.Whatsapp
+	var engine domain.WhatsAppEngine
 	if a.deps.DB != nil && a.deps.Engines != nil {
 		sid, _ := strconv.Atoi(msg.SessionID)
-		var whatsapp models.Whatsapp
 		if err := a.deps.DB.Session(&gorm.Session{NewDB: true}).
-			Where(`id = ? AND "tenantId" = ?`, sid, msg.TenantID).First(&whatsapp).Error; err == nil &&
-			whatsapp.EngineType != "" && whatsapp.EngineType != "whatsmeow" {
-			return a.sendViaEngine(ctx, whatsapp, msg)
+			Where(`id = ? AND "tenantId" = ?`, sid, msg.TenantID).First(&whatsapp).Error; err == nil {
+			engine, _ = a.deps.Engines.EngineFor(whatsapp)
+			if whatsapp.EngineType != "" && whatsapp.EngineType != "whatsmeow" {
+				a.applyHumanPacing(ctx, engine, whatsapp, msg)
+				return a.sendViaEngine(ctx, whatsapp, msg)
+			}
 		}
 	}
+	a.applyHumanPacing(ctx, engine, whatsapp, msg)
 
 	// Rich sends (interactive/media/poll/carousel — e.g. the quickAnswer node)
 	// carry a pre-built commandType+payload in Meta instead of the plain
@@ -159,6 +165,25 @@ func (a *WhatsAppAdapter) Send(ctx context.Context, msg OutboundMessage) error {
 		return fmt.Errorf("whatsapp adapter: publish command: %w", err)
 	}
 	return nil
+}
+
+// applyHumanPacing shows the "digitando..." indicator and waits a delay
+// proportional to the reply length before the caller actually sends it —
+// gated by msg.Meta["humanPacing"] (set only by
+// assistant_executor.SendAssistantText, never on FlowBuilder text nodes in
+// general) so this never changes behavior outside the Assistants plugin.
+// Best-effort throughout: a PresenceEngine that errors or isn't implemented
+// never blocks or fails the actual send that follows.
+func (a *WhatsAppAdapter) applyHumanPacing(ctx context.Context, engine domain.WhatsAppEngine, whatsapp models.Whatsapp, msg OutboundMessage) {
+	if msg.Meta["humanPacing"] != true || msg.Body == "" {
+		return
+	}
+	if presenceEngine, ok := engine.(domain.PresenceEngine); ok {
+		if err := presenceEngine.SendPresence(ctx, whatsapp, msg.To, "composing"); err != nil {
+			log.Printf("[WhatsAppAdapter] presence composing (best-effort) failed: %v", err)
+		}
+	}
+	time.Sleep(humanTypingDelay(len(msg.Body)))
 }
 
 // sendViaEngine dispatches a text/media/rich send through the connection's

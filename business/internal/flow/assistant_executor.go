@@ -45,8 +45,13 @@ func (assistantExecutor) Type() string { return string(NodeAssistant) }
 // outside this package (ADR 0027). suffix disambiguates multiple sends
 // within the same node/turn (e.g. "menu", "t3") so the adapter's 24h EnvID
 // dedup lock never collapses them.
+//
+// Meta["humanPacing"]=true tells WhatsAppAdapter.Send to show "digitando..."
+// and wait a delay proportional to len(body) before actually sending — a
+// human doesn't type a 5000-word reply in 2 seconds. Scoped to Assistant
+// sends only (not FlowBuilder text nodes in general).
 func SendAssistantText(ctx context.Context, st *ExecState, suffix, body string) error {
-	return sendWhatsAppEnv(ctx, st, envIDWithSuffix(st, "assistant-node", suffix), body, nil)
+	return sendWhatsAppEnv(ctx, st, envIDWithSuffix(st, "assistant-node", suffix), body, map[string]any{"humanPacing": true})
 }
 
 func (assistantExecutor) Execute(ctx context.Context, st *ExecState, node Node) (Outcome, error) {

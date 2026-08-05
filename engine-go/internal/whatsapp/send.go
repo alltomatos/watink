@@ -73,6 +73,29 @@ func (s *WhatsAppService) SendMedia(sessionID int, tenantID string, payload Medi
 	return nil
 }
 
+// SendPresence sets the chat-composing indicator ("digitando...") for one
+// chat. Best-effort by design (business already treats this as fire-and-
+// forget pacing, not a delivery guarantee) — unlike SendText/SendMedia this
+// never emits an ack, since there's no per-message ID to correlate.
+func (s *WhatsAppService) SendPresence(sessionID int, tenantID string, payload PresenceCommandPayload) error {
+	client, err := s.getConnectedClient(sessionID)
+	if err != nil {
+		return err
+	}
+
+	chat, err := ensureJID(payload.To)
+	if err != nil {
+		return fmt.Errorf("invalid JID %q: %w", payload.To, err)
+	}
+
+	state := types.ChatPresencePaused
+	if payload.State == "composing" {
+		state = types.ChatPresenceComposing
+	}
+
+	return client.SendChatPresence(context.Background(), chat, state, types.ChatPresenceMediaText)
+}
+
 // MarkRead marks one or more messages as read for the given chat.
 func (s *WhatsAppService) MarkRead(sessionID int, tenantID string, payload MarkReadCommandPayload) error {
 	client, err := s.getConnectedClient(sessionID)
