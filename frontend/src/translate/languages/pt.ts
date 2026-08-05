@@ -931,40 +931,6 @@ const messages = {
         },
         defaultTenant: "Central de Atendimento",
       },
-      smtp: {
-        title: "Configurações do Servidor SMTP",
-        settingsTitle: "Configurações de Email (SMTP)",
-        form: {
-          host: "Host SMTP",
-          port: "Porta",
-          user: "Usuário / Email",
-          password: "Senha",
-          passwordPlaceholder: "Deixe em branco para manter a atual",
-          emailFrom: "Email Remetente (From)",
-          secure: "Usar Conexão Segura (SSL/TLS)",
-        },
-        buttons: {
-          save: "Salvar Configurações",
-          saving: "Salvando...",
-          test: "Testar Conexão",
-          testing: "Enviando...",
-          sendTest: "Enviar Teste",
-          cancel: "Cancelar",
-        },
-        modal: {
-          title: "Testar Conexão SMTP",
-          content: "Insira um e-mail de destino para enviar uma mensagem de teste.",
-          emailLabel: "E-mail de Destino",
-        },
-        toasts: {
-          loadError: "Erro ao carregar configurações SMTP",
-          saveSuccess: "Configurações SMTP salvas com sucesso!",
-          saveError: "Erro ao salvar configurações SMTP",
-          testSuccess: "E-mail de teste enviado com sucesso!",
-          testError: "Erro ao enviar e-mail de teste",
-          emailRequired: "Por favor, insira um e-mail de destino.",
-        },
-      },
       contactImport: {
         title: "Importar Contatos",
         dropZone: {

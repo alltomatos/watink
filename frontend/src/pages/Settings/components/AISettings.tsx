@@ -162,59 +162,61 @@ const AISettings: React.FC<AISettingsProps> = ({
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="ai-provider">Provedor de Inteligência Artificial</Label>
-            <Select
-              value={provider}
-              onValueChange={(v) => {
-                handleUpdateSetting("aiProvider", v);
-                const firstModel = providerModels[v]?.[0] || "";
-                if (firstModel) {
-                  handleUpdateSetting("aiModel", firstModel);
-                }
-              }}
-            >
-              <SelectTrigger id="ai-provider">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="openai">OpenAI (GPT-4/GPT-3.5)</SelectItem>
-                <SelectItem value="grok">xAI Grok (Grok-2/Grok-Beta)</SelectItem>
-                <SelectItem value="anthropic">Anthropic (Claude 3.5)</SelectItem>
-                <SelectItem value="custom">
-                  Provedor Customizado (OpenAI-compatível)
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="ai-model">Modelo de Linguagem (LLM)</Label>
-            {isCustomProvider ? (
-              <Input
-                id="ai-model"
-                placeholder="Ex: llama3, mistral, gpt-4o-mini"
-                defaultValue={getSettingValue("aiModel")}
-                onBlur={(e) => handleUpdateSetting("aiModel", e.target.value)}
-              />
-            ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="ai-provider">Provedor de Inteligência Artificial</Label>
               <Select
-                value={getSettingValue("aiModel") || models[0] || ""}
-                onValueChange={(v) => handleUpdateSetting("aiModel", v)}
-                disabled={models.length === 0}
+                value={provider}
+                onValueChange={(v) => {
+                  handleUpdateSetting("aiProvider", v);
+                  const firstModel = providerModels[v]?.[0] || "";
+                  if (firstModel) {
+                    handleUpdateSetting("aiModel", firstModel);
+                  }
+                }}
               >
-                <SelectTrigger id="ai-model">
-                  <SelectValue placeholder="Selecione o modelo" />
+                <SelectTrigger id="ai-provider">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {models.map((mod) => (
-                    <SelectItem key={mod} value={mod}>
-                      {mod}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="openai">OpenAI (GPT-4/GPT-3.5)</SelectItem>
+                  <SelectItem value="grok">xAI Grok (Grok-2/Grok-Beta)</SelectItem>
+                  <SelectItem value="anthropic">Anthropic (Claude 3.5)</SelectItem>
+                  <SelectItem value="custom">
+                    Provedor Customizado (OpenAI-compatível)
+                  </SelectItem>
                 </SelectContent>
               </Select>
-            )}
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="ai-model">Modelo de Linguagem (LLM)</Label>
+              {isCustomProvider ? (
+                <Input
+                  id="ai-model"
+                  placeholder="Ex: llama3, mistral, gpt-4o-mini"
+                  defaultValue={getSettingValue("aiModel")}
+                  onBlur={(e) => handleUpdateSetting("aiModel", e.target.value)}
+                />
+              ) : (
+                <Select
+                  value={getSettingValue("aiModel") || models[0] || ""}
+                  onValueChange={(v) => handleUpdateSetting("aiModel", v)}
+                  disabled={models.length === 0}
+                >
+                  <SelectTrigger id="ai-model">
+                    <SelectValue placeholder="Selecione o modelo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {models.map((mod) => (
+                      <SelectItem key={mod} value={mod}>
+                        {mod}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
           </div>
 
           {isCustomProvider && (
@@ -283,7 +285,7 @@ const AISettings: React.FC<AISettingsProps> = ({
           </div>
 
           {embeddingDedicated && (
-            <>
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="ai-embedding-base-url">
                   URL Base do Gateway de Embedding
@@ -312,7 +314,7 @@ const AISettings: React.FC<AISettingsProps> = ({
                   }
                 />
               </div>
-            </>
+            </div>
           )}
 
           <div className="grid gap-2">

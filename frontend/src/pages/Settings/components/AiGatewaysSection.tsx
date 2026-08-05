@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { Plus, Pencil, Trash2, Loader2, KeyRound, Zap, CheckCircle2, XCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, KeyRound, Zap, CheckCircle2, XCircle, Sparkles } from "lucide-react";
 
 import { Button } from "../../../components/ui/button";
 import { Badge } from "../../../components/ui/badge";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../../components/ui/card";
 import {
     Dialog,
     DialogContent,
@@ -141,7 +142,7 @@ const AiGatewaysSection: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col gap-4">
+        <div className="space-y-6">
             <ConfirmationModal
                 title="Remover gateway de IA"
                 open={!!deleteTarget}
@@ -152,78 +153,84 @@ const AiGatewaysSection: React.FC = () => {
                 utilizam deixarão de funcionar até que você aponte para outro gateway.
             </ConfirmationModal>
 
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-lg font-semibold">Agentes de IA</h2>
-                    <p className="text-sm text-muted-foreground">
-                        Provedores de IA usados pelos Assistentes (plugin "Assistentes de IA")
-                    </p>
-                </div>
-                <Button onClick={openCreate}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Adicionar Gateway
-                </Button>
-            </div>
-
-            {loading ? (
-                <div className="flex h-32 items-center justify-center">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
-            ) : gateways.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center gap-3 border rounded-2xl">
-                    <KeyRound className="h-8 w-8 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">
-                        Nenhum gateway de IA cadastrado ainda.
-                    </p>
-                </div>
-            ) : (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Nome</TableHead>
-                            <TableHead>Provedor</TableHead>
-                            <TableHead>Modelo</TableHead>
-                            <TableHead>Chave</TableHead>
-                            <TableHead className="w-[100px]" />
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {gateways.map((gw) => (
-                            <TableRow key={gw.id}>
-                                <TableCell className="font-medium">{gw.name}</TableCell>
-                                <TableCell>{gw.provider}</TableCell>
-                                <TableCell>{gw.model}</TableCell>
-                                <TableCell>
-                                    <Badge variant={gw.hasApiKey ? "default" : "secondary"}>
-                                        {gw.hasApiKey ? "Configurada" : "Sem chave"}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell className="flex gap-1 justify-end">
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        title="Testar gateway"
-                                        disabled={!gw.hasApiKey || testingId === gw.id}
-                                        onClick={() => handleTest(gw)}
-                                    >
-                                        {testingId === gw.id ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : (
-                                            <Zap className="h-4 w-4" />
-                                        )}
-                                    </Button>
-                                    <Button variant="ghost" size="icon" onClick={() => openEdit(gw)}>
-                                        <Pencil className="h-4 w-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(gw)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            )}
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
+                    <div>
+                        <CardTitle className="flex items-center gap-2 text-primary">
+                            <Sparkles className="h-5 w-5" />
+                            Agentes de IA
+                        </CardTitle>
+                        <CardDescription>
+                            Provedores de IA usados pelos Assistentes (plugin "Assistentes de IA")
+                        </CardDescription>
+                    </div>
+                    <Button onClick={openCreate}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Adicionar Gateway
+                    </Button>
+                </CardHeader>
+                <CardContent>
+                    {loading ? (
+                        <div className="flex h-32 items-center justify-center">
+                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                        </div>
+                    ) : gateways.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-16 text-center gap-3 border rounded-2xl">
+                            <KeyRound className="h-8 w-8 text-muted-foreground" />
+                            <p className="text-sm text-muted-foreground">
+                                Nenhum gateway de IA cadastrado ainda.
+                            </p>
+                        </div>
+                    ) : (
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Nome</TableHead>
+                                    <TableHead>Provedor</TableHead>
+                                    <TableHead>Modelo</TableHead>
+                                    <TableHead>Chave</TableHead>
+                                    <TableHead className="w-[100px]" />
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {gateways.map((gw) => (
+                                    <TableRow key={gw.id}>
+                                        <TableCell className="font-medium">{gw.name}</TableCell>
+                                        <TableCell>{gw.provider}</TableCell>
+                                        <TableCell>{gw.model}</TableCell>
+                                        <TableCell>
+                                            <Badge variant={gw.hasApiKey ? "default" : "secondary"}>
+                                                {gw.hasApiKey ? "Configurada" : "Sem chave"}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="flex gap-1 justify-end">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                title="Testar gateway"
+                                                disabled={!gw.hasApiKey || testingId === gw.id}
+                                                onClick={() => handleTest(gw)}
+                                            >
+                                                {testingId === gw.id ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <Zap className="h-4 w-4" />
+                                                )}
+                                            </Button>
+                                            <Button variant="ghost" size="icon" onClick={() => openEdit(gw)}>
+                                                <Pencil className="h-4 w-4" />
+                                            </Button>
+                                            <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(gw)}>
+                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    )}
+                </CardContent>
+            </Card>
 
             <Dialog open={formOpen} onOpenChange={setFormOpen}>
                 <DialogContent>

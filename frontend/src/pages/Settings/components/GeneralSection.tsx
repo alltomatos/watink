@@ -1,6 +1,6 @@
 import React from "react";
 import { toast } from "react-toastify";
-import { SettingsIcon, Copy } from "lucide-react";
+import { SettingsIcon, Copy, Globe2, KeyRound } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
@@ -66,41 +66,60 @@ const GeneralSection: React.FC<GeneralSectionProps> = ({
           />
         </div>
 
-        <Separator />
+      </CardContent>
+    </Card>
 
-        <FormField htmlFor="system-lang" label="Idioma Global">
-          <Select value={getSettingValue("language") || "pt"} onValueChange={handleLanguageChange}>
-            <SelectTrigger id="system-lang">
-              <SelectValue placeholder="Idioma" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="pt">Português (Brasil)</SelectItem>
-              <SelectItem value="en">English</SelectItem>
-              <SelectItem value="es">Español</SelectItem>
-            </SelectContent>
-          </Select>
-        </FormField>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-primary">
+          <Globe2 className="h-5 w-5" />
+          Localização
+        </CardTitle>
+        <CardDescription>Idioma e fuso horário usados em toda a plataforma</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-2">
+          <FormField htmlFor="system-lang" label="Idioma Global">
+            <Select value={getSettingValue("language") || "pt"} onValueChange={handleLanguageChange}>
+              <SelectTrigger id="system-lang">
+                <SelectValue placeholder="Idioma" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pt">Português (Brasil)</SelectItem>
+                <SelectItem value="en">English</SelectItem>
+                <SelectItem value="es">Español</SelectItem>
+              </SelectContent>
+            </Select>
+          </FormField>
 
-        <Separator />
+          <FormField htmlFor="system-timezone" label="Fuso Horário (Timezone)">
+            <Select
+              value={getSettingValue("timezone") || "America/Sao_Paulo"}
+              onValueChange={(v) => handleUpdateSetting("timezone", v)}
+            >
+              <SelectTrigger id="system-timezone">
+                <SelectValue placeholder="Selecione o Timezone" />
+              </SelectTrigger>
+              <SelectContent>
+                {timezones.map((tz) => (
+                  <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FormField>
+        </div>
+      </CardContent>
+    </Card>
 
-        <FormField htmlFor="system-timezone" label="Fuso Horário (Timezone)">
-          <Select
-            value={getSettingValue("timezone") || "America/Sao_Paulo"}
-            onValueChange={(v) => handleUpdateSetting("timezone", v)}
-          >
-            <SelectTrigger id="system-timezone">
-              <SelectValue placeholder="Selecione o Timezone" />
-            </SelectTrigger>
-            <SelectContent>
-              {timezones.map((tz) => (
-                <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </FormField>
-
-        <Separator />
-
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-primary">
+          <KeyRound className="h-5 w-5" />
+          Integração
+        </CardTitle>
+        <CardDescription>Token de API global para automações e integrações externas</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
         <FormField htmlFor="api-token" label="Token de API Global">
           <div className="flex gap-2">
             <Input id="api-token" readOnly value={getSettingValue("userApiToken")} className="font-mono bg-muted" />
