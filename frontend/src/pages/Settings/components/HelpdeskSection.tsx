@@ -50,6 +50,18 @@ const HelpdeskSection: React.FC<HelpdeskSectionProps> = ({
           onCheckedChange={(checked) => handleUpdateSetting("helpdesk_sla_enabled", checked ? "true" : "false")}
         />
       </div>
+      <div className="flex items-center justify-between">
+        <div className="space-y-0.5">
+          <Label>Criar Atividade ao abrir Protocolo</Label>
+          <p className="text-sm text-muted-foreground">
+            Gera automaticamente uma Atividade (ordem de serviço) vinculada a cada novo protocolo, com ou sem ticket de origem
+          </p>
+        </div>
+        <Switch
+          checked={getSettingValue("helpdesk_auto_create_activity") === "true"}
+          onCheckedChange={(checked) => handleUpdateSetting("helpdesk_auto_create_activity", checked ? "true" : "false")}
+        />
+      </div>
     </SlaConfigCard>
 
     <Card>
