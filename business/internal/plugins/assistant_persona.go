@@ -43,6 +43,18 @@ func (r *AssistantRuntime) executePersona(ctx context.Context, st *flow.ExecStat
 	}
 
 	query := strings.TrimSpace(st.Inbound)
+	if query == "" && st.MediaType == "audio" {
+		// AcceptsAudio já foi checado em Execute (recusa com mensagem fixa
+		// antes de chegar aqui) — se chegamos até executePersona com uma
+		// mensagem de áudio, é porque a.AcceptsAudio é true.
+		transcript, err := r.transcribeInboundAudio(ctx, st, a, cfg.AiGatewayID)
+		if err != nil {
+			turn := bumpPersonaTurn(st)
+			_ = flow.SendAssistantText(ctx, st, "t"+strconv.Itoa(turn), personaHandoffMessage)
+			return flow.Outcome{Kind: flow.OutcomeAdvance, Handle: "handoff", Detail: "assistant(persona): falha ao transcrever áudio: " + err.Error()}, nil
+		}
+		query = strings.TrimSpace(transcript)
+	}
 	if query == "" {
 		return flow.Outcome{Kind: flow.OutcomeAdvance, Detail: "assistant(persona): sem pergunta"}, nil
 	}
@@ -106,7 +118,7 @@ func (r *AssistantRuntime) executePersona(ctx context.Context, st *flow.ExecStat
 	}
 
 	turn := bumpPersonaTurn(st)
-	if err := flow.SendAssistantText(ctx, st, "t"+strconv.Itoa(turn), reply.Reply); err != nil {
+	if err := r.sendPersonaReply(ctx, st, a, cfg.AiGatewayID, turn, reply.Reply); err != nil {
 		return flow.Outcome{}, err
 	}
 

@@ -105,6 +105,14 @@ type InboundContext struct {
 	// an Assistant configured to only respond when mentioned in a group can
 	// tell a direct mention apart from ambient group chatter.
 	MentionedJIDs []string
+	// MessageID/MediaType/Mimetype identificam a mensagem persistida e seu
+	// tipo de mídia (engine-go: "chat"|"image"|"video"|"audio"|"document"|
+	// "sticker" — ver MessagePayload.Type). Threaded até ExecState para o
+	// AssistantRuntime decidir se precisa transcrever áudio antes de tratar
+	// a mensagem como uma pergunta de texto comum.
+	MessageID string
+	MediaType string
+	Mimetype  string
 }
 
 // RouteInbound is the legacy (no-ticket) trigger-match + log path, preserved for
@@ -352,6 +360,9 @@ func (s *Skeleton) StartFlow(ctx context.Context, in InboundContext, f models.Fl
 		Ticket:           in.Ticket,
 		Contact:          in.Contact,
 		MentionedJIDs:    in.MentionedJIDs,
+		MessageID:        in.MessageID,
+		MediaType:        in.MediaType,
+		Mimetype:         in.Mimetype,
 		Retriever:        s.retriever,
 		Responder:        s.responder,
 		AssistantRuntime: s.assistantRuntime,
@@ -481,6 +492,9 @@ func (s *Skeleton) resume(ctx context.Context, in InboundContext, run models.Flo
 		Ticket:           in.Ticket,
 		Contact:          in.Contact,
 		MentionedJIDs:    in.MentionedJIDs,
+		MessageID:        in.MessageID,
+		MediaType:        in.MediaType,
+		Mimetype:         in.Mimetype,
 		Retriever:        s.retriever,
 		Responder:        s.responder,
 		AssistantRuntime: s.assistantRuntime,

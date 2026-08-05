@@ -48,6 +48,8 @@ func toAssistantResponse(a models.Assistant) gin.H {
 		"stopOnHumanReply":          a.StopOnHumanReply,
 		"ignoreGroups":              a.IgnoreGroups,
 		"groupsMode":                a.GroupsMode,
+		"acceptsAudio":              a.AcceptsAudio,
+		"respondsWithAudio":         a.RespondsWithAudio,
 		"active":                    a.Active,
 		"createdAt":                 a.CreatedAt,
 		"updatedAt":                 a.UpdatedAt,
@@ -106,6 +108,8 @@ type assistantInput struct {
 	StopOnHumanReply          *bool           `json:"stopOnHumanReply"`
 	IgnoreGroups              *bool           `json:"ignoreGroups"`
 	GroupsMode                string          `json:"groupsMode"`
+	AcceptsAudio              *bool           `json:"acceptsAudio"`
+	RespondsWithAudio         *bool           `json:"respondsWithAudio"`
 	Active                    *bool           `json:"active"`
 }
 
@@ -249,6 +253,14 @@ func (ac *AssistantController) Create(c *gin.Context) {
 	if in.IgnoreGroups != nil {
 		ignoreGroups = *in.IgnoreGroups
 	}
+	acceptsAudio := false
+	if in.AcceptsAudio != nil {
+		acceptsAudio = *in.AcceptsAudio
+	}
+	respondsWithAudio := false
+	if in.RespondsWithAudio != nil {
+		respondsWithAudio = *in.RespondsWithAudio
+	}
 	triggerType := in.TriggerType
 	if triggerType == "" {
 		triggerType = "any"
@@ -270,7 +282,8 @@ func (ac *AssistantController) Create(c *gin.Context) {
 		SessionExpiryMinutes: in.SessionExpiryMinutes, TypingDelayMs: in.TypingDelayMs,
 		DebounceSeconds: in.DebounceSeconds, EndKeyword: in.EndKeyword,
 		ExpiryMessage: in.ExpiryMessage, ClosingMessage: in.ClosingMessage,
-		StopOnHumanReply: stopOnHumanReply, IgnoreGroups: ignoreGroups, GroupsMode: groupsMode, Active: active,
+		StopOnHumanReply: stopOnHumanReply, IgnoreGroups: ignoreGroups, GroupsMode: groupsMode,
+		AcceptsAudio: acceptsAudio, RespondsWithAudio: respondsWithAudio, Active: active,
 	}
 
 	err := db.Transaction(func(tx *gorm.DB) error {
@@ -338,6 +351,14 @@ func (ac *AssistantController) Update(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "groupsMode inválido: use legacy ou selective"})
 		return
 	}
+	acceptsAudio := existing.AcceptsAudio
+	if in.AcceptsAudio != nil {
+		acceptsAudio = *in.AcceptsAudio
+	}
+	respondsWithAudio := existing.RespondsWithAudio
+	if in.RespondsWithAudio != nil {
+		respondsWithAudio = *in.RespondsWithAudio
+	}
 
 	fields := map[string]interface{}{
 		"name": in.Name, "description": in.Description,
@@ -347,7 +368,8 @@ func (ac *AssistantController) Update(c *gin.Context) {
 		"sessionExpiryMinutes": in.SessionExpiryMinutes, "typingDelayMs": in.TypingDelayMs,
 		"debounceSeconds": in.DebounceSeconds, "endKeyword": in.EndKeyword,
 		"expiryMessage": in.ExpiryMessage, "closingMessage": in.ClosingMessage,
-		"stopOnHumanReply": stopOnHumanReply, "ignoreGroups": ignoreGroups, "groupsMode": groupsMode, "active": active,
+		"stopOnHumanReply": stopOnHumanReply, "ignoreGroups": ignoreGroups, "groupsMode": groupsMode,
+		"acceptsAudio": acceptsAudio, "respondsWithAudio": respondsWithAudio, "active": active,
 	}
 
 	// Session(NewDB:true): db já foi usado acima em Where/First(&existing) —

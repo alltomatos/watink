@@ -73,6 +73,15 @@ type ExecState struct {
 	// driven by non-message events and on 1:1 conversations (irrelevant there).
 	MentionedJIDs []string
 
+	// MessageID/MediaType/Mimetype (from InboundContext) identify the
+	// triggering message and its media kind — used by AssistantRuntime to
+	// decide whether an inbound audio needs transcription before being
+	// treated as the turn's query. Empty on resumes driven by non-message
+	// events.
+	MessageID string
+	MediaType string
+	Mimetype  string
+
 	Registry *ChannelRegistry
 
 	// DB is used for the ticket-handoff executor (manual WHERE "tenantId",

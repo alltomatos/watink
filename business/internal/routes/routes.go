@@ -5,6 +5,7 @@ import (
 	"github.com/alltomatos/watinkdev/business/internal/controllers"
 	"github.com/alltomatos/watinkdev/business/internal/domain"
 	"github.com/alltomatos/watinkdev/business/internal/flow"
+	"github.com/alltomatos/watinkdev/business/internal/mediawait"
 	"github.com/alltomatos/watinkdev/business/internal/middleware"
 	"github.com/alltomatos/watinkdev/business/internal/pluginlicense"
 	"github.com/alltomatos/watinkdev/business/internal/plugins"
@@ -26,7 +27,7 @@ type RouteRabbitMQ interface {
 // flow.Skeleton too, so the on-demand endpoints here and the real inbound
 // WhatsApp message path never disagree about which implementation answers a
 // query).
-func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *application.Container, s3Store domain.ObjectStore, build controllers.BuildInfo, ragRetriever flow.Retriever, ragResponder flow.AgentResponder) {
+func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *application.Container, s3Store domain.ObjectStore, build controllers.BuildInfo, ragRetriever flow.Retriever, ragResponder flow.AgentResponder, mediaWaiter *mediawait.Waiter) {
 	db := container.DB
 	messageController := controllers.NewMessageController(rabbitMQ, container.Broadcast, container.SessionService)
 	systemController := controllers.NewSystemController(container.SystemRepo, rabbitMQ)
@@ -80,7 +81,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 	// Wires the "Assistentes de IA" plugin's runtime into the synthetic Flow's
 	// "assistant" node (ADR 0027) — set post-construction since the
 	// implementation lives in the plugins package (DI pura, no global).
-	flowRuntime.SetAssistantRuntime(plugins.NewAssistantRuntime(container.DB))
+	flowRuntime.SetAssistantRuntime(plugins.NewAssistantRuntime(container.DB, rabbitMQ, mediaWaiter))
 	flowController := controllers.NewFlowController(flowRuntime)
 	quickAnswerController := controllers.NewQuickAnswerController(rabbitMQ, container.Broadcast, db, container.SessionService)
 	versionController := controllers.NewVersionController(container.VersionRepo)

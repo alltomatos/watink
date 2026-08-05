@@ -6,6 +6,7 @@ import (
 	"log"
 	"strconv"
 
+	"github.com/alltomatos/watinkdev/business/internal/mediawait"
 	"github.com/alltomatos/watinkdev/business/pkg/mediastore"
 	"github.com/google/uuid"
 )
@@ -27,6 +28,14 @@ func (el *EventListener) handleMediaDownloaded(ctx context.Context, payload json
 	}
 	if p.MessageID == "" {
 		return nil
+	}
+
+	// Entrega direto para quem estiver aguardando este messageID via
+	// mediawait.Waiter (ex.: AssistantRuntime transcrevendo um áudio) — os
+	// bytes crus, sem depender do mediastore/DB abaixo terem terminado. Um
+	// no-op quando ninguém está esperando (download normal via botão da UI).
+	if el.mediaWaiter != nil {
+		el.mediaWaiter.Fulfill(p.MessageID, mediawait.Result{MediaData: p.MediaData, MimeType: p.Mimetype, Err: p.Error})
 	}
 
 	msg, err := messages.FindByID(ctx, p.MessageID, tenantID)
