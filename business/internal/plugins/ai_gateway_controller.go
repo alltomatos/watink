@@ -28,15 +28,17 @@ func NewAiGatewayController() *AiGatewayController { return &AiGatewayController
 
 func toAiGatewayResponse(g models.AiGateway) gin.H {
 	return gin.H{
-		"id":        g.ID,
-		"tenantId":  g.TenantID,
-		"name":      g.Name,
-		"provider":  g.Provider,
-		"baseUrl":   g.BaseURL,
-		"model":     g.Model,
-		"hasApiKey": g.HasApiKey(),
-		"createdAt": g.CreatedAt,
-		"updatedAt": g.UpdatedAt,
+		"id":                 g.ID,
+		"tenantId":           g.TenantID,
+		"name":               g.Name,
+		"provider":           g.Provider,
+		"baseUrl":            g.BaseURL,
+		"model":              g.Model,
+		"transcriptionModel": g.TranscriptionModel,
+		"speechModel":        g.SpeechModel,
+		"hasApiKey":          g.HasApiKey(),
+		"createdAt":          g.CreatedAt,
+		"updatedAt":          g.UpdatedAt,
 	}
 }
 
@@ -74,11 +76,13 @@ func (ac *AiGatewayController) Get(c *gin.Context) {
 }
 
 type aiGatewayInput struct {
-	Name     string  `json:"name"`
-	Provider string  `json:"provider"`
-	ApiKey   string  `json:"apiKey"`
-	BaseURL  *string `json:"baseUrl"`
-	Model    string  `json:"model"`
+	Name               string  `json:"name"`
+	Provider           string  `json:"provider"`
+	ApiKey             string  `json:"apiKey"`
+	BaseURL            *string `json:"baseUrl"`
+	Model              string  `json:"model"`
+	TranscriptionModel *string `json:"transcriptionModel"`
+	SpeechModel        *string `json:"speechModel"`
 }
 
 func validateAiGatewayStrings(c *gin.Context, in aiGatewayInput) bool {
@@ -133,6 +137,7 @@ func (ac *AiGatewayController) Create(c *gin.Context) {
 	g := models.AiGateway{
 		TenantID: tenantID, Name: in.Name, Provider: in.Provider,
 		ApiKeyEnc: enc, BaseURL: in.BaseURL, Model: in.Model,
+		TranscriptionModel: in.TranscriptionModel, SpeechModel: in.SpeechModel,
 	}
 	if err := db.Create(&g).Error; err != nil {
 		utils.RespondWithInternalError(c, err, "CreateAiGateway")
@@ -164,10 +169,12 @@ func (ac *AiGatewayController) Update(c *gin.Context) {
 	}
 
 	fields := map[string]interface{}{
-		"name":     in.Name,
-		"provider": in.Provider,
-		"baseUrl":  in.BaseURL,
-		"model":    in.Model,
+		"name":               in.Name,
+		"provider":           in.Provider,
+		"baseUrl":            in.BaseURL,
+		"model":              in.Model,
+		"transcriptionModel": in.TranscriptionModel,
+		"speechModel":        in.SpeechModel,
 	}
 	if in.ApiKey != "" {
 		if !cryptobox.IsConfigured() {

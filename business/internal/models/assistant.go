@@ -50,6 +50,18 @@ type Assistant struct {
 	//                 the ticket, only the automated reply is skipped).
 	GroupsMode string `gorm:"column:groupsMode;default:'legacy'" json:"groupsMode"`
 
+	// AcceptsAudio: quando false (padrão), uma mensagem de áudio recebida
+	// gera uma resposta fixa avisando que o Assistant não entende áudio, sem
+	// tentar transcrever. Quando true, o áudio é baixado do engine-go/izapia,
+	// transcrito via o AiGateway configurado (cfg.AiGatewayID) e o texto vira
+	// a pergunta do turno — mesmo caminho de um texto normal.
+	AcceptsAudio bool `gorm:"column:acceptsAudio;default:false" json:"acceptsAudio"`
+	// RespondsWithAudio: quando true, a resposta do modo persona é
+	// sintetizada em voz (TTS via o mesmo AiGateway) e enviada como nota de
+	// voz em vez de texto. Falha de síntese cai de volta para texto — nunca
+	// perde a resposta.
+	RespondsWithAudio bool `gorm:"column:respondsWithAudio;default:false" json:"respondsWithAudio"`
+
 	Active    bool      `gorm:"default:true" json:"active"`
 	CreatedAt time.Time `gorm:"column:createdAt" json:"createdAt"`
 	UpdatedAt time.Time `gorm:"column:updatedAt" json:"updatedAt"`

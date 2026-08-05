@@ -54,6 +54,22 @@ func SendAssistantText(ctx context.Context, st *ExecState, suffix, body string) 
 	return sendWhatsAppEnv(ctx, st, envIDWithSuffix(st, "assistant-node", suffix), body, map[string]any{"humanPacing": true})
 }
 
+// SendAssistantMedia sends a media message (currently: synthesized speech
+// audio, Assistant.RespondsWithAudio) on behalf of an AssistantRuntime
+// implementation — same outbound path/dedup as SendAssistantText, with
+// mediaData carrying the raw bytes base64-encoded (no public URL needed for
+// the AMQP/whatsmeow path; see WhatsAppAdapter.Send). humanPacing is NOT set
+// here — the "digitando..." delay already elapsed while generating/
+// synthesizing the reply, waiting again before an audio send would just
+// double the latency for no perceptual benefit.
+func SendAssistantMedia(ctx context.Context, st *ExecState, suffix, mediaDataBase64, mediaType, mimeType string) error {
+	return sendWhatsAppEnv(ctx, st, envIDWithSuffix(st, "assistant-node", suffix), "", map[string]any{
+		"mediaData": mediaDataBase64,
+		"mediaType": mediaType,
+		"mimeType":  mimeType,
+	})
+}
+
 func (assistantExecutor) Execute(ctx context.Context, st *ExecState, node Node) (Outcome, error) {
 	var d assistantData
 	if len(node.Data) > 0 {

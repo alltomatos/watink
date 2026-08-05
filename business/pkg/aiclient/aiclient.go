@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"strings"
@@ -121,6 +122,129 @@ func callOpenAICompatible(cfg Config, messages []Message) (*Response, error) {
 	}
 
 	return &Response{Content: result.Choices[0].Message.Content}, nil
+}
+
+// resolveOpenAIBaseURL centraliza a mesma regra de baseURL default usada por
+// callOpenAICompatible — /audio/transcriptions e /audio/speech vivem no MESMO
+// baseUrl do chat, só variam de path.
+func resolveOpenAIBaseURL(cfg Config) string {
+	if cfg.BaseURL != "" {
+		return cfg.BaseURL
+	}
+	return "https://api.openai.com/v1"
+}
+
+// Transcribe envia audioBytes para {baseURL}/audio/transcriptions (OpenAI-
+// compatible: multipart/form-data, campo "file" + "model") e devolve o texto
+// transcrito. model é obrigatório (não há default seguro — nomes de modelo
+// de transcrição variam muito entre gateways, ex. "whisper-1" pode não ter
+// credencial num gateway multi-provider onde só "openrouter/openai/whisper-
+// large-v3-turbo" está funded).
+func Transcribe(cfg Config, model string, audioBytes []byte, filename string) (string, error) {
+	if cfg.APIKey == "" {
+		return "", fmt.Errorf("ERR_NO_AI_API_KEY")
+	}
+	if model == "" {
+		return "", fmt.Errorf("ERR_NO_TRANSCRIPTION_MODEL")
+	}
+	baseURL := rewriteDevHost(resolveOpenAIBaseURL(cfg))
+
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	fw, err := w.CreateFormFile("file", filename)
+	if err != nil {
+		return "", fmt.Errorf("ERR_AI_SERVICE_FAILED: %w", err)
+	}
+	if _, err := fw.Write(audioBytes); err != nil {
+		return "", fmt.Errorf("ERR_AI_SERVICE_FAILED: %w", err)
+	}
+	if err := w.WriteField("model", model); err != nil {
+		return "", fmt.Errorf("ERR_AI_SERVICE_FAILED: %w", err)
+	}
+	if err := w.Close(); err != nil {
+		return "", fmt.Errorf("ERR_AI_SERVICE_FAILED: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", baseURL+"/audio/transcriptions", &buf)
+	if err != nil {
+		return "", fmt.Errorf("ERR_AI_SERVICE_FAILED: %w", err)
+	}
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
+
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("ERR_AI_SERVICE_FAILED: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("ERR_AI_SERVICE_FAILED: status %d: %s", resp.StatusCode, string(b))
+	}
+
+	var result struct {
+		Text string `json:"text"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("ERR_AI_SERVICE_FAILED: %w", err)
+	}
+	return result.Text, nil
+}
+
+// SpeechResult carries synthesized audio bytes and their MIME type.
+type SpeechResult struct {
+	Audio    []byte
+	MimeType string
+}
+
+// Speech envia text para {baseURL}/audio/speech (OpenAI-compatible: JSON
+// {model,input,voice}) e devolve o áudio sintetizado. voice é opcional —
+// vazio deixa o gateway escolher a voz padrão do modelo.
+func Speech(cfg Config, model, text, voice string) (*SpeechResult, error) {
+	if cfg.APIKey == "" {
+		return nil, fmt.Errorf("ERR_NO_AI_API_KEY")
+	}
+	if model == "" {
+		return nil, fmt.Errorf("ERR_NO_SPEECH_MODEL")
+	}
+	baseURL := rewriteDevHost(resolveOpenAIBaseURL(cfg))
+
+	payload := map[string]any{"model": model, "input": text}
+	if voice != "" {
+		payload["voice"] = voice
+	}
+	body, _ := json.Marshal(payload)
+
+	req, err := http.NewRequest("POST", baseURL+"/audio/speech", bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("ERR_AI_SERVICE_FAILED: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
+
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("ERR_AI_SERVICE_FAILED: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("ERR_AI_SERVICE_FAILED: status %d: %s", resp.StatusCode, string(b))
+	}
+
+	audio, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("ERR_AI_SERVICE_FAILED: %w", err)
+	}
+	mimeType := resp.Header.Get("Content-Type")
+	if mimeType == "" {
+		mimeType = "audio/mpeg"
+	}
+	return &SpeechResult{Audio: audio, MimeType: mimeType}, nil
 }
 
 func callAnthropic(cfg Config, messages []Message) (*Response, error) {

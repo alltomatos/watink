@@ -30,7 +30,7 @@ func TestAssistantRuntime_Selective_InactiveGroupIsBlocked(t *testing.T) {
 	require.NoError(t, db.Create(&contact).Error)
 	// No AssistantGroup row at all → inactive by default.
 
-	r := NewAssistantRuntime(db)
+	r := NewAssistantRuntime(db, nil, nil)
 	st := &flow.ExecState{TenantID: tenantID, Contact: &domain.Contact{ID: contact.ID, IsGroup: true}}
 
 	outcome, err := r.Execute(context.Background(), st, a.ID)
@@ -58,7 +58,7 @@ func TestAssistantRuntime_Selective_ActiveGroupWithoutMentionOnlyObserves(t *tes
 		TenantID: tenantID, AssistantID: a.ID, ContactID: contact.ID, Active: true,
 	}).Error)
 
-	r := NewAssistantRuntime(db)
+	r := NewAssistantRuntime(db, nil, nil)
 	st := &flow.ExecState{
 		TenantID: tenantID,
 		Contact:  &domain.Contact{ID: contact.ID, IsGroup: true},
@@ -90,7 +90,7 @@ func TestAssistantRuntime_Selective_ActiveGroupWithMentionReachesPersona(t *test
 		TenantID: tenantID, AssistantID: a.ID, ContactID: contact.ID, Active: true,
 	}).Error)
 
-	r := NewAssistantRuntime(db)
+	r := NewAssistantRuntime(db, nil, nil)
 	st := &flow.ExecState{
 		TenantID:      tenantID,
 		Contact:       &domain.Contact{ID: contact.ID, IsGroup: true},

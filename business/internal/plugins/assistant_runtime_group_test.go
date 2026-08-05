@@ -27,7 +27,7 @@ func TestAssistantRuntime_Execute_IgnoreGroupsBlocksGroupMessage(t *testing.T) {
 	}
 	require.NoError(t, db.Create(&a).Error)
 
-	r := NewAssistantRuntime(db)
+	r := NewAssistantRuntime(db, nil, nil)
 	st := &flow.ExecState{
 		TenantID: tenantID,
 		Contact:  &domain.Contact{IsGroup: true},
@@ -52,7 +52,7 @@ func TestAssistantRuntime_Execute_IgnoreGroupsAllowsDirectMessage(t *testing.T) 
 	}
 	require.NoError(t, db.Create(&a).Error)
 
-	r := NewAssistantRuntime(db)
+	r := NewAssistantRuntime(db, nil, nil)
 	st := &flow.ExecState{
 		TenantID: tenantID,
 		Contact:  &domain.Contact{IsGroup: false},
@@ -80,7 +80,7 @@ func TestAssistantRuntime_Execute_GroupsAllowedWhenIgnoreGroupsFalse(t *testing.
 	// struct literal. Force it explicitly to test the false case for real.
 	require.NoError(t, db.Model(&a).Update("ignoreGroups", false).Error)
 
-	r := NewAssistantRuntime(db)
+	r := NewAssistantRuntime(db, nil, nil)
 	st := &flow.ExecState{
 		TenantID: tenantID,
 		Contact:  &domain.Contact{IsGroup: true},

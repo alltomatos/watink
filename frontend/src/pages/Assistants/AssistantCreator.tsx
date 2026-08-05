@@ -104,6 +104,8 @@ const AssistantCreator: React.FC = () => {
     const [stopOnHumanReply, setStopOnHumanReply] = useState(true);
     const [ignoreGroups, setIgnoreGroups] = useState(true);
     const [groupsMode, setGroupsMode] = useState<"legacy" | "selective">("legacy");
+    const [acceptsAudio, setAcceptsAudio] = useState(false);
+    const [respondsWithAudio, setRespondsWithAudio] = useState(false);
 
     // Modo flow
     const [flowId, setFlowId] = useState<string>("");
@@ -166,6 +168,8 @@ const AssistantCreator: React.FC = () => {
                 setStopOnHumanReply(a.stopOnHumanReply);
                 setIgnoreGroups(a.ignoreGroups);
                 setGroupsMode(a.groupsMode ?? "legacy");
+                setAcceptsAudio(a.acceptsAudio);
+                setRespondsWithAudio(a.respondsWithAudio);
 
                 const cfg = (a.config ?? {}) as Record<string, unknown>;
                 if (a.mode === "flow") setFlowId(cfg.flowId ? String(cfg.flowId) : "");
@@ -270,6 +274,8 @@ const AssistantCreator: React.FC = () => {
                 stopOnHumanReply,
                 ignoreGroups,
                 groupsMode,
+                acceptsAudio,
+                respondsWithAudio,
                 active,
             };
 
@@ -696,6 +702,27 @@ const AssistantCreator: React.FC = () => {
                                                 <Switch checked={ignoreGroups} onCheckedChange={setIgnoreGroups} />
                                             </div>
                                         )}
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="flex items-center justify-between rounded-xl border p-3">
+                                            <div>
+                                                <p className="text-sm font-medium">Entende áudio</p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Transcreve mensagens de voz recebidas via o AiGateway configurado.
+                                                    Se desligado, responde avisando que não entende áudio.
+                                                </p>
+                                            </div>
+                                            <Switch checked={acceptsAudio} onCheckedChange={setAcceptsAudio} />
+                                        </div>
+                                        <div className="flex items-center justify-between rounded-xl border p-3">
+                                            <div>
+                                                <p className="text-sm font-medium">Responde com áudio</p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Sintetiza as respostas como mensagem de voz em vez de texto.
+                                                </p>
+                                            </div>
+                                            <Switch checked={respondsWithAudio} onCheckedChange={setRespondsWithAudio} />
+                                        </div>
                                     </div>
                                 </TabsContent>
 
