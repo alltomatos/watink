@@ -58,3 +58,37 @@ sistema não oferece, e poderia induzir alguém a pular o `WHERE "tenantId"` man
 - A integração com o plugin Helpdesk (Fase 1) exige estender `business/pkg/sdk` com uma interface
   opcional descoberta por type-assertion (mesmo precedente de `WatinkCoreScheduler`, ADR 0027), já
   que o SDK hoje não tem mecanismo genérico de plugin chamando serviço do core.
+
+## Addendum — Fase 1: `WatinkCoreActivities` e a integração com Helpdesk
+
+`internal/controllers` e `internal/services` já importam `internal/plugins` (`plugin_manager.go`,
+`deal.go`, `event_listener.go`) — logo `plugins` **não pode** importar nenhum dos dois de volta
+sem criar ciclo. `coreImpl.CreateActivity` (que implementa `sdk.WatinkCoreActivities`) portanto
+**duplica** a lógica de defaults/SLA de `ActivityController.Create` em vez de extraí-la para um
+pacote compartilhado — mesmo padrão já usado por `SendTicketMessage` (`manager.go:121-124`), que
+reimplementa a pipeline de envio pelo mesmo motivo. A alternativa (extrair para um novo pacote em
+`internal/domain`, sem dependência de `plugins`/`controllers`, importado por ambos) foi descartada
+para não mexer no código da Fase 0 já validado e2e — fica registrada como refatoração possível se
+a duplicação um dia divergir. Um teste unitário compara os dois cálculos de `slaDueAt` lado a lado
+(mesma prioridade/instante → mesmo resultado) para pegar divergência futura em CI, já que nada no
+build a detectaria sozinho.
+
+Escopo da Fase 1 é estritamente `Protocol → Activity`: o Helpdesk cria um Protocol e, com a
+Setting `helpdesk_auto_create_activity=true`, opcionalmente cria uma Activity vinculada
+(`protocolId` preenchido), **independente de o Protocol ter ou não um `TicketID`** — é política do
+tenant, não característica do canal de origem. A direção inversa (uma Activity agendada originar
+automaticamente um Protocol de visita técnica) foi cogitada e descartada desta fase: inverteria o
+sentido de dependência plugin→core (o core chamaria um recurso do plugin Helpdesk), e já tem lugar
+mapeado no roadmap (Fase 3, junto ao trigger `activity` do FlowBuilder). Da mesma forma, o conceito
+de "observador" (colaborador com visão só-leitura do status da Activity, distinto de assignee) não
+existe no modelo hoje e fica fora desta fase — candidato a issue própria se confirmado como
+necessidade real.
+
+`coreImpl.CreateActivity` **bypassa deliberadamente** a permissão `activities:create` — quem chama
+é o sistema agindo em nome do Protocol recém-criado, não uma requisição HTTP de um usuário
+autenticado contra `/activities`, e não há como (nem motivo para) checar RBAC de Activities dentro
+do handler do Helpdesk. Isso é uma exceção explícita ao padrão "toda rota de mutação tem
+`RequirePermission`" do módulo Acessos — documentada aqui para não parecer um buraco de segurança
+não-intencional. Quando o `userID` do criador do Protocol não é resolvível no contexto (ex.: chamada
+de automação/sistema, sem usuário humano), a Activity nasce sem assignee (`AssigneeIDs` vazio) em
+vez de falhar ou ser pulada — alguém com `activities:manage` atribui depois pela tela de gestão.

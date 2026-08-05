@@ -63,7 +63,7 @@ Frontend (React/Vite) ←REST/SSE→ Backend Go (Gin/GORM) ←SQL→ PostgreSQL
 | Plugins — Marketplace respeita instância gerida por Watink SaaS (ADR 0026; ADRs irmãos: Hub ADR 0005, watink-saas ADR 0008) | 🟡 Desenho aceito e verificado; implementação a fazer (mudança cirúrgica em `PluginController.Activate`) |
 | Frontend — Redesign corporativo: paleta, componentes compartilhados (DataTable/EmptyState/ErrorState/FormField/notify), telas de referência | ✅ Concluída (PRs #507-#510) — rollout das ~25 páginas restantes é trabalho incremental futuro, ver [`docs/frontend/design-system.md`](docs/frontend/design-system.md) |
 | Plugins — Grupos e Comunidades (slug `groups`, `pro`): API interna de grupos no engine-go, providers `enginego`/`izapia`, plugin embarcado, frontend, catálogo do Hub (plano em `docs/agents/plugin-grupos-comunidades.md`) | ✅ Concluída (código+testes; issues #515-#524) — catálogo do Hub em `status: draft`, preço pendente de definição pelo dono antes de publicar |
-| Atividades (Ordens de Serviço) — entidade core (ADR 0029): model+migration+RBAC+backfill, SLA real (não placeholder como o Helpdesk), CRUD+execução+evidência S3+KPIs, listagem redesenhada + tela de gestão (lista/criar/editar/atribuir/checklist) | ✅ Fase 0 concluída (código+testes contra Postgres real+verificação manual no browser; issues #527-#537) — Fase 1 (integração Helpdesk) não iniciada |
+| Atividades (Ordens de Serviço) — entidade core (ADR 0029): model+migration+RBAC+backfill, SLA real (não placeholder como o Helpdesk), CRUD+execução+evidência S3+KPIs, listagem redesenhada + tela de gestão (lista/criar/editar/atribuir/checklist) | ✅ Fase 0 concluída (código+testes contra Postgres real+verificação manual no browser; issues #527-#537) — ✅ Fase 1 concluída (`sdk.WatinkCoreActivities` + Helpdesk cria Activity ao abrir Protocol; issues #538/#541/#542/#543) — Fase 2 (Pipeline/Deal) não iniciada |
 
 ## Services & Ports
 
@@ -464,10 +464,20 @@ era uma condição de exibição de menu, nunca uma dependência arquitetural re
 - `Session(&gorm.Session{NewDB: true})` precisa de uma instância nova **por operação** — reusar o
   mesmo handle em duas queries sequenciais acumula condições `Where` e faz a segunda casar zero
   linhas silenciosamente (bug real pego pelos testes durante a implementação).
+- **Fase 1 (Helpdesk, issue #538):** `sdk.WatinkCoreActivities.CreateActivity` é uma interface
+  opcional (type-assertion, precedente `WatinkCoreScheduler`/ADR 0027) — `coreImpl` duplica a
+  lógica de defaults/SLA de `ActivityController.Create` em vez de importar `controllers` (ciclo:
+  `controllers`/`services` já importam `plugins`). Teste unitário compara os dois cálculos de
+  `slaDueAt` para pegar divergência futura. `coreImpl.CreateActivity` bypassa `activities:create`
+  deliberadamente — é o sistema agindo em nome do Protocol, não uma requisição HTTP autenticada.
 
 **O que NÃO fazer:**
 - Não acoplar `Activity` ao plugin Helpdesk (nem via import, nem via rota) — o vínculo é sempre
-  opcional por FK nullable, com o plugin chamando o core (Fase 1, ainda não implementada).
+  opcional por FK nullable, com o plugin chamando o core via `sdk.WatinkCoreActivities` (Fase 1,
+  issue #538).
+- Não fazer `coreImpl.CreateActivity` importar `internal/controllers` ou `internal/services` para
+  reusar a calculadora de SLA — ambos já importam `internal/plugins`, então a direção inversa
+  cicla o build.
 - Não recalcular `slaDueAt` fora da calculadora única, nem silenciosamente após `in_progress`.
 - Não editar checklist de uma Activity já criada pela UI de gestão — o backend não tem rota para
   isso nesta fase (só `PUT .../items/:itemId` para `isDone`/`value`); `ActivityChecklistBuilder`
