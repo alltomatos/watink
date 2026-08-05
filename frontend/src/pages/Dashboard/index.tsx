@@ -15,7 +15,6 @@ import DashboardAttendanceCard from "./components/DashboardAttendanceCard";
 import DashboardConnectionsPanel from "./components/DashboardConnectionsPanel";
 import DashboardWidgets from "./components/DashboardWidgets";
 import DashboardCustomizeModal from "./components/DashboardCustomizeModal";
-import OnboardingChecklistCard from "./components/OnboardingChecklistCard";
 
 const Dashboard: React.FC = () => {
   const {
@@ -53,8 +52,6 @@ const Dashboard: React.FC = () => {
 
       <PageContent className="space-y-6 pb-20">
         <DashboardKpiRow stats={stats} />
-
-        <OnboardingChecklistCard />
 
         <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
           <DashboardAttendanceCard totalCount={totalCount} />
