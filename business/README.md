@@ -1,4 +1,4 @@
-# Watink Watink Business 🦞
+# Watink Business 🦞
 
 Este é o backend de alta performance do Watink, desenvolvido em **Go** para garantir escalabilidade em produção e baixa latência.
 
