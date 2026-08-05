@@ -22,8 +22,9 @@ func NewAuthController(ur domain.UserRepository) *AuthController {
 }
 
 type LoginRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required"`
+	Email      string `json:"email" binding:"required,email"`
+	Password   string `json:"password" binding:"required"`
+	RememberMe bool   `json:"rememberMe"`
 }
 
 // @Summary      Login
@@ -68,14 +69,15 @@ func (ac *AuthController) Login(c *gin.Context) {
 		return
 	}
 
-	refreshToken, err := utils.GenerateRefreshToken(claims)
+	refreshToken, err := utils.GenerateRefreshToken(claims, req.RememberMe)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate refresh token"})
 		return
 	}
 
 	secureCookie := os.Getenv("APP_ENV") == "production"
-	c.SetCookie("refreshToken", refreshToken, 3600*24*7, "/", "", secureCookie, true)
+	maxAge := int(utils.RefreshTokenDuration(req.RememberMe).Seconds())
+	c.SetCookie("refreshToken", refreshToken, maxAge, "/", "", secureCookie, true)
 
 	c.JSON(http.StatusOK, gin.H{
 		"token": token,
@@ -126,6 +128,7 @@ func (ac *AuthController) RefreshToken(c *gin.Context) {
 	userID := int(claims["id"].(float64))
 	tenantIDStr := claims["tenantId"].(string)
 	tokenVersion := int(claims["tokenVersion"].(float64))
+	rememberMe, _ := claims["rememberMe"].(bool)
 
 	tenantUUID, err := uuid.Parse(tenantIDStr)
 	if err != nil {
@@ -157,6 +160,18 @@ func (ac *AuthController) RefreshToken(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate access token"})
 		return
 	}
+
+	// Sliding expiration: reissue the refresh cookie on every successful refresh
+	// so an active user's session keeps extending instead of hard-expiring exactly
+	// RefreshTokenDuration after the original login, regardless of activity.
+	newRefreshToken, err := utils.GenerateRefreshToken(newClaims, rememberMe)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate refresh token"})
+		return
+	}
+	secureCookie := os.Getenv("APP_ENV") == "production"
+	maxAge := int(utils.RefreshTokenDuration(rememberMe).Seconds())
+	c.SetCookie("refreshToken", newRefreshToken, maxAge, "/", "", secureCookie, true)
 
 	c.JSON(http.StatusOK, gin.H{
 		"token": accessToken,

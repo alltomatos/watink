@@ -19,6 +19,16 @@ type JWTClaims struct {
 	TokenVersion int
 }
 
+// RefreshTokenDuration returns how long the refresh cookie should live —
+// "Mantenha-me conectado" trades a short session-like window for the long one;
+// unchecked still gets a real session, just one that doesn't outlive a day unattended.
+func RefreshTokenDuration(rememberMe bool) time.Duration {
+	if rememberMe {
+		return time.Hour * 24 * 7
+	}
+	return time.Hour * 24
+}
+
 func GenerateAccessToken(claims JWTClaims) (string, error) {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
@@ -36,7 +46,10 @@ func GenerateAccessToken(claims JWTClaims) (string, error) {
 	return token.SignedString([]byte(secret))
 }
 
-func GenerateRefreshToken(claims JWTClaims) (string, error) {
+// GenerateRefreshToken embeds rememberMe in the token itself so a later
+// refresh (which has no access to the original login request) knows which
+// duration to reapply when it slides the cookie's expiration forward.
+func GenerateRefreshToken(claims JWTClaims, rememberMe bool) (string, error) {
 	secret := os.Getenv("JWT_REFRESH_SECRET")
 	if secret == "" {
 		return "", fmt.Errorf("JWT_REFRESH_SECRET must be set — security-critical")
@@ -46,7 +59,8 @@ func GenerateRefreshToken(claims JWTClaims) (string, error) {
 		"id":           claims.ID,
 		"tenantId":     claims.TenantID,
 		"tokenVersion": claims.TokenVersion,
-		"exp":          time.Now().Add(time.Hour * 24 * 7).Unix(),
+		"rememberMe":   rememberMe,
+		"exp":          time.Now().Add(RefreshTokenDuration(rememberMe)).Unix(),
 	})
 
 	return token.SignedString([]byte(secret))
