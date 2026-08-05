@@ -42,7 +42,7 @@ const AddressLookupSettings: React.FC<AddressLookupSettingsProps> = ({
             CEP.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4">
+        <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="grid gap-2">
             <Label htmlFor="address-lookup-provider">
               Provedor de Busca de CEP
