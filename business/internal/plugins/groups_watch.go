@@ -68,11 +68,11 @@ func handleGroupWatchMessage(ctx context.Context, core sdk.WatinkCore, db *gorm.
 	if err := db.Where(`id = ? AND "tenantId" = ?`, messageID, tenantID).First(&msg).Error; err != nil || msg.Body == "" {
 		return
 	}
-	bodyLower := strings.ToLower(msg.Body)
+	bodyLower := strings.ToLower(strings.TrimSpace(msg.Body))
 
 	matched := make([]models.GroupWatchTag, 0, len(tags))
 	for _, t := range tags {
-		if strings.Contains(bodyLower, strings.ToLower(t.Phrase)) {
+		if tagMatches(t, bodyLower) {
 			matched = append(matched, t)
 		}
 	}
@@ -93,15 +93,16 @@ func handleGroupWatchMessage(ctx context.Context, core sdk.WatinkCore, db *gorm.
 	writeDB := db.Session(&gorm.Session{NewDB: true})
 	for _, t := range matched {
 		match := models.GroupWatchMatch{
-			TenantID:     tenantID,
-			TagID:        t.ID,
-			Phrase:       t.Phrase,
-			TicketID:     ticket.ID,
-			MessageID:    msg.ID,
-			GroupSubject: ticket.Contact.Name,
-			ContactName:  messagePushName(msg.DataJson),
-			Snippet:      snippet,
-			CreatedAt:    time.Now(),
+			TenantID:       tenantID,
+			TagID:          t.ID,
+			Phrase:         t.Phrase,
+			TicketID:       ticket.ID,
+			MessageID:      msg.ID,
+			GroupSubject:   ticket.Contact.Name,
+			ContactName:    messagePushName(msg.DataJson),
+			Snippet:        snippet,
+			NotifyGlobally: t.NotifyGlobally,
+			CreatedAt:      time.Now(),
 		}
 		if err := writeDB.Create(&match).Error; err != nil {
 			log.Printf("[groups] falha ao salvar watch match (tag %d, msg %s): %v", t.ID, msg.ID, err)
@@ -109,6 +110,19 @@ func handleGroupWatchMessage(ctx context.Context, core sdk.WatinkCore, db *gorm.
 		}
 		core.EmitSocketEvent("tenant:"+tenantID.String(), "group-watch-match", match)
 	}
+}
+
+// tagMatches applies t.MatchMode against an already-lowercased/trimmed
+// message body. "exact" requires the WHOLE message to equal the phrase
+// (also lowercased/trimmed) — anything else (including empty/unknown
+// MatchMode, e.g. rows created before this field existed) falls back to
+// "contains", the original behavior.
+func tagMatches(t models.GroupWatchTag, bodyLower string) bool {
+	phraseLower := strings.ToLower(strings.TrimSpace(t.Phrase))
+	if t.MatchMode == models.GroupWatchMatchExact {
+		return bodyLower == phraseLower
+	}
+	return strings.Contains(bodyLower, phraseLower)
 }
 
 // messagePushName pulls the sender's push name out of Message.DataJson
@@ -131,7 +145,16 @@ func messagePushName(dataJSON string) string {
 // ── CRUD: tags ──────────────────────────────────────────────────────────
 
 type createGroupWatchTagRequest struct {
-	Phrase string `json:"phrase" binding:"required"`
+	Phrase         string                     `json:"phrase" binding:"required"`
+	NotifyGlobally bool                       `json:"notifyGlobally"`
+	MatchMode      models.GroupWatchMatchMode `json:"matchMode" binding:"omitempty,oneof=contains exact"`
+}
+
+type updateGroupWatchTagRequest struct {
+	Phrase         string                     `json:"phrase" binding:"required"`
+	Active         bool                       `json:"active"`
+	NotifyGlobally bool                       `json:"notifyGlobally"`
+	MatchMode      models.GroupWatchMatchMode `json:"matchMode" binding:"omitempty,oneof=contains exact"`
 }
 
 func handleListGroupWatchTags(core sdk.WatinkCore) gin.HandlerFunc {
@@ -168,12 +191,78 @@ func handleCreateGroupWatchTag(core sdk.WatinkCore) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "phrase não pode ser vazia"})
 			return
 		}
-		tag := models.GroupWatchTag{TenantID: tenantID, Phrase: phrase, Active: true, CreatedAt: time.Now()}
+		matchMode := req.MatchMode
+		if matchMode == "" {
+			matchMode = models.GroupWatchMatchContains
+		}
+		tag := models.GroupWatchTag{
+			TenantID:       tenantID,
+			Phrase:         phrase,
+			Active:         true,
+			MatchMode:      matchMode,
+			NotifyGlobally: req.NotifyGlobally,
+			CreatedAt:      time.Now(),
+		}
 		if err := db.Session(&gorm.Session{NewDB: true}).Create(&tag).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create watch tag"})
 			return
 		}
 		c.JSON(http.StatusCreated, tag)
+	}
+}
+
+// handleUpdateGroupWatchTag edits phrase/active/notifyGlobally/matchMode of
+// an existing tag. Past matches keep their OWN snapshot of phrase/
+// notifyGlobally (models.GroupWatchMatch doc comment) — editing a tag never
+// rewrites history.
+func handleUpdateGroupWatchTag(core sdk.WatinkCore) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		db, tenantID, ok := auth.GetScoped(c, "Whatsapps")
+		if !ok {
+			return
+		}
+		id, err := strconv.Atoi(c.Param("id"))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "id inválido"})
+			return
+		}
+		var req updateGroupWatchTagRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			utils.RespondWithBindError(c, err)
+			return
+		}
+		phrase := strings.TrimSpace(req.Phrase)
+		if phrase == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "phrase não pode ser vazia"})
+			return
+		}
+		matchMode := req.MatchMode
+		if matchMode == "" {
+			matchMode = models.GroupWatchMatchContains
+		}
+		writeDB := db.Session(&gorm.Session{NewDB: true})
+		result := writeDB.Model(&models.GroupWatchTag{}).
+			Where(`id = ? AND "tenantId" = ?`, id, tenantID).
+			Updates(map[string]interface{}{
+				"phrase":         phrase,
+				"active":         req.Active,
+				"notifyGlobally": req.NotifyGlobally,
+				"matchMode":      matchMode,
+			})
+		if result.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update watch tag"})
+			return
+		}
+		if result.RowsAffected == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "tag não encontrada"})
+			return
+		}
+		var tag models.GroupWatchTag
+		if err := writeDB.Where(`id = ? AND "tenantId" = ?`, id, tenantID).First(&tag).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to reload watch tag"})
+			return
+		}
+		c.JSON(http.StatusOK, tag)
 	}
 }
 
@@ -202,15 +291,28 @@ func handleDeleteGroupWatchTag(core sdk.WatinkCore) gin.HandlerFunc {
 
 const groupWatchMatchesLimit = 100
 
+// handleListGroupWatchMatches supports an optional ?tagId= filter so the
+// feed can be narrowed server-side — with a fixed window of the 100 most
+// recent matches, filtering client-side alone would hide older matches of
+// the selected tag once total volume passes 100 across ALL tags combined.
 func handleListGroupWatchMatches(core sdk.WatinkCore) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		db, tenantID, ok := auth.GetScoped(c, "Whatsapps")
 		if !ok {
 			return
 		}
+		query := db.Session(&gorm.Session{NewDB: true}).
+			Where(`"tenantId" = ?`, tenantID)
+		if tagIDRaw := c.Query("tagId"); tagIDRaw != "" {
+			tagID, err := strconv.Atoi(tagIDRaw)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "tagId inválido"})
+				return
+			}
+			query = query.Where(`"tagId" = ?`, tagID)
+		}
 		var matches []models.GroupWatchMatch
-		if err := db.Session(&gorm.Session{NewDB: true}).
-			Where(`"tenantId" = ?`, tenantID).
+		if err := query.
 			Order(`"createdAt" DESC`).
 			Limit(groupWatchMatchesLimit).
 			Find(&matches).Error; err != nil {

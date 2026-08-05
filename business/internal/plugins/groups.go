@@ -79,6 +79,7 @@ func (gp *GroupsPlugin) OnActivate(core sdk.WatinkCore) error {
 	// já persistida pelo core, não fala com o WhatsApp diretamente.
 	core.RegisterRoute("GET", "/groups/watch-tags", withPermission("whatsappGroups", "read", handleListGroupWatchTags(core)))
 	core.RegisterRoute("POST", "/groups/watch-tags", withPermission("whatsappGroups", "manage", handleCreateGroupWatchTag(core)))
+	core.RegisterRoute("PUT", "/groups/watch-tags/:id", withPermission("whatsappGroups", "manage", handleUpdateGroupWatchTag(core)))
 	core.RegisterRoute("DELETE", "/groups/watch-tags/:id", withPermission("whatsappGroups", "manage", handleDeleteGroupWatchTag(core)))
 	core.RegisterRoute("GET", "/groups/watch-matches", withPermission("whatsappGroups", "read", handleListGroupWatchMatches(core)))
 	registerGroupWatchEvents(core)

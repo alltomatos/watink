@@ -141,6 +141,11 @@ func handleGetGroup(svc *groupsService) gin.HandlerFunc {
 		}
 		enrichContactsFromGroups(svc.db, tenantID, []domain.GroupInfo{*group})
 		upsertOneGroupCache(svc.db, tenantID, w, *group)
+		// Enrich participants AFTER caching the raw provider response —
+		// Contact.Name/ProfilePicUrl can change independently of the group
+		// cache and would go stale inside it; enrichment only ever happens
+		// at read time, never persisted.
+		group.Participants = enrichParticipantsFromContacts(svc.db, tenantID, group.Participants)
 		c.JSON(http.StatusOK, group)
 	}
 }

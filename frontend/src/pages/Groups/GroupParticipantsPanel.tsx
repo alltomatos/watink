@@ -112,7 +112,7 @@ const GroupParticipantsPanel: React.FC<GroupParticipantsPanelProps> = ({ whatsap
                         {group.participants.map((p) => (
                             <TableRow key={p.jid}>
                                 <TableCell className="flex items-center gap-2">
-                                    <Avatar size="sm" name={p.displayName || p.phoneNumber || p.jid} />
+                                    <Avatar size="sm" src={p.pictureURL} name={p.displayName || p.phoneNumber || p.jid} />
                                     <div className="min-w-0">
                                         <p className="truncate text-sm">{p.displayName || p.phoneNumber || p.jid}</p>
                                     </div>
