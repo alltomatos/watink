@@ -1,11 +1,13 @@
 /* @jsxImportSource react */
 import React, { useState, useContext, useEffect, useCallback } from "react";
-import { useLocation } from "react-router";
+import { useLocation, useNavigate } from "react-router";
+import { toast } from "react-toastify";
 import { AuthContext } from "../context/Auth/AuthContext";
 import api from "../services/api";
 import { getBackendUrl } from "../helpers/urlUtils";
 import { subscribeToSocket } from "../services/sse-client";
 import type { SettingSocketEvent } from "../types/api";
+import type { GroupWatchMatch } from "../services/groupService";
 
 import MainSidebar from "../components/MainSidebar";
 import MainTopBar from "../components/MainTopBar";
@@ -24,6 +26,7 @@ const DB_THEME_MAP: Record<string, { appTheme: string; darkMode?: boolean }> = {
 
 const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(() => {
     if (window.innerWidth < 1024) return false;
     const saved = localStorage.getItem("wt:sidebar:collapsed");
@@ -100,6 +103,55 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     };
     fetchSettings();
     // setAppTheme/setDarkMode come from context — stable refs, intentionally omitted to run once
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Monitoramento de frase: aviso global (toast + notificação desktop) ──
+  // Sempre montado (independente de qual tela o usuário está) — só
+  // interrompe quem está fora da aba Monitoramento para tags marcadas
+  // explicitamente como "notificar em qualquer tela"
+  // (GroupWatchTag.notifyGlobally, services/groupService.ts). Tags sem
+  // essa marca continuam só atualizando o feed local da aba, sem aviso.
+  //
+  // A notificação desktop (Notification API) segue o MESMO padrão já usado
+  // pra mensagens novas (NotificationsPopOver/hooks/useNotifications.ts) —
+  // funciona com a aba em segundo plano/minimizada, MAS exige o navegador
+  // aberto e o usuário logado (sem isso a aba nem está montada pra receber
+  // o SSE). Não é push de verdade — se quiser aviso com o navegador
+  // fechado, isso é outra feature (service worker + Web Push + VAPID).
+  useEffect(() => {
+    const handleMatch = (payload: GroupWatchMatch) => {
+      if (!payload?.notifyGlobally) return;
+      const title = `"${payload.phrase}" mencionada`;
+      const body = `${payload.groupSubject || "Um grupo"}${payload.contactName ? " — " + payload.contactName : ""}: ${payload.snippet}`;
+
+      if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+        try {
+          const options: NotificationOptions & { renotify?: boolean } = {
+            body,
+            tag: `group-watch-${payload.id}`,
+            renotify: true,
+          };
+          const notification = new Notification(title, options);
+          notification.onclick = (e) => {
+            e.preventDefault();
+            window.focus();
+            navigate(`/tickets/${payload.ticketId}`);
+          };
+        } catch {
+          // Navegador bloqueou a notificação desktop — o toast abaixo já cobre o aviso.
+        }
+      } else if (typeof Notification !== "undefined" && Notification.permission === "default") {
+        Notification.requestPermission().catch(() => {});
+      }
+
+      toast.info(`${title} em ${payload.groupSubject || "um grupo"}`, {
+        onClick: () => navigate(`/tickets/${payload.ticketId}`),
+      });
+    };
+
+    const cleanup = subscribeToSocket({ "group-watch-match": handleMatch });
+    return cleanup;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

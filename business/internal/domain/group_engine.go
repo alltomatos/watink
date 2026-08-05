@@ -44,9 +44,18 @@ type GroupInfo struct {
 
 // Participant is one member of a GroupInfo.Participants list.
 type Participant struct {
-	JID          string `json:"jid"`
-	PhoneNumber  string `json:"phoneNumber,omitempty"` // empty when only @lid was resolved
-	DisplayName  string `json:"displayName,omitempty"`
+	JID         string `json:"jid"`
+	PhoneNumber string `json:"phoneNumber,omitempty"` // empty when only @lid was resolved
+	DisplayName string `json:"displayName,omitempty"`
+	// PictureURL is NEVER set by the provider itself (izapia/whatsmeow
+	// don't return a per-participant avatar in the group payload) — it's
+	// filled in by groups_participant_enrich.go (business/internal/plugins)
+	// as a best-effort DB lookup against existing Contact rows, same
+	// reuse-what-we-already-have strategy as enrichContactFromGroup
+	// (groups_contact_enrich.go). Never a fresh WhatsApp API call per
+	// participant — a 100+-member group would mean 100+ round-trips,
+	// a real rate-limit/ban risk.
+	PictureURL   string `json:"pictureURL,omitempty"`
 	IsAdmin      bool   `json:"isAdmin"`
 	IsSuperAdmin bool   `json:"isSuperAdmin"`
 }
