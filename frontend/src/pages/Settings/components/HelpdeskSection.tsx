@@ -1,5 +1,5 @@
 import React from "react";
-import { Headphones, Plus, XCircle } from "lucide-react";
+import { Headphones, Plus, XCircle, Tags } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
@@ -66,11 +66,14 @@ const HelpdeskSection: React.FC<HelpdeskSectionProps> = ({
 
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm font-semibold">Categorias ITIL da Triagem</CardTitle>
+        <CardTitle className="flex items-center gap-2 text-primary">
+          <Tags className="h-5 w-5" />
+          Categorias ITIL da Triagem
+        </CardTitle>
         <CardDescription>Gerencie as categorias padrão solicitadas aos usuários para abertura de novos incidentes</CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="flex gap-2 mb-4">
+      <CardContent className="space-y-4">
+        <div className="flex gap-2">
           <Input
             placeholder="Ex: Falha de Conexão, Redefinição de Senha"
             value={newCategory}
