@@ -74,7 +74,7 @@ func TestGenerateAccessToken_ValidSecret_ReturnsToken(t *testing.T) {
 
 func TestGenerateRefreshToken_NoSecret_ReturnsError(t *testing.T) {
 	unsetenv(t, "JWT_REFRESH_SECRET")
-	_, err := GenerateRefreshToken(JWTClaims{ID: 1, TenantID: uuid.New()})
+	_, err := GenerateRefreshToken(JWTClaims{ID: 1, TenantID: uuid.New()}, false)
 	if err == nil {
 		t.Fatal("expected error when JWT_REFRESH_SECRET is not set")
 	}
@@ -88,7 +88,7 @@ func TestGenerateRefreshToken_ValidSecret_ReturnsToken(t *testing.T) {
 		ID:           7,
 		TenantID:     tenantID,
 		TokenVersion: 3,
-	})
+	}, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
