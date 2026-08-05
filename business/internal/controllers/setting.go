@@ -84,7 +84,7 @@ func (sc *SettingController) UpdateSetting(c *gin.Context) {
 	}
 
 	// Value é *string (não binding:"required") para distinguir campo AUSENTE
-	// (erro) de string vazia EXPLÍCITA (remoção intencional de uma
+	// (erro) de string vazia EXPLÍCITA (usada de propósito para remover uma
 	// imagem/logo já salva via trash icon na UI) — um `string` simples com
 	// binding:"required" rejeitava as duas situações da mesma forma.
 	var req struct {
