@@ -4,8 +4,11 @@
 > real, CRUD, execução, evidência em S3, KPIs e frontend (listagem
 > redesenhada + tela de gestão) implementados e validados end-to-end (testes
 > automatizados contra Postgres real + verificação manual no browser: login,
-> criar/atribuir/executar/finalizar). Fase 1 (integração Helpdesk) ainda não
-> iniciada — ver §Fases de implementação.
+> criar/atribuir/executar/finalizar). ✅ Fase 1 concluída (2026-08-04, issues
+> #538/#541/#542/#543) — `sdk.WatinkCoreActivities` + Helpdesk cria Activity
+> ao abrir Protocol (Setting `helpdesk_auto_create_activity`), validada
+> contra Postgres real. Fase 2 (integração Pipeline/Deal) ainda não iniciada
+> — ver §Fases de implementação.
 
 ## Responsabilidade
 Entidade core (`Activity`) que modela execução de ordem de serviço em campo:
@@ -28,10 +31,22 @@ Helpdesk — o único acoplamento herdado era uma condição de exibição no me
   `activePlugins.includes("helpdesk")` e passa a usar
   `Can perform="activities:read"`, no mesmo padrão do item `/helpdesk`
   (`SidebarNav.tsx`).
-- **Vínculo com Helpdesk:** `Activity.ProtocolID *int` nullable — o Helpdesk,
-  ao criar/mover um `Protocol`, pode opcionalmente criar uma `Activity` via
-  função exposta pelo core (o plugin chama o core, nunca o inverso — mesmo
-  sentido de dependência do resto do sistema de plugins).
+- **Vínculo com Helpdesk (Fase 1, issue #538):** `Activity.ProtocolID *int`
+  nullable — ao **criar** um `Protocol` (não ao mover), com a Setting
+  `helpdesk_auto_create_activity=true`, o Helpdesk cria uma `Activity` via
+  `sdk.WatinkCoreActivities.CreateActivity` (interface opcional, type-assertion,
+  precedente `WatinkCoreScheduler`/ADR 0027) — o plugin chama o core, nunca o
+  inverso. Vale **com ou sem** `TicketID` no Protocol (política do tenant, não
+  do canal de origem). `coreImpl.CreateActivity` bypassa `activities:create`
+  deliberadamente (o sistema age em nome do Protocol, não há usuário HTTP
+  autenticado nesse ponto — ver ADR 0029 addendum). Sem `userID` resolvível
+  no contexto, a Activity nasce sem assignee, nunca é pulada. Falha na
+  criação é best-effort, nunca bloqueia o Protocol (mesmo padrão da
+  notificação WhatsApp em `helpdesk_protocols.go:206-224`).
+  **Fora desta fase:** a direção inversa (Activity agendada criar um
+  Protocol automaticamente) e o conceito de "observador" (colaborador
+  read-only do status) — ambos ficam para depois, ver §Integrações
+  mapeadas.
 - **Vínculo com Pipeline:** `Activity.DealID *int` nullable — mesma lógica,
   permite atividades de campo (instalação/vistoria/entrega) atreladas a um
   `Deal` sem exigir um `Protocol`.
@@ -192,7 +207,13 @@ Dois sinais distintos, não confundir:
   toast simples (`"Erro ao salvar item"`) sem re-tentativa.
 
 ## Integrações mapeadas (ordem de acoplamento crescente)
-1. **Helpdesk → Activity** (`ProtocolID`) — Fase 1.
+1. **Helpdesk → Activity** (`ProtocolID`) — Fase 1 (issue #538). Direção
+   estritamente `Protocol → Activity`. O inverso (Activity agendada gerar um
+   Protocol de visita técnica automaticamente) inverteria o sentido
+   plugin→core e fica para depois, provavelmente junto do trigger `activity`
+   do FlowBuilder (item 3 abaixo). "Observador" (colaborador read-only do
+   status de uma Activity) também não está nesta fase — não existe hoje no
+   model nem em RBAC; candidato a issue própria se confirmado.
 2. **Pipeline/Deal → Activity** (`DealID`) — Fase 2.
 3. **FlowBuilder** — Fase 3: trigger classe `event` ganha subtipo `activity`
    (dispara flow ao criar/finalizar Activity); `FlowRun.subjectType` ganha
@@ -223,8 +244,13 @@ Dois sinais distintos, não confundir:
     `PUT .../items/:itemId` para `isDone`/`value`). Na edição, o formulário
     mostra o checklist existente como leitura. Se isso virar necessidade
     real, requer uma issue nova com `POST/DELETE /activities/:id/items`.
-- **Fase 1:** integração Helpdesk (`ProtocolID`, criação opcional a partir de
-  um `Protocol`).
+- **Fase 1 — ✅ concluída (2026-08-04):** `sdk.WatinkCoreActivities` +
+  `sdk.ActivityInput` (interface opcional, type-assertion, precedente
+  `WatinkCoreScheduler`/ADR 0027); `coreImpl.CreateActivity` duplica
+  defaults/SLA (não importa `controllers`/`services`, evita ciclo); Setting
+  `helpdesk_auto_create_activity` (default `false`); Helpdesk cria a
+  Activity ao abrir um Protocol, com ou sem `TicketID`, best-effort. Issues
+  #538 (epic) → #541 (SDK) → #542 (wiring Helpdesk) → #543 (validação e2e).
 - **Fase 2:** integração Pipeline/Deal (`DealID`), assinatura do técnico
   (`technicianSignatureUrl`).
 - **Fase 3:** SSE de atribuição/conclusão, trigger `activity` no FlowBuilder.

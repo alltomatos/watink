@@ -2,7 +2,9 @@ package plugins
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -13,12 +15,38 @@ import (
 	"testing"
 
 	"github.com/alltomatos/watinkdev/business/internal/models"
+	"github.com/alltomatos/watinkdev/business/pkg/sdk"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"gorm.io/gorm"
 )
+
+// mockWatinkCoreWithActivities embeds MockWatinkCore and additionally
+// implements sdk.WatinkCoreActivities — a distinct type from MockWatinkCore
+// on purpose, so pre-existing tests that inject a plain MockWatinkCore keep
+// failing the type-assertion in handleCreateProtocol exactly as before
+// (they never expect CreateActivity to be called). Only tests that opt into
+// this type exercise the Fase 1 Activity path.
+type mockWatinkCoreWithActivities struct {
+	MockWatinkCore
+}
+
+func (m *mockWatinkCoreWithActivities) CreateActivity(ctx context.Context, tenantID uuid.UUID, input sdk.ActivityInput) (int, error) {
+	args := m.Called(ctx, tenantID, input)
+	return args.Int(0), args.Error(1)
+}
+
+// tenantOnlyMiddleware simula uma requisição sem userId no contexto (ex.:
+// chamada de automação/sistema) — diferente de tenantMiddleware, que sempre
+// injeta um userId.
+func tenantOnlyMiddleware(tenantID uuid.UUID) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set("tenantId", tenantID)
+		c.Next()
+	}
+}
 
 var protocolNumberPattern = regexp.MustCompile(`^\d{14}[A-Z]{4}$`)
 
@@ -174,6 +202,162 @@ func TestHandleCreateProtocol_WithoutTicketID_DoesNotNotify(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, w.Code, w.Body.String())
 	mc.AssertNotCalled(t, "SendTicketMessage", mock.Anything, mock.Anything, mock.Anything)
+}
+
+// ---- Fase 1 (issue #538/#542): Helpdesk cria Activity ----
+
+func TestHandleCreateProtocol_AutoCreateActivity_SettingDisabled_DoesNotCreate(t *testing.T) {
+	db := setupPluginTestDB(t)
+	tenantID := uuid.New()
+	contact := createTestContact(t, db, tenantID)
+	// helpdesk_auto_create_activity não configurada → default false.
+
+	mc := &mockWatinkCoreWithActivities{}
+	mc.On("GetDB").Return(db)
+	mc.On("EmitSocketEvent", mock.Anything, mock.Anything, mock.Anything).Return()
+
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(tenantMiddleware(tenantID, 1))
+	r.POST("/protocols", handleCreateProtocol(mc))
+
+	body, _ := json.Marshal(map[string]interface{}{"subject": "x", "contactId": contact.ID})
+	req := httptest.NewRequest(http.MethodPost, "/protocols", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code, w.Body.String())
+	mc.AssertNotCalled(t, "CreateActivity", mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestHandleCreateProtocol_AutoCreateActivity_WithTicketID_CreatesAssignedActivity(t *testing.T) {
+	db := setupPluginTestDB(t)
+	tenantID := uuid.New()
+	contact := createTestContact(t, db, tenantID)
+	ticket := models.Ticket{ContactID: contact.ID, WhatsappID: 1, TenantID: tenantID}
+	if err := db.Create(&ticket).Error; err != nil {
+		t.Fatalf("failed to create ticket: %v", err)
+	}
+	if err := db.Create(&models.Setting{Key: "helpdesk_auto_create_activity", Value: "true", TenantID: tenantID}).Error; err != nil {
+		t.Fatalf("failed to create setting: %v", err)
+	}
+
+	mc := &mockWatinkCoreWithActivities{}
+	mc.On("GetDB").Return(db)
+	mc.On("EmitSocketEvent", mock.Anything, mock.Anything, mock.Anything).Return()
+	mc.On("SendTicketMessage", tenantID, ticket.ID, mock.AnythingOfType("string")).Return(nil)
+	mc.On("CreateActivity", mock.Anything, tenantID, mock.MatchedBy(func(in sdk.ActivityInput) bool {
+		return in.ProtocolID != nil && len(in.AssigneeIDs) == 1 && in.AssigneeIDs[0] == 1
+	})).Return(1, nil)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(tenantMiddleware(tenantID, 1))
+	r.POST("/protocols", handleCreateProtocol(mc))
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"subject":   "Não recebo notificações",
+		"contactId": contact.ID,
+		"ticketId":  ticket.ID,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/protocols", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code, w.Body.String())
+	mc.AssertCalled(t, "CreateActivity", mock.Anything, tenantID, mock.Anything)
+}
+
+func TestHandleCreateProtocol_AutoCreateActivity_WithoutTicketID_StillCreatesActivity(t *testing.T) {
+	db := setupPluginTestDB(t)
+	tenantID := uuid.New()
+	contact := createTestContact(t, db, tenantID)
+	if err := db.Create(&models.Setting{Key: "helpdesk_auto_create_activity", Value: "true", TenantID: tenantID}).Error; err != nil {
+		t.Fatalf("failed to create setting: %v", err)
+	}
+
+	mc := &mockWatinkCoreWithActivities{}
+	mc.On("GetDB").Return(db)
+	mc.On("EmitSocketEvent", mock.Anything, mock.Anything, mock.Anything).Return()
+	mc.On("CreateActivity", mock.Anything, tenantID, mock.Anything).Return(1, nil)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(tenantMiddleware(tenantID, 1))
+	r.POST("/protocols", handleCreateProtocol(mc))
+
+	// Sem ticketId — fluxo standalone /helpdesk.
+	body, _ := json.Marshal(map[string]interface{}{"subject": "x", "contactId": contact.ID})
+	req := httptest.NewRequest(http.MethodPost, "/protocols", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code, w.Body.String())
+	mc.AssertCalled(t, "CreateActivity", mock.Anything, tenantID, mock.Anything)
+	mc.AssertNotCalled(t, "SendTicketMessage", mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestHandleCreateProtocol_AutoCreateActivity_NoUserID_CreatesUnassigned(t *testing.T) {
+	db := setupPluginTestDB(t)
+	tenantID := uuid.New()
+	contact := createTestContact(t, db, tenantID)
+	if err := db.Create(&models.Setting{Key: "helpdesk_auto_create_activity", Value: "true", TenantID: tenantID}).Error; err != nil {
+		t.Fatalf("failed to create setting: %v", err)
+	}
+
+	mc := &mockWatinkCoreWithActivities{}
+	mc.On("GetDB").Return(db)
+	mc.On("EmitSocketEvent", mock.Anything, mock.Anything, mock.Anything).Return()
+	mc.On("CreateActivity", mock.Anything, tenantID, mock.MatchedBy(func(in sdk.ActivityInput) bool {
+		return len(in.AssigneeIDs) == 0
+	})).Return(1, nil)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(tenantOnlyMiddleware(tenantID)) // sem userId no contexto
+	r.POST("/protocols", handleCreateProtocol(mc))
+
+	body, _ := json.Marshal(map[string]interface{}{"subject": "x", "contactId": contact.ID})
+	req := httptest.NewRequest(http.MethodPost, "/protocols", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code, w.Body.String())
+	mc.AssertCalled(t, "CreateActivity", mock.Anything, tenantID, mock.Anything)
+}
+
+func TestHandleCreateProtocol_AutoCreateActivity_FailureIsBestEffort_ProtocolPersists(t *testing.T) {
+	db := setupPluginTestDB(t)
+	tenantID := uuid.New()
+	contact := createTestContact(t, db, tenantID)
+	if err := db.Create(&models.Setting{Key: "helpdesk_auto_create_activity", Value: "true", TenantID: tenantID}).Error; err != nil {
+		t.Fatalf("failed to create setting: %v", err)
+	}
+
+	mc := &mockWatinkCoreWithActivities{}
+	mc.On("GetDB").Return(db)
+	mc.On("EmitSocketEvent", mock.Anything, mock.Anything, mock.Anything).Return()
+	mc.On("CreateActivity", mock.Anything, tenantID, mock.Anything).Return(0, errors.New("db unavailable"))
+
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(tenantMiddleware(tenantID, 1))
+	r.POST("/protocols", handleCreateProtocol(mc))
+
+	body, _ := json.Marshal(map[string]interface{}{"subject": "x", "contactId": contact.ID})
+	req := httptest.NewRequest(http.MethodPost, "/protocols", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code, w.Body.String())
+	var count int64
+	db.Model(&models.Protocol{}).Where(`"tenantId" = ?`, tenantID).Count(&count)
+	assert.Equal(t, int64(1), count, "Protocol must persist even when Activity creation fails")
 }
 
 func TestHandleCreateProtocol_UnknownContact_Returns422(t *testing.T) {

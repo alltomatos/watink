@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -212,6 +213,122 @@ func (c *coreImpl) SendTicketMessage(tenantID uuid.UUID, ticketID int, body stri
 	}
 
 	return nil
+}
+
+// activitySLAMinutesFor/activityDefaultSLAMinutes/CalculateActivitySLADueAt
+// duplicate controllers.ActivitySLAConfig/CalculateSLADueAt on purpose —
+// internal/controllers and internal/services already import internal/plugins
+// (plugin_manager.go, deal.go, event_listener.go), so the reverse import
+// here would cycle the build. See ADR 0029 addendum ("Fase 1") for the full
+// rationale; a parity test (TestCreateActivitySLAParity) compares this copy
+// against controllers.CalculateSLADueAt so a future edit to one doesn't
+// silently diverge from the other.
+type activitySLAMinutes struct {
+	Low    int `json:"low"`
+	Medium int `json:"medium"`
+	High   int `json:"high"`
+	Urgent int `json:"urgent"`
+}
+
+func activityDefaultSLAMinutes() activitySLAMinutes {
+	return activitySLAMinutes{Low: 4320, Medium: 1440, High: 480, Urgent: 120}
+}
+
+func (cfg activitySLAMinutes) minutesFor(priority string) int {
+	switch priority {
+	case "low":
+		return cfg.Low
+	case "high":
+		return cfg.High
+	case "urgent":
+		return cfg.Urgent
+	default:
+		return cfg.Medium
+	}
+}
+
+// loadActivitySLAMinutes mirrors controllers.loadActivitySLAConfig — same
+// Setting key, same fallback-to-default on missing/invalid JSON.
+func loadActivitySLAMinutes(db *gorm.DB, tenantID uuid.UUID) activitySLAMinutes {
+	var setting models.Setting
+	if err := db.Session(&gorm.Session{NewDB: true}).
+		Where(`key = ? AND "tenantId" = ?`, "activities_sla_config", tenantID).First(&setting).Error; err != nil {
+		return activityDefaultSLAMinutes()
+	}
+	var cfg activitySLAMinutes
+	if err := json.Unmarshal([]byte(setting.Value), &cfg); err != nil {
+		return activityDefaultSLAMinutes()
+	}
+	return cfg
+}
+
+// calculateActivitySLADueAt mirrors controllers.CalculateSLADueAt exactly —
+// see TestCreateActivitySLAParity for the cross-package check.
+func calculateActivitySLADueAt(cfg activitySLAMinutes, priority string, from time.Time) *time.Time {
+	due := from.Add(time.Duration(cfg.minutesFor(priority)) * time.Minute)
+	return &due
+}
+
+func normalizeActivityPriority(p string) string {
+	switch p {
+	case "low", "high", "urgent":
+		return p
+	default:
+		return "medium"
+	}
+}
+
+// CreateActivity implements sdk.WatinkCoreActivities (ADR 0029 addendum).
+// Deliberately bypasses the activities:create RBAC check — the caller is
+// the system acting on behalf of a just-created Protocol, not an
+// authenticated HTTP request against /activities, so there is no user
+// session to check permission against. AssigneeIDs may be empty (no
+// resolvable human user) — the Activity is created unassigned rather than
+// failing or being skipped.
+func (c *coreImpl) CreateActivity(ctx context.Context, tenantID uuid.UUID, input sdk.ActivityInput) (int, error) {
+	priority := normalizeActivityPriority(input.Priority)
+	now := time.Now()
+	slaCfg := loadActivitySLAMinutes(c.db, tenantID)
+
+	activity := models.Activity{
+		TenantID:       tenantID,
+		Title:          input.Title,
+		Description:    input.Description,
+		Status:         "pending",
+		Priority:       priority,
+		ProtocolID:     input.ProtocolID,
+		LastActivityAt: now,
+		SlaDueAt:       calculateActivitySLADueAt(slaCfg, priority, now),
+	}
+
+	err := c.db.Session(&gorm.Session{NewDB: true}).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&activity).Error; err != nil {
+			return err
+		}
+		if len(input.AssigneeIDs) == 0 {
+			return nil
+		}
+		var validUsers []models.User
+		if err := tx.Where(`id IN ? AND "tenantId" = ?`, input.AssigneeIDs, tenantID).Find(&validUsers).Error; err != nil {
+			return err
+		}
+		if len(validUsers) == 0 {
+			return nil
+		}
+		assignees := make([]models.ActivityAssignee, 0, len(validUsers))
+		for _, u := range validUsers {
+			assignees = append(assignees, models.ActivityAssignee{
+				ActivityID: activity.ID,
+				UserID:     u.ID,
+				TenantID:   u.TenantID,
+			})
+		}
+		return tx.Create(&assignees).Error
+	})
+	if err != nil {
+		return 0, err
+	}
+	return activity.ID, nil
 }
 
 // NewPluginManager builds the manager via constructor injection. registry

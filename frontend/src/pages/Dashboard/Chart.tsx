@@ -43,28 +43,30 @@ const Chart: React.FC = () => {
         >
           <defs>
             <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.8} />
-              <stop offset="95%" stopColor="var(--primary)" stopOpacity={0.1} />
+              <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8} />
+              <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.1} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-          <XAxis dataKey="time" stroke="var(--muted-foreground)" tick={{ fontSize: 12 }} />
-          <YAxis type="number" allowDecimals={false} stroke="var(--muted-foreground)">
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+          <XAxis dataKey="time" stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 12 }} />
+          <YAxis type="number" allowDecimals={false} stroke="hsl(var(--muted-foreground))">
             <Label
               angle={270}
               position="left"
-              style={{ textAnchor: "middle", fill: "var(--foreground)", fontSize: 12 }}
+              style={{ textAnchor: "middle", fill: "hsl(var(--foreground))", fontSize: 12 }}
             >
               Tickets
             </Label>
           </YAxis>
           <Tooltip
-            cursor={{ fill: "var(--muted)" }}
+            cursor={{ fill: "hsl(var(--muted))", opacity: 0.5 }}
+            labelFormatter={(label) => `${label}h`}
+            formatter={(value: number) => [value, "Tickets"]}
             contentStyle={{
-              backgroundColor: "var(--popover)",
-              border: "1px solid var(--border)",
+              backgroundColor: "hsl(var(--popover))",
+              border: "1px solid hsl(var(--border))",
               borderRadius: "var(--radius)",
-              color: "var(--popover-foreground)",
+              color: "hsl(var(--popover-foreground))",
             }}
           />
           <Bar dataKey="amount" fill="url(#colorAmount)" radius={[8, 8, 0, 0]} />

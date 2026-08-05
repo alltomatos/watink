@@ -12,6 +12,8 @@ import (
 	"github.com/alltomatos/watinkdev/business/pkg/auth"
 	"github.com/alltomatos/watinkdev/business/pkg/sdk"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 // publicProtocolURL builds the absolute link to the public protocol tracking
@@ -223,6 +225,28 @@ func handleCreateProtocol(core sdk.WatinkCore) gin.HandlerFunc {
 			}
 		}
 
+		// Best-effort Activity creation (Fase 1, issue #538/#542) — mesmo
+		// padrão best-effort da notificação WhatsApp acima, mas SEM o guard
+		// de req.TicketID: helpdesk_auto_create_activity é política do
+		// tenant, não característica do canal de origem — vale tanto para
+		// protocolos abertos a partir de um ticket quanto pela tela
+		// standalone /helpdesk.
+		if activities, ok := core.(sdk.WatinkCoreActivities); ok && helpdeskAutoCreateActivityEnabled(db, tenantID) {
+			var assigneeIDs []int
+			if userID != nil {
+				assigneeIDs = []int{*userID}
+			}
+			if _, err := activities.CreateActivity(c.Request.Context(), tenantID, sdk.ActivityInput{
+				Title:       fmt.Sprintf("Protocolo #%s — %s", protocol.ProtocolNumber, protocol.Subject),
+				Description: protocol.Description,
+				Priority:    protocol.Priority,
+				ProtocolID:  &protocol.ID,
+				AssigneeIDs: assigneeIDs,
+			}); err != nil {
+				log.Printf("[handleCreateProtocol] failed to create activity for protocol %d: %v", protocol.ID, err)
+			}
+		}
+
 		c.JSON(http.StatusCreated, toDetailDTO(protocol, nil))
 	}
 }
@@ -326,6 +350,23 @@ func handleUpdateProtocol(core sdk.WatinkCore) gin.HandlerFunc {
 		db.Preload("User").Where(`"protocolId" = ?`, protocol.ID).Order(`"createdAt" ASC`).Find(&history)
 		c.JSON(http.StatusOK, toDetailDTO(protocol, history))
 	}
+}
+
+// helpdeskAutoCreateActivityEnabled lê a Setting helpdesk_auto_create_activity
+// do tenant — ausência ou valor diferente de "true" (mesma convenção de
+// aiPipelineEnabled em controllers/pipeline.go) cai no default false: por
+// padrão, abrir um Protocol NÃO cria Activity. Session(NewDB:true) porque db
+// já foi usado em queries anteriores na mesma requisição (Contact lookup,
+// Protocol/ProtocolLog create) — reusar o handle sem sessão nova acumula
+// Where e faz esta leitura casar zero linhas (mesmo bug documentado em
+// activity_sla.go).
+func helpdeskAutoCreateActivityEnabled(db *gorm.DB, tenantID uuid.UUID) bool {
+	var setting models.Setting
+	if err := db.Session(&gorm.Session{NewDB: true}).
+		Where(`key = ? AND "tenantId" = ?`, "helpdesk_auto_create_activity", tenantID).First(&setting).Error; err != nil {
+		return false
+	}
+	return setting.Value == "true"
 }
 
 // userIDFromGinContext lê o userId numérico já injetado por middleware.IsAuth

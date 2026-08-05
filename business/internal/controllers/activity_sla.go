@@ -57,9 +57,15 @@ func (cfg ActivitySLAConfig) minutesFor(priority string) int {
 	}
 }
 
-// CalculateSLADueAt é o ÚNICO ponto de verdade do cálculo de slaDueAt —
-// consumido pelo CRUD (POST /activities, PUT /activities/:id) e pelos KPIs.
-// Nunca reimplementar este cálculo em outro lugar (ADR 0029).
+// CalculateSLADueAt é o ÚNICO ponto de verdade do cálculo de slaDueAt para
+// chamadas HTTP — consumido pelo CRUD (POST /activities, PUT /activities/:id)
+// e pelos KPIs. Nunca reimplementar este cálculo em outro lugar dentro deste
+// pacote. A ÚNICA exceção documentada é internal/plugins/manager.go
+// (coreImpl.CreateActivity, sdk.WatinkCoreActivities) — duplica esta função
+// porque internal/plugins não pode importar internal/controllers (ciclo: este
+// pacote já importa internal/plugins). Ver ADR 0029, addendum "Fase 1", e
+// plugins.TestCreateActivitySLAParity para o teste que evita as duas cópias
+// divergirem em silêncio.
 func CalculateSLADueAt(cfg ActivitySLAConfig, priority string, from time.Time) *time.Time {
 	due := from.Add(time.Duration(cfg.minutesFor(priority)) * time.Minute)
 	return &due
