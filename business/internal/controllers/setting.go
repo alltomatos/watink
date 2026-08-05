@@ -83,15 +83,23 @@ func (sc *SettingController) UpdateSetting(c *gin.Context) {
 		return
 	}
 
+	// Value é *string (não binding:"required") para distinguir campo AUSENTE
+	// (erro) de string vazia EXPLÍCITA (usada de propósito para remover uma
+	// imagem/logo já salva via trash icon na UI) — um `string` simples com
+	// binding:"required" rejeitava as duas situações da mesma forma.
 	var req struct {
-		Value string `json:"value" binding:"required"`
+		Value *string `json:"value"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.RespondWithBindError(c, err)
 		return
 	}
+	if req.Value == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "field 'value' is required"})
+		return
+	}
 
-	value, err := utils.ValidateStringField(req.Value, "value", 65535)
+	value, err := utils.ValidateStringField(*req.Value, "value", 65535)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

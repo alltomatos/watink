@@ -120,6 +120,24 @@ func TestSettingController_UpdateSetting_MissingValue(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
+func TestSettingController_UpdateSetting_EmptyValue_AllowsClearingSetting(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := setupSettingTestDB(t)
+	tenantID := uuid.New()
+
+	ctrl := NewSettingController(&mockSettingRepo{}, nil)
+	payload, _ := json.Marshal(map[string]string{"value": ""})
+	c, w := setupSettingContext(t, db, tenantID, "PUT", "/settings/systemLogo", payload)
+	c.Params = gin.Params{{Key: "key", Value: "systemLogo"}}
+
+	ctrl.UpdateSetting(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var s map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &s))
+	assert.Equal(t, "", s["value"])
+}
+
 func TestSettingController_GetPublicSettings_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	repo := &mockSettingRepo{

@@ -35,7 +35,6 @@ export interface UseSettingsReturn {
   setNewCategory: (v: string) => void;
   getSettingValue: (key: string) => string;
   handleUpdateSetting: (key: string, value: string) => Promise<void>;
-  handleImageUpload: (key: string, file: File | undefined) => Promise<void>;
   handleLanguageChange: (lang: string) => Promise<void>;
   handleUpdateSla: (priority: string, value: string) => Promise<void>;
   handleAddCategory: () => Promise<void>;
@@ -130,30 +129,6 @@ export const useSettings = (): UseSettingsReturn => {
     }
   };
 
-  const handleImageUpload = async (key: string, file: File | undefined) => {
-    if (!file) return;
-    try {
-      const base64String = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = (error) => reject(error);
-      });
-      await handleUpdateSetting(key, base64String);
-      if (key === "systemFavicon") {
-        let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
-        if (!link) {
-          link = document.createElement("link");
-          link.rel = "icon";
-          document.head.appendChild(link);
-        }
-        link.href = base64String;
-      }
-    } catch (err) {
-      toastError(err);
-    }
-  };
-
   const handleLanguageChange = async (lang: string) => {
     await handleUpdateSetting("language", lang);
     i18n.changeLanguage(lang);
@@ -196,7 +171,6 @@ export const useSettings = (): UseSettingsReturn => {
     setNewCategory,
     getSettingValue,
     handleUpdateSetting,
-    handleImageUpload,
     handleLanguageChange,
     handleUpdateSla,
     handleAddCategory,

@@ -42,7 +42,6 @@ const Settings: React.FC = () => {
     setNewCategory,
     getSettingValue,
     handleUpdateSetting,
-    handleImageUpload,
     handleLanguageChange,
     handleUpdateSla,
     handleAddCategory,
@@ -88,7 +87,7 @@ const Settings: React.FC = () => {
                 <GeneralSection {...sharedProps} handleLanguageChange={handleLanguageChange} />
               )}
               {activeSection === "personalization" && (
-                <PersonalizationSection {...sharedProps} handleImageUpload={handleImageUpload} />
+                <PersonalizationSection {...sharedProps} />
               )}
               {activeSection === "smtp" && activePlugins.includes("smtp") && (
                 <SMTPSection {...sharedProps} />
