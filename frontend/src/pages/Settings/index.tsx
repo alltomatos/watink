@@ -22,8 +22,6 @@ import { useSettings } from "./hooks/useSettings";
 import GeneralSection from "./components/GeneralSection";
 import CompanySection from "./components/CompanySection";
 import PersonalizationSection from "./components/PersonalizationSection";
-import SMTPSection from "./components/SMTPSection";
-import PAPISection from "./components/PAPISection";
 import HelpdeskSection from "./components/HelpdeskSection";
 import ActivitiesSection from "./components/ActivitiesSection";
 import AiGatewaysSection from "./components/AiGatewaysSection";
@@ -92,12 +90,6 @@ const Settings: React.FC = () => {
               )}
               {activeSection === "personalization" && (
                 <PersonalizationSection {...sharedProps} />
-              )}
-              {activeSection === "smtp" && activePlugins.includes("smtp") && (
-                <SMTPSection {...sharedProps} />
-              )}
-              {activeSection === "papi" && activePlugins.includes("engine-papi") && (
-                <PAPISection {...sharedProps} />
               )}
               {activeSection === "helpdesk" && activePlugins.includes("helpdesk") && (
                 <HelpdeskSection
