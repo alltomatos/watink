@@ -94,6 +94,16 @@ func (p *Provider) SendMedia(ctx context.Context, whatsapp models.Whatsapp, to, 
 	})
 }
 
+// SendPresence implements domain.PresenceEngine, publishing chat.presence to
+// engine-go. state is "composing" or "paused".
+func (p *Provider) SendPresence(ctx context.Context, whatsapp models.Whatsapp, to, state string) error {
+	return p.sendCommand(whatsapp, "chat.presence", map[string]interface{}{
+		"sessionId": whatsapp.ID,
+		"to":        to,
+		"state":     state,
+	})
+}
+
 func (p *Provider) sendCommand(whatsapp models.Whatsapp, commandType string, payload map[string]interface{}) error {
 	command := map[string]interface{}{"type": commandType, "payload": payload}
 	routingKey := fmt.Sprintf("wbot.%s.%d.%s", whatsapp.TenantID, whatsapp.ID, commandType)
@@ -225,3 +235,4 @@ func (p *Provider) pickGroupProxy(whatsapp models.Whatsapp) (*models.Proxy, erro
 }
 
 var _ domain.WhatsAppEngine = (*Provider)(nil)
+var _ domain.PresenceEngine = (*Provider)(nil)

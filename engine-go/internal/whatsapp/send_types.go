@@ -41,6 +41,15 @@ type ReactionCommandPayload struct {
 	Reaction     string `json:"reaction"`
 }
 
+// PresenceCommandPayload sets the chat-composing indicator ("digitando...")
+// for one chat. State is "composing" (start typing) or "paused" (stop —
+// sent automatically before the real message goes out, or on cancel).
+type PresenceCommandPayload struct {
+	SessionID int    `json:"sessionId"`
+	To        string `json:"to"`
+	State     string `json:"state"`
+}
+
 type MarkReadCommandPayload struct {
 	ChatJID    string   `json:"chatJid"`
 	SenderJID  string   `json:"senderJid"`
