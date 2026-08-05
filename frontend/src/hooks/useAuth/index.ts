@@ -165,7 +165,7 @@ const useAuth = (): UseAuthResult => {
     try {
       const { data } = await api.post<{ token: string; user: AuthUser }>(
         "/auth/login",
-        userData
+        { ...userData, rememberMe }
       );
       const tokenStr = JSON.stringify(data.token);
       if (rememberMe) {
