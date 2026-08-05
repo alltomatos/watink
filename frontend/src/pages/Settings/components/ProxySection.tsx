@@ -28,6 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "../../../components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../../components/ui/card";
 
 import api from "../../../services/api";
 import toastError from "../../../errors/toastError";
@@ -205,99 +206,102 @@ const ProxySection: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-foreground">Proxy</h2>
-          <p className="text-sm text-muted-foreground">
-            Pool de proxies para isolamento de IP por conexão (anti-ban). Atrele um proxy a uma conexão na página de Conexões.
+    <div className="space-y-6">
+      <Card>
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 space-y-0">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-primary">
+              <Network className="h-5 w-5" />
+              Proxy
+            </CardTitle>
+            <CardDescription>
+              Pool de proxies para isolamento de IP por conexão (anti-ban). Atrele um proxy a uma conexão na página de Conexões.
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setConnGroupsOpen(true)}>
+              <Network className="mr-2 h-4 w-4" /> Grupos de Conexões
+            </Button>
+            <Button variant="outline" onClick={handleTestAll} disabled={testingAll}>
+              {testingAll ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Gauge className="mr-2 h-4 w-4" />}
+              Testar todos
+            </Button>
+            <Button variant="outline" className="text-destructive hover:text-destructive" onClick={handleDeleteAll} disabled={deletingAll}>
+              {deletingAll ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+              Deletar todos
+            </Button>
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" /> Importar em massa
+            </Button>
+            <Button onClick={openCreate}>
+              <Plus className="mr-2 h-4 w-4" /> Novo proxy
+            </Button>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          {/* Filtros + contagem + atribuição em massa por grupo */}
+          <div className="flex flex-col lg:flex-row lg:items-end gap-3">
+            <div className="relative flex-1 min-w-[180px]">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar por host, rótulo, cidade, usuário…"
+                className="pl-8"
+              />
+            </div>
+            <div className="w-full sm:w-48 space-y-1">
+              <Label className="text-xs text-muted-foreground">Cidade</Label>
+              <Select value={cityFilter} onValueChange={setCityFilter}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as cidades</SelectItem>
+                  {cities.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-full sm:w-40 space-y-1">
+              <Label className="text-xs text-muted-foreground">Status</Label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="active">Ativo</SelectItem>
+                  <SelectItem value="isolated">Isolado</SelectItem>
+                  <SelectItem value="disabled">Desativado</SelectItem>
+                  <SelectItem value="banned">Banido</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              variant="outline"
+              disabled={filtered.length === 0}
+              onClick={() => { setAssignGroupId("none"); setAssignOpen(true); }}
+              title="Atribuir os proxies filtrados a um grupo"
+            >
+              <FolderPlus className="mr-2 h-4 w-4" /> Atribuir ao grupo
+            </Button>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            Mostrando <strong>{filtered.length}</strong> de <strong>{proxies.length}</strong> proxies
+            {filterActive && cityFilter !== "all" ? ` em ${cityFilter}` : ""}.
           </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => setConnGroupsOpen(true)}>
-            <Network className="mr-2 h-4 w-4" /> Grupos de Conexões
-          </Button>
-          <Button variant="outline" onClick={handleTestAll} disabled={testingAll}>
-            {testingAll ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Gauge className="mr-2 h-4 w-4" />}
-            Testar todos
-          </Button>
-          <Button variant="outline" className="text-destructive hover:text-destructive" onClick={handleDeleteAll} disabled={deletingAll}>
-            {deletingAll ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-            Deletar todos
-          </Button>
-          <Button variant="outline" onClick={() => setImportOpen(true)}>
-            <Upload className="mr-2 h-4 w-4" /> Importar em massa
-          </Button>
-          <Button onClick={openCreate}>
-            <Plus className="mr-2 h-4 w-4" /> Novo proxy
-          </Button>
-        </div>
-      </div>
 
-      <ProxyGroupsPanel onChanged={() => { fetchProxies(); fetchGroups(); }} />
-
-      {/* Filtros + contagem + atribuição em massa por grupo */}
-      <div className="flex flex-col lg:flex-row lg:items-end gap-3">
-        <div className="relative flex-1 min-w-[180px]">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por host, rótulo, cidade, usuário…"
-            className="pl-8"
-          />
-        </div>
-        <div className="w-full sm:w-48 space-y-1">
-          <Label className="text-xs text-muted-foreground">Cidade</Label>
-          <Select value={cityFilter} onValueChange={setCityFilter}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as cidades</SelectItem>
-              {cities.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="w-full sm:w-40 space-y-1">
-          <Label className="text-xs text-muted-foreground">Status</Label>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="active">Ativo</SelectItem>
-              <SelectItem value="isolated">Isolado</SelectItem>
-              <SelectItem value="disabled">Desativado</SelectItem>
-              <SelectItem value="banned">Banido</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <Button
-          variant="outline"
-          disabled={filtered.length === 0}
-          onClick={() => { setAssignGroupId("none"); setAssignOpen(true); }}
-          title="Atribuir os proxies filtrados a um grupo"
-        >
-          <FolderPlus className="mr-2 h-4 w-4" /> Atribuir ao grupo
-        </Button>
-      </div>
-
-      <p className="text-xs text-muted-foreground">
-        Mostrando <strong>{filtered.length}</strong> de <strong>{proxies.length}</strong> proxies
-        {filterActive && cityFilter !== "all" ? ` em ${cityFilter}` : ""}.
-      </p>
-
-      {loading ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        </div>
-      ) : proxies.length === 0 ? (
-        <div className="text-center text-sm text-muted-foreground py-16">
-          Nenhum proxy cadastrado. Importe sua lista ou crie um manualmente.
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="text-center text-sm text-muted-foreground py-16">
-          Nenhum proxy corresponde ao filtro.
-        </div>
-      ) : (
+          {loading ? (
+            <div className="flex justify-center py-16">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : proxies.length === 0 ? (
+            <div className="text-center text-sm text-muted-foreground py-16">
+              Nenhum proxy cadastrado. Importe sua lista ou crie um manualmente.
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center text-sm text-muted-foreground py-16">
+              Nenhum proxy corresponde ao filtro.
+            </div>
+          ) : (
         <div className="rounded-2xl shadow-[0px_4px_20px_rgba(0,0,0,0.08)] bg-card overflow-hidden">
           <Table>
             <TableHeader>
@@ -367,7 +371,11 @@ const ProxySection: React.FC = () => {
             </TableBody>
           </Table>
         </div>
-      )}
+          )}
+        </CardContent>
+      </Card>
+
+      <ProxyGroupsPanel onChanged={() => { fetchProxies(); fetchGroups(); }} />
 
       <ProxyFormDialog open={formOpen} proxy={editing} groups={groups} onClose={() => setFormOpen(false)} onSaved={fetchProxies} />
       <ProxyImportDialog open={importOpen} groups={groups} onClose={() => setImportOpen(false)} onImported={fetchProxies} />
