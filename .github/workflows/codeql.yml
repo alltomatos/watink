@@ -3,8 +3,14 @@ name: CodeQL SAST
 on:
   push:
     branches: [main, develop]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
   pull_request:
     branches: [main, develop]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
   schedule:
     - cron: '0 6 * * 1' # weekly Monday 06:00 UTC
 
