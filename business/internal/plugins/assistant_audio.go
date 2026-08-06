@@ -3,6 +3,7 @@ package plugins
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -87,12 +88,30 @@ func (r *AssistantRuntime) transcribeInboundAudio(ctx context.Context, st *flow.
 // message.media event — turning the pipeline's normal async round-trip into
 // a bounded synchronous call for this one caller.
 func (r *AssistantRuntime) downloadInboundAudio(ctx context.Context, st *flow.ExecState) ([]byte, string, error) {
+	// engine-go só consegue baixar a mídia a partir do proto serializado
+	// capturado no recebimento (mediaProto, gravado em Message.DataJson) — o
+	// mesmo que o botão "baixar" da UI envia (message_media.go). Sem ele,
+	// downloadableFromProto monta uma AudioMessage vazia e o download falha
+	// silenciosamente com "no url present".
+	var msg models.Message
+	if err := r.db.Where(`id = ? AND "tenantId" = ?`, st.MessageID, st.TenantID).First(&msg).Error; err != nil {
+		return nil, "", fmt.Errorf("mensagem de áudio não encontrada: %w", err)
+	}
+	var data struct {
+		MediaProto string `json:"mediaProto"`
+	}
+	_ = json.Unmarshal([]byte(msg.DataJson), &data)
+	if data.MediaProto == "" {
+		return nil, "", fmt.Errorf("mensagem de áudio sem proto de mídia (não é baixável)")
+	}
+
 	command := map[string]interface{}{
 		"type": "media.download",
 		"payload": map[string]interface{}{
-			"sessionId": st.Ticket.WhatsappID,
-			"messageId": st.MessageID,
-			"mediaType": st.MediaType,
+			"sessionId":  st.Ticket.WhatsappID,
+			"messageId":  st.MessageID,
+			"mediaType":  st.MediaType,
+			"mediaProto": data.MediaProto,
 		},
 	}
 	routingKey := fmt.Sprintf("wbot.%s.%d.media.download", st.TenantID.String(), st.Ticket.WhatsappID)
