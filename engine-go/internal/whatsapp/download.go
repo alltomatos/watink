@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log"
+	"time"
 
 	"go.mau.fi/whatsmeow"
 	waProto "go.mau.fi/whatsmeow/binary/proto"
@@ -44,12 +45,20 @@ func (s *WhatsAppService) DownloadMedia(sessionID int, tenantID string, payload 
 		return err
 	}
 
+	// Instrumentação temporária de diagnóstico (round-trip do download de
+	// mídia medido em ~90-120s em homolog, sem explicação de rede/fila já
+	// descartadas) — mede exatamente o tempo gasto DENTRO da chamada
+	// whatsmeow, isolando-a do resto do pipeline (AMQP, mediawait etc.).
+	downloadStart := time.Now()
+	log.Printf("[media.download] iniciando client.Download messageId=%s mediaType=%s", payload.MessageID, payload.MediaType)
 	data, err := client.Download(context.Background(), dl)
+	elapsed := time.Since(downloadStart)
 	if err != nil {
-		log.Printf("Failed to download media for message %s: %v", payload.MessageID, err)
+		log.Printf("[media.download] client.Download FALHOU messageId=%s apos %s: %v", payload.MessageID, elapsed, err)
 		s.publishMediaDownloaded(tenantID, sessionID, payload.MessageID, "", mimeType, err.Error())
 		return fmt.Errorf("download media: %w", err)
 	}
+	log.Printf("[media.download] client.Download OK messageId=%s bytes=%d em %s", payload.MessageID, len(data), elapsed)
 
 	s.publishMediaDownloaded(tenantID, sessionID, payload.MessageID, base64.StdEncoding.EncodeToString(data), mimeType, "")
 	return nil
