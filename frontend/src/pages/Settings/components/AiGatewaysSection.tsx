@@ -318,8 +318,6 @@ const AiGatewaysSection: React.FC = () => {
                                 <Input
                                     list="chat-model-suggestions"
                                     autoComplete="off"
-                                    data-lpignore="true"
-                                    data-1p-ignore=""
                                     value={form.model}
                                     onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))}
                                     placeholder="gpt-4o"
@@ -367,8 +365,6 @@ const AiGatewaysSection: React.FC = () => {
                                 <Input
                                     list="transcription-model-suggestions"
                                     autoComplete="off"
-                                    data-lpignore="true"
-                                    data-1p-ignore=""
                                     value={form.transcriptionModel ?? ""}
                                     onChange={(e) => setForm((f) => ({ ...f, transcriptionModel: e.target.value }))}
                                     placeholder="whisper-1"
@@ -393,8 +389,6 @@ const AiGatewaysSection: React.FC = () => {
                                 <Input
                                     list="speech-model-suggestions"
                                     autoComplete="off"
-                                    data-lpignore="true"
-                                    data-1p-ignore=""
                                     value={form.speechModel ?? ""}
                                     onChange={(e) => setForm((f) => ({ ...f, speechModel: e.target.value }))}
                                     placeholder="tts-1"
@@ -421,9 +415,6 @@ const AiGatewaysSection: React.FC = () => {
                             </Label>
                             <Input
                                 type="password"
-                                autoComplete="new-password"
-                                data-lpignore="true"
-                                data-1p-ignore=""
                                 value={form.apiKey ?? ""}
                                 onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))}
                                 placeholder={editing?.hasApiKey ? "••••••••" : "sk-..."}
