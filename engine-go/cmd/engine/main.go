@@ -227,7 +227,19 @@ func handleCommand(d amqp.Delivery, svc *whatsapp.WhatsAppService) error {
 		if err := json.Unmarshal(env.Payload, &p); err != nil {
 			return err
 		}
-		return svc.DownloadMedia(sessionID, tenantID, p)
+		// O consumidor de comandos é um único loop sequencial (ConsumeCommands
+		// processa uma Delivery por vez para TODAS as sessões/tenants) — um
+		// download de mídia real (rede até o CDN do WhatsApp, minutos em casos
+		// ruins) travaria toda fila de comandos atrás dele. media.download já é
+		// assíncrono do ponto de vista do chamador (o resultado só chega pelo
+		// evento message.media, nunca pelo retorno síncrono do comando), então
+		// rodar em goroutine própria não muda o contrato — só libera a fila.
+		go func() {
+			if err := svc.DownloadMedia(sessionID, tenantID, p); err != nil {
+				log.Printf("Command failed %s: %v", d.RoutingKey, err)
+			}
+		}()
+		return nil
 
 	case "contact.sync":
 		var p whatsapp.SyncContactPayload
