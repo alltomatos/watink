@@ -19,7 +19,7 @@ import (
 // download+return an inbound audio before giving up. Medido ao vivo em
 // homolog repetidas vezes: o download SEMPRE termina com sucesso, mas
 // consistentemente perto de ~90s — mesmo para notas de voz de poucos KB.
-// Já foi descartado que seja fila de comandos bloqueada (media.download
+// Já foi descartado que seja a fila de mensagens bloqueada (media.download
 // roda em goroutine própria desde o fix do engine-go) e já foi descartado
 // que seja latência de rede/DNS até o CDN do WhatsApp (testado com curl de
 // dentro do MESMO docker network do engine-go: ~40ms, instantâneo). O
