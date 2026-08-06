@@ -7,6 +7,7 @@ import { Badge } from "../../../components/ui/badge";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../../components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
 import {
     Dialog,
     DialogContent,
@@ -57,6 +58,24 @@ const SPEECH_MODEL_SUGGESTIONS = [
     { value: "openrouter/openai/tts-1", note: "OpenRouter — ~US$ 15/1M caracteres" },
     { value: "eleven_turbo_v2_5", note: "ElevenLabs — ~US$ 0,00018/caractere" },
 ];
+
+// O campo "Provedor" determina no backend qual protocolo de chamada é usado
+// (aiclient.Complete: anthropic tem payload próprio; openai/grok/custom
+// caem no mesmo caminho OpenAI-compatible) — por isso continua obrigatório,
+// mas como select fechado em vez de texto livre (ninguém sabia o que digitar).
+const PROVIDER_OPTIONS = [
+    { value: "openai", label: "OpenAI-compatible (OpenAI, OmniRoute, OpenRouter, Groq...)" },
+    { value: "anthropic", label: "Anthropic (Claude nativo)" },
+    { value: "grok", label: "Grok (xAI)" },
+    { value: "custom", label: "Custom (OpenAI-compatible)" },
+];
+
+// Heurísticas de nome para separar, dentro da lista de modelos REAL devolvida
+// pelo gateway (GET /models — mistura chat/transcrição/fala sem marcação de
+// tipo), quais servem para transcrição e quais servem para fala. O campo
+// "Modelo" (chat) continua mostrando a lista inteira sem filtro.
+const isTranscriptionModelName = (id: string) => /whisper|transcri|scribe|\bstt\b/i.test(id);
+const isSpeechModelName = (id: string) => /\btts\b|text-to-speech|speech/i.test(id);
 
 const emptyForm: AiGatewayInput = {
     name: "",
@@ -304,31 +323,6 @@ const AiGatewaysSection: React.FC = () => {
                                 placeholder="Ex: OpenAI principal"
                             />
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="flex flex-col gap-1.5">
-                                <Label>Provedor</Label>
-                                <Input
-                                    value={form.provider}
-                                    onChange={(e) => setForm((f) => ({ ...f, provider: e.target.value }))}
-                                    placeholder="openai, anthropic..."
-                                />
-                            </div>
-                            <div className="flex flex-col gap-1.5">
-                                <Label>Modelo</Label>
-                                <Input
-                                    list="chat-model-suggestions"
-                                    autoComplete="off"
-                                    value={form.model}
-                                    onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))}
-                                    placeholder="gpt-4o"
-                                />
-                                <datalist id="chat-model-suggestions">
-                                    {fetchedModels.map((m) => (
-                                        <option key={m} value={m} />
-                                    ))}
-                                </datalist>
-                            </div>
-                        </div>
                         <div className="flex flex-col gap-1.5">
                             <Label>Base URL (opcional)</Label>
                             <Input
@@ -337,16 +331,32 @@ const AiGatewaysSection: React.FC = () => {
                                 placeholder="https://api.openai.com/v1"
                             />
                         </div>
+                        <div className="flex flex-col gap-1.5">
+                            <Label>
+                                API Key {editing && <span className="text-muted-foreground">(deixe em branco para manter a atual)</span>}
+                            </Label>
+                            <Input
+                                type="password"
+                                autoComplete="new-password"
+                                data-lpignore="true"
+                                data-1p-ignore=""
+                                value={form.apiKey ?? ""}
+                                onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))}
+                                placeholder={editing?.hasApiKey ? "••••••••" : "sk-..."}
+                            />
+                        </div>
+
                         {editing && (
-                            <div className="flex items-center justify-between rounded-xl border border-dashed p-3">
+                            <div className="flex items-center justify-between gap-3 rounded-xl border border-dashed p-3">
                                 <p className="text-xs text-muted-foreground">
-                                    Consulta {"{baseURL}"}/models com a chave já salva e preenche as
-                                    sugestões abaixo com os modelos reais disponíveis nesse gateway.
+                                    Consulta {"{baseURL}"}/models com a chave já salva e preenche os campos
+                                    de modelo abaixo com os modelos reais disponíveis nesse gateway.
                                 </p>
                                 <Button
                                     type="button"
                                     variant="outline"
                                     size="sm"
+                                    className="shrink-0"
                                     disabled={!editing.hasApiKey || fetchingModels}
                                     onClick={handleFetchModels}
                                 >
@@ -359,18 +369,59 @@ const AiGatewaysSection: React.FC = () => {
                                 </Button>
                             </div>
                         )}
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="flex flex-col gap-1.5">
+                                <Label>Provedor</Label>
+                                <Select
+                                    value={form.provider}
+                                    onValueChange={(v) => setForm((f) => ({ ...f, provider: v }))}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Selecione o provedor" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {PROVIDER_OPTIONS.map((p) => (
+                                            <SelectItem key={p.value} value={p.value}>
+                                                {p.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <Label>Modelo</Label>
+                                <Input
+                                    list="chat-model-suggestions"
+                                    autoComplete="off"
+                                    data-lpignore="true"
+                                    data-1p-ignore=""
+                                    value={form.model}
+                                    onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))}
+                                    placeholder="gpt-4o"
+                                />
+                                <datalist id="chat-model-suggestions">
+                                    {fetchedModels.map((m) => (
+                                        <option key={m} value={m} />
+                                    ))}
+                                </datalist>
+                            </div>
+                        </div>
+
                         <div className="grid grid-cols-2 gap-4">
                             <div className="flex flex-col gap-1.5">
                                 <Label>Modelo de transcrição (opcional)</Label>
                                 <Input
                                     list="transcription-model-suggestions"
                                     autoComplete="off"
+                                    data-lpignore="true"
+                                    data-1p-ignore=""
                                     value={form.transcriptionModel ?? ""}
                                     onChange={(e) => setForm((f) => ({ ...f, transcriptionModel: e.target.value }))}
                                     placeholder="whisper-1"
                                 />
                                 <datalist id="transcription-model-suggestions">
-                                    {fetchedModels.map((m) => (
+                                    {fetchedModels.filter(isTranscriptionModelName).map((m) => (
                                         <option key={m} value={m} />
                                     ))}
                                     {TRANSCRIPTION_MODEL_SUGGESTIONS.map((m) => (
@@ -389,12 +440,14 @@ const AiGatewaysSection: React.FC = () => {
                                 <Input
                                     list="speech-model-suggestions"
                                     autoComplete="off"
+                                    data-lpignore="true"
+                                    data-1p-ignore=""
                                     value={form.speechModel ?? ""}
                                     onChange={(e) => setForm((f) => ({ ...f, speechModel: e.target.value }))}
                                     placeholder="tts-1"
                                 />
                                 <datalist id="speech-model-suggestions">
-                                    {fetchedModels.map((m) => (
+                                    {fetchedModels.filter(isSpeechModelName).map((m) => (
                                         <option key={m} value={m} />
                                     ))}
                                     {SPEECH_MODEL_SUGGESTIONS.map((m) => (
@@ -408,17 +461,6 @@ const AiGatewaysSection: React.FC = () => {
                                     Digite livremente ou escolha uma sugestão (com estimativa de custo).
                                 </p>
                             </div>
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <Label>
-                                API Key {editing && <span className="text-muted-foreground">(deixe em branco para manter a atual)</span>}
-                            </Label>
-                            <Input
-                                type="password"
-                                value={form.apiKey ?? ""}
-                                onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))}
-                                placeholder={editing?.hasApiKey ? "••••••••" : "sk-..."}
-                            />
                         </div>
                     </div>
                     <DialogFooter>
