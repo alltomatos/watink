@@ -121,7 +121,23 @@ func StartEventListener(rabbitMQ *RabbitMQService, eventListener *EventListener)
 		case "message.reaction":
 			return eventListener.handleMessageReaction(ctx, env.Payload, tid)
 		case "message.media":
-			return eventListener.handleMediaDownloaded(ctx, env.Payload, tid)
+			// O consumidor de eventos é um único loop sequencial (ConsumeEvents
+			// processa uma Delivery por vez para TODOS os eventos do tenant —
+			// mensagens, recibos, presença, mídia). Um tenant com tráfego alto
+			// (muitos grupos ativos) enfileira o evento message.media atrás de
+			// centenas de outros eventos, atrasando o Fulfill do mediawait em
+			// minutos mesmo quando o download em si (engine-go) levou <1s —
+			// medido ao vivo em homolog. handleMediaDownloaded só libera um
+			// mediawait.Waiter (map com mutex, sem dependência de ordem com
+			// outros eventos), então rodar em goroutine própria é seguro e
+			// evita esse atraso sem mudar o contrato — ack imediato (best-effort,
+			// mesmo padrão de media.download no engine-go).
+			go func() {
+				if err := eventListener.handleMediaDownloaded(ctx, env.Payload, tid); err != nil {
+					log.Printf("[EventListener] handleMediaDownloaded falhou: %v", err)
+				}
+			}()
+			return nil
 		case "contact.update":
 			if err := handleContactUpdate(ctx, eventListener.contacts, eventListener.bcast(), env.Payload, tid); err != nil {
 				return err
