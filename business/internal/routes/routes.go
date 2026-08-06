@@ -29,7 +29,7 @@ type RouteRabbitMQ interface {
 // query).
 func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *application.Container, s3Store domain.ObjectStore, build controllers.BuildInfo, ragRetriever flow.Retriever, ragResponder flow.AgentResponder, mediaWaiter *mediawait.Waiter) {
 	db := container.DB
-	messageController := controllers.NewMessageController(rabbitMQ, container.Broadcast, container.SessionService)
+	messageController := controllers.NewMessageController(rabbitMQ, container.Broadcast, container.SessionService).WithTranscription(db, mediaWaiter)
 	systemController := controllers.NewSystemController(container.SystemRepo, rabbitMQ)
 	setupService := services.NewSetupService(container.DB)
 	setupController := controllers.NewSetupController(setupService)
@@ -207,6 +207,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		// On-demand media download (separate path to avoid Gin wildcard conflict
 		// with :ticketId at the same position)
 		protected.POST("/media/:messageId/download", messageController.DownloadMedia)
+		protected.POST("/messages/:messageId/transcribe", messageController.TranscribeAudio)
 		// Nested under a distinct literal segment ("message", singular) --
 		// gin's radix router panics at startup if two routes share a path
 		// position with different wildcard names (":messageId" here vs the

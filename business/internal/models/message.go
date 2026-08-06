@@ -22,8 +22,12 @@ type Message struct {
 	Reactions   string    `gorm:"type:jsonb;default:'[]'" json:"reactions"`
 	DataJson    string    `gorm:"column:dataJson;type:jsonb;default:'{}'" json:"dataJson"`
 	Participant string    `json:"participant"`
-	CreatedAt   time.Time `gorm:"column:createdAt" json:"createdAt"`
-	UpdatedAt   time.Time `gorm:"column:updatedAt" json:"updatedAt"`
+	// Transcription is filled on-demand when an operator clicks "Transcrever
+	// áudio" on an audio message (message_transcription.go) — never written
+	// automatically on receipt, and never sent back to WhatsApp.
+	Transcription *string   `gorm:"column:transcription" json:"transcription"`
+	CreatedAt     time.Time `gorm:"column:createdAt" json:"createdAt"`
+	UpdatedAt     time.Time `gorm:"column:updatedAt" json:"updatedAt"`
 
 	// Relations
 	Ticket Ticket `gorm:"foreignKey:TicketID" json:"ticket,omitempty"`

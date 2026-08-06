@@ -5,20 +5,35 @@ import (
 	"strconv"
 
 	"github.com/alltomatos/watinkdev/business/internal/domain"
+	"github.com/alltomatos/watinkdev/business/internal/mediawait"
 	"github.com/alltomatos/watinkdev/business/internal/models"
 	"github.com/alltomatos/watinkdev/business/pkg/auth"
 	"github.com/alltomatos/watinkdev/business/pkg/utils"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type MessageController struct {
-	rabbit    domain.CommandPublisher
-	broadcast domain.Broadcaster
-	engines   domain.WhatsAppEngineResolver
+	rabbit      domain.CommandPublisher
+	broadcast   domain.Broadcaster
+	engines     domain.WhatsAppEngineResolver
+	db          *gorm.DB
+	mediaWaiter *mediawait.Waiter
 }
 
 func NewMessageController(r domain.CommandPublisher, b domain.Broadcaster, engines domain.WhatsAppEngineResolver) *MessageController {
 	return &MessageController{rabbit: r, broadcast: domain.BroadcastOrNop(b), engines: engines}
+}
+
+// WithTranscription attaches the dependencies used only by the on-demand
+// audio transcription endpoint (message_transcription.go) — kept out of the
+// main constructor so every existing call site (including tests) stays
+// unchanged; nil-safe (TranscribeAudio fails closed with a clear error if
+// called on a controller that never got these wired).
+func (mc *MessageController) WithTranscription(db *gorm.DB, mediaWaiter *mediawait.Waiter) *MessageController {
+	mc.db = db
+	mc.mediaWaiter = mediaWaiter
+	return mc
 }
 
 // ListMessages returns all messages for a given ticket.

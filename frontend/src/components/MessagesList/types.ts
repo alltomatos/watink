@@ -31,6 +31,7 @@ export interface Message {
   dataJson?: string | Record<string, unknown>;
   contact?: Contact;
   reactions?: Reaction[] | string;
+  transcription?: string | null;
   [key: string]: unknown;
 }
 

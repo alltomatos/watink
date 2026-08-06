@@ -1,6 +1,6 @@
 /* @jsxImportSource react */
 import React from "react";
-import { Brain, Database, MessageSquare } from "lucide-react";
+import { Brain, Database, MessageSquare, Captions } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -20,11 +20,19 @@ import {
 } from "../../../components/ui/select";
 import { Input } from "../../../components/ui/input";
 import { Textarea } from "../../../components/ui/textarea";
+import {
+  listAiGateways,
+  listAiGatewayModels,
+  AiGateway,
+} from "../../../services/aiGatewayService";
 
 interface AISettingsProps {
   getSettingValue: (key: string) => string;
   handleUpdateSetting: (key: string, value: string) => Promise<void>;
 }
+
+const isTranscriptionModelName = (id: string) =>
+  /whisper|transcri|scribe|\bstt\b/i.test(id);
 
 const providerModels: Record<string, string[]> = {
   openai: ["gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"],
@@ -55,6 +63,33 @@ const AISettings: React.FC<AISettingsProps> = ({
       void handleUpdateSetting("aiEmbeddingApiKey", "");
     }
   };
+
+  // ── Transcrição de áudio (sob demanda, botão na bolha) ──────────────
+  const transcriptionEnabled = getSettingValue("audioTranscriptionEnabled") === "true";
+  const transcriptionGatewayId = getSettingValue("audioTranscriptionGatewayId");
+  const [aiGateways, setAiGateways] = React.useState<AiGateway[]>([]);
+  const [transcriptionModels, setTranscriptionModels] = React.useState<string[]>([]);
+
+  React.useEffect(() => {
+    if (!transcriptionEnabled) return;
+    listAiGateways()
+      .then(setAiGateways)
+      .catch(() => setAiGateways([]));
+  }, [transcriptionEnabled]);
+
+  React.useEffect(() => {
+    if (!transcriptionGatewayId) {
+      setTranscriptionModels([]);
+      return;
+    }
+    listAiGatewayModels(Number(transcriptionGatewayId))
+      .then((res) =>
+        setTranscriptionModels(
+          res.success ? (res.models ?? []).filter(isTranscriptionModelName) : []
+        )
+      )
+      .catch(() => setTranscriptionModels([]));
+  }, [transcriptionGatewayId]);
 
   return (
     <div className="space-y-6">
@@ -145,6 +180,95 @@ const AISettings: React.FC<AISettingsProps> = ({
                 }
               />
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Transcrição de Áudio ─────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-primary">
+            <Captions className="h-5 w-5" />
+            Transcrição de Áudio
+          </CardTitle>
+          <CardDescription>
+            Habilita o botão "Transcrever áudio" abaixo de mensagens de voz no
+            chat. A transcrição só acontece quando o atendente clica no botão
+            — nada é feito automaticamente. O texto aparece só no Watink e
+            nunca é enviado ao WhatsApp.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Habilitar Transcrição de Áudio</Label>
+                <p className="text-xs text-muted-foreground">
+                  Mostra o botão de transcrição sob demanda nas mensagens de áudio
+                </p>
+              </div>
+              <Switch
+                checked={transcriptionEnabled}
+                onCheckedChange={(checked) =>
+                  handleUpdateSetting(
+                    "audioTranscriptionEnabled",
+                    checked ? "true" : "false"
+                  )
+                }
+              />
+            </div>
+
+            {transcriptionEnabled && (
+              <>
+                <Separator />
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-2">
+                    <Label htmlFor="audio-transcription-gateway">Gateway de IA</Label>
+                    <Select
+                      value={transcriptionGatewayId || undefined}
+                      onValueChange={(v) =>
+                        handleUpdateSetting("audioTranscriptionGatewayId", v)
+                      }
+                    >
+                      <SelectTrigger id="audio-transcription-gateway">
+                        <SelectValue placeholder="Selecione um Gateway de IA" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {aiGateways.map((g) => (
+                          <SelectItem key={g.id} value={String(g.id)}>
+                            {g.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Configurado em Configurações → Agentes de IA (Assistentes).
+                    </p>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="audio-transcription-model">Modelo de Transcrição</Label>
+                    <Input
+                      id="audio-transcription-model"
+                      list="audio-transcription-model-suggestions"
+                      placeholder="whisper-1"
+                      defaultValue={getSettingValue("audioTranscriptionModel")}
+                      onBlur={(e) =>
+                        handleUpdateSetting("audioTranscriptionModel", e.target.value)
+                      }
+                    />
+                    <datalist id="audio-transcription-model-suggestions">
+                      {transcriptionModels.map((m) => (
+                        <option key={m} value={m} />
+                      ))}
+                    </datalist>
+                    <p className="text-xs text-muted-foreground">
+                      Vazio = usa o modelo de transcrição já configurado no Gateway.
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
