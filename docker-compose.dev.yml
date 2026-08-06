@@ -184,11 +184,11 @@ services:
   plugin-manager:
     # Componente PROPRIETÁRIO (ADR 0024) — fonte no repo privado
     # alltomatos/watink-plugin-manager, distribuído APENAS como imagem compilada
-    # (GHCR). O core NÃO builda do source: é a trava real de licenciamento e o
-    # fonte é fechado. Para desenvolver o plugin-manager, clone o repo privado
-    # ao lado e aponte PLUGIN_MANAGER_IMAGE para uma imagem local (ex.:
-    # `docker build -t pm:dev .` no repo privado; PLUGIN_MANAGER_IMAGE=pm:dev).
-    image: ${PLUGIN_MANAGER_IMAGE:-ghcr.io/alltomatos/watink-plugin-manager:latest}
+    # (GHCR). O core NÃO builda do source e NÃO expõe forma de trocar a imagem
+    # ou o endpoint do Hub: é a trava real de licenciamento, fonte fechado, tag
+    # fixa. Desenvolvimento do plugin-manager em si acontece só dentro do
+    # próprio repo privado, fora deste compose.
+    image: ghcr.io/alltomatos/watink-plugin-manager:latest
     container_name: watink-plugin-manager
     ports:
       - "8081:8081"

@@ -29,9 +29,9 @@ Hub (nuvem, autoridade) ──licença de plugin (token Ed25519)──▶ plugin
 O `plugin-manager` é **proprietário** e distribuído **apenas compilado** — o código-fonte vive **somente** no repo privado `alltomatos/watink-plugin-manager` e **não** acompanha o core (`watinkdev`, que é público). Motivo: é a **trava real de licenciamento**; com fonte aberto o cliente poderia remover as checagens.
 
 - **Fonte:** `alltomatos/watink-plugin-manager` (privado). O pacote `licensetoken` (verify Ed25519) vive **dentro** desse módulo (`github.com/watink/plugin-manager/licensetoken`) — **não** mais em `business/pkg` (foi movido; era código morto no core, que é público).
-- **Distribuição:** imagem `ghcr.io/alltomatos/watink-plugin-manager:<tag>`, publicada pela CI do repo privado. O compose do core consome via `image: ${PLUGIN_MANAGER_IMAGE:-ghcr.io/alltomatos/watink-plugin-manager:latest}` — **nunca** `build:` a partir de source no core.
+- **Distribuição:** imagem `ghcr.io/alltomatos/watink-plugin-manager:latest`, publicada pela CI do repo privado. O compose do core (dev e prod) consome com tag **fixa hardcoded**, sem variável de override — **nunca** `build:` a partir de source no core, e não há mecanismo no core para trocar imagem ou apontar `HUB_URL` para outro lugar. É a trava real de licenciamento; qualquer bypass exigiria alterar o binário compilado, fora do alcance do repo público.
 - **Fronteira runtime:** o core depende só do **contrato HTTP** `GET /internal/licenses` — não do source. É o que mantém a extração limpa (o `business` nunca importa código do plugin-manager).
-- **Dev:** `docker compose up` puxa a imagem. Para desenvolver o próprio plugin-manager, clone o repo privado e aponte `PLUGIN_MANAGER_IMAGE` para uma imagem local (ex.: `docker build -t pm:dev .` no repo privado → `PLUGIN_MANAGER_IMAGE=pm:dev`).
+- **Dev:** `docker compose up` puxa a mesma imagem publicada, em modo stub (sem `HUB_URL`) — licenças ficam limitadas aos plugins `free` conhecidos pelo binário; plugins `pro` exigem licença real emitida pelo Hub para a instância. Desenvolvimento do próprio plugin-manager acontece inteiramente dentro do repo privado, fora deste compose.
 
 ## Modelo de dados
 
