@@ -79,7 +79,7 @@ const AboutSection: React.FC = () => {
           Sobre
         </CardTitle>
         <CardDescription>
-          Versão do sistema, build e changelog.
+          Versão do sistema e build.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -112,14 +112,6 @@ const AboutSection: React.FC = () => {
                 {info.database.engine} {info.database.version}
               </dd>
             </dl>
-            <div>
-              <p className="mb-2 text-sm font-medium text-foreground">
-                Changelog
-              </p>
-              <pre className="max-h-96 overflow-y-auto whitespace-pre-wrap rounded-md border bg-muted/50 p-3 text-xs text-foreground">
-                {info.changelog}
-              </pre>
-            </div>
           </div>
         )}
       </CardContent>
