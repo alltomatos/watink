@@ -3,6 +3,9 @@ name: CD Homolog
 on:
   push:
     branches: [develop]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
 
 env:
   REGISTRY: ghcr.io
