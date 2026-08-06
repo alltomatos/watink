@@ -67,10 +67,11 @@ licença dentro dele exporia (e permitiria remover) as checagens. Portanto:
 
 - **Fonte** do plugin-manager sai do core e passa a viver **somente** no repo privado
   `alltomatos/watink-plugin-manager` (par do `alltomatos/watink-hub`).
-- **Distribuição** via imagem `ghcr.io/alltomatos/watink-plugin-manager:<tag>`,
-  publicada pela CI do repo privado. O compose do core consome com `image:`
-  (`PLUGIN_MANAGER_IMAGE` como override de dev) — **nunca** `build:` a partir de
-  source no core.
+- **Distribuição** via imagem `ghcr.io/alltomatos/watink-plugin-manager:latest`,
+  publicada pela CI do repo privado. O compose do core (dev e prod) consome com
+  `image:` em tag fixa hardcoded, sem override — **nunca** `build:` a partir de
+  source no core, nem mecanismo para apontar a imagem ou o `HUB_URL` para outro
+  lugar.
 - O pacote `licensetoken` (verify Ed25519), que o P-2 havia colocado em
   `business/pkg/licensetoken` (código morto no core público), foi **movido para dentro
   do plugin-manager** — alinhando com a intenção deste ADR ("portado do Hub para o
