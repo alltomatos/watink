@@ -18,12 +18,17 @@ import (
 // mediaDownloadTimeout bounds how long executePersona waits for engine-go to
 // download+return an inbound audio before giving up — o download em si é uma
 // chamada de rede real (engine → servidores do WhatsApp), então não pode ser
-// instantâneo nem indefinido. Medido ao vivo em homolog: o round-trip
-// completo (media_conn + fetch + evento message.media de volta) rotineiramente
-// leva ~25s mesmo para notas de voz pequenas — um teto de 25s cortava o
-// download exatamente no limite e caía em handoff mesmo quando o download
-// tinha sucesso. 60s dá folga real sem deixar a espera indefinida.
-const mediaDownloadTimeout = 60 * time.Second
+// instantâneo nem indefinido. Medido ao vivo em homolog, duas vezes: o
+// round-trip completo (media_conn + fetch + evento message.media de volta)
+// rotineiramente leva ~60s mesmo para notas de voz de poucos KB — muito
+// acima do que uma chamada de rede legítima deveria levar para um arquivo
+// tão pequeno; o padrão (~60s consistente) sugere connect timeout+retry na
+// rede do host até o CDN do WhatsApp, não o tamanho do payload. Isso é uma
+// investigação de infraestrutura em aberto (fora do escopo desta correção);
+// por ora, 90s dá folga real sobre o pior caso observado sem deixar a espera
+// indefinida — um teto de 60s cortava exatamente no limite mesmo quando o
+// download tinha sucesso.
+const mediaDownloadTimeout = 90 * time.Second
 
 // resolveAiGatewayCreds loads and decrypts the AiGateway's API key — shared
 // by transcription and speech, mirrors AiGatewayController.Test's own
