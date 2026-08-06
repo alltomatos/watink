@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import LocationPreview from "../../LocationPreview";
 import VcardPreview from "../../VcardPreview";
 import ModalImageCors from "../../ModalImageCors";
@@ -7,6 +7,7 @@ import FilePreview from "../../FilePreview";
 import { getBackendUrl } from "../../../helpers/urlUtils";
 import { parseData } from "../utils/messageHelpers";
 import OnDemandMediaPreview from "./OnDemandMediaPreview";
+import AudioTranscribeButton from "./AudioTranscribeButton";
 import { Message } from "../types";
 
 interface Props {
@@ -16,6 +17,13 @@ interface Props {
 const DOWNLOADABLE_TYPES = ["image", "video", "audio", "document", "sticker"];
 
 const MessageMedia: React.FC<Props> = ({ message }) => {
+  // Local override so the transcription appears immediately on click,
+  // without waiting for the SSE appMessage round-trip to update the parent's
+  // message list state.
+  const [localTranscription, setLocalTranscription] = useState<string | null>(
+    null
+  );
+
   // Pending media: a downloadable type with no stored URL yet → show the blurred
   // thumbnail + download button instead of blocking on a full download.
   if (!message.mediaUrl && DOWNLOADABLE_TYPES.includes(message.mediaType ?? "")) {
@@ -60,7 +68,22 @@ const MessageMedia: React.FC<Props> = ({ message }) => {
   if (message.mediaType === "audio") {
     const audioData = parseData(message.dataJson);
     const mimetype = typeof audioData?.mimetype === "string" ? audioData.mimetype : undefined;
-    return <Audio url={getBackendUrl(message.mediaUrl) ?? ""} mimetype={mimetype} />;
+    const transcription = localTranscription ?? message.transcription;
+    return (
+      <div>
+        <Audio url={getBackendUrl(message.mediaUrl) ?? ""} mimetype={mimetype} />
+        {transcription ? (
+          <p className="mt-1 max-w-[300px] whitespace-pre-wrap text-xs italic text-[var(--text-muted)]">
+            {transcription}
+          </p>
+        ) : (
+          <AudioTranscribeButton
+            message={message}
+            onTranscribed={setLocalTranscription}
+          />
+        )}
+      </div>
+    );
   }
 
   if (message.mediaType === "video") {
