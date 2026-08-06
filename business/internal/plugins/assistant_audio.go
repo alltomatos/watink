@@ -16,19 +16,18 @@ import (
 )
 
 // mediaDownloadTimeout bounds how long executePersona waits for engine-go to
-// download+return an inbound audio before giving up — o download em si é uma
-// chamada de rede real (engine → servidores do WhatsApp), então não pode ser
-// instantâneo nem indefinido. Medido ao vivo em homolog, duas vezes: o
-// round-trip completo (media_conn + fetch + evento message.media de volta)
-// rotineiramente leva ~60s mesmo para notas de voz de poucos KB — muito
-// acima do que uma chamada de rede legítima deveria levar para um arquivo
-// tão pequeno; o padrão (~60s consistente) sugere connect timeout+retry na
-// rede do host até o CDN do WhatsApp, não o tamanho do payload. Isso é uma
-// investigação de infraestrutura em aberto (fora do escopo desta correção);
-// por ora, 90s dá folga real sobre o pior caso observado sem deixar a espera
-// indefinida — um teto de 60s cortava exatamente no limite mesmo quando o
-// download tinha sucesso.
-const mediaDownloadTimeout = 90 * time.Second
+// download+return an inbound audio before giving up. Medido ao vivo em
+// homolog repetidas vezes: o download SEMPRE termina com sucesso, mas
+// consistentemente perto de ~90s — mesmo para notas de voz de poucos KB.
+// Já foi descartado que seja fila de comandos bloqueada (media.download
+// roda em goroutine própria desde o fix do engine-go) e já foi descartado
+// que seja latência de rede/DNS até o CDN do WhatsApp (testado com curl de
+// dentro do MESMO docker network do engine-go: ~40ms, instantâneo). O
+// atraso acontece dentro da própria chamada whatsmeow Client.Download —
+// investigação de código de terceiros em aberto, fora do escopo desta
+// correção pontual. Por ora, 120s dá folga real sobre o pior caso já
+// observado (91s) sem deixar a espera indefinida.
+const mediaDownloadTimeout = 120 * time.Second
 
 // resolveAiGatewayCreds loads and decrypts the AiGateway's API key — shared
 // by transcription and speech, mirrors AiGatewayController.Test's own
