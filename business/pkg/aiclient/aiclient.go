@@ -247,52 +247,6 @@ func Speech(cfg Config, model, text, voice string) (*SpeechResult, error) {
 	return &SpeechResult{Audio: audio, MimeType: mimeType}, nil
 }
 
-// ListModels consulta {baseURL}/models (OpenAI-compatible: GET, resposta
-// {data: [{id: "..."}]}) e devolve os IDs de modelo disponíveis na conta do
-// gateway — usado pela UI para sugerir modelos reais em vez de só uma lista
-// estática, já que nomes de modelo (principalmente de transcrição/fala)
-// variam muito entre provedores/gateways multi-tenant.
-func ListModels(cfg Config) ([]string, error) {
-	if cfg.APIKey == "" {
-		return nil, fmt.Errorf("ERR_NO_AI_API_KEY")
-	}
-	baseURL := rewriteDevHost(resolveOpenAIBaseURL(cfg))
-
-	req, err := http.NewRequest("GET", baseURL+"/models", nil)
-	if err != nil {
-		return nil, fmt.Errorf("ERR_AI_SERVICE_FAILED: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
-
-	client := &http.Client{Timeout: 20 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("ERR_AI_SERVICE_FAILED: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		b, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("ERR_AI_SERVICE_FAILED: status %d: %s", resp.StatusCode, string(b))
-	}
-
-	var result struct {
-		Data []struct {
-			ID string `json:"id"`
-		} `json:"data"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("ERR_AI_SERVICE_FAILED: %w", err)
-	}
-	models := make([]string, 0, len(result.Data))
-	for _, m := range result.Data {
-		if m.ID != "" {
-			models = append(models, m.ID)
-		}
-	}
-	return models, nil
-}
-
 func callAnthropic(cfg Config, messages []Message) (*Response, error) {
 	model := cfg.Model
 	if model == "" {

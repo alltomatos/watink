@@ -61,16 +61,3 @@ export const testAiGateway = async (id: number, message?: string): Promise<AiGat
     const { data } = await api.post(`/ai-gateways/${id}/test`, message ? { message } : {});
     return data;
 };
-
-export interface AiGatewayModelsResult {
-    success: boolean;
-    models?: string[];
-    error?: string;
-}
-
-/** Consulta {baseUrl}/models do gateway (OpenAI-compatible) com a chave já
- * salva — só funciona para um gateway já existente e com API Key configurada. */
-export const listAiGatewayModels = async (id: number): Promise<AiGatewayModelsResult> => {
-    const { data } = await api.get(`/ai-gateways/${id}/models`);
-    return data;
-};

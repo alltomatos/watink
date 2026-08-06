@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { Plus, Pencil, Trash2, Loader2, KeyRound, Zap, CheckCircle2, XCircle, Sparkles, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, KeyRound, Zap, CheckCircle2, XCircle, Sparkles } from "lucide-react";
 
 import { Button } from "../../../components/ui/button";
 import { Badge } from "../../../components/ui/badge";
@@ -31,7 +31,6 @@ import {
     createAiGateway,
     deleteAiGateway,
     listAiGateways,
-    listAiGatewayModels,
     testAiGateway,
     updateAiGateway,
 } from "../../../services/aiGatewayService";
@@ -78,8 +77,6 @@ const AiGatewaysSection: React.FC = () => {
     const [deleteTarget, setDeleteTarget] = useState<AiGateway | null>(null);
     const [testingId, setTestingId] = useState<number | null>(null);
     const [testResult, setTestResult] = useState<{ gateway: AiGateway; result: AiGatewayTestResult } | null>(null);
-    const [fetchedModels, setFetchedModels] = useState<string[]>([]);
-    const [fetchingModels, setFetchingModels] = useState(false);
 
     const fetchGateways = useCallback(async () => {
         setLoading(true);
@@ -99,7 +96,6 @@ const AiGatewaysSection: React.FC = () => {
     const openCreate = () => {
         setEditing(null);
         setForm(emptyForm);
-        setFetchedModels([]);
         setFormOpen(true);
     };
 
@@ -114,29 +110,7 @@ const AiGatewaysSection: React.FC = () => {
             transcriptionModel: gateway.transcriptionModel ?? "",
             speechModel: gateway.speechModel ?? "",
         });
-        setFetchedModels([]);
         setFormOpen(true);
-    };
-
-    const handleFetchModels = async () => {
-        if (!editing) return;
-        setFetchingModels(true);
-        try {
-            const result = await listAiGatewayModels(editing.id);
-            if (result.success && result.models) {
-                setFetchedModels(result.models);
-                toast.success(`${result.models.length} modelo(s) carregado(s) do gateway`);
-            } else {
-                toast.error(result.error ?? "Não foi possível carregar os modelos do gateway");
-            }
-        } catch (err) {
-            const message =
-                (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
-                "Erro ao carregar modelos do gateway";
-            toast.error(message);
-        } finally {
-            setFetchingModels(false);
-        }
     };
 
     const handleSave = async () => {
@@ -316,17 +290,10 @@ const AiGatewaysSection: React.FC = () => {
                             <div className="flex flex-col gap-1.5">
                                 <Label>Modelo</Label>
                                 <Input
-                                    list="chat-model-suggestions"
-                                    autoComplete="off"
                                     value={form.model}
                                     onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))}
                                     placeholder="gpt-4o"
                                 />
-                                <datalist id="chat-model-suggestions">
-                                    {fetchedModels.map((m) => (
-                                        <option key={m} value={m} />
-                                    ))}
-                                </datalist>
                             </div>
                         </div>
                         <div className="flex flex-col gap-1.5">
@@ -337,42 +304,16 @@ const AiGatewaysSection: React.FC = () => {
                                 placeholder="https://api.openai.com/v1"
                             />
                         </div>
-                        {editing && (
-                            <div className="flex items-center justify-between rounded-xl border border-dashed p-3">
-                                <p className="text-xs text-muted-foreground">
-                                    Consulta {"{baseURL}"}/models com a chave já salva e preenche as
-                                    sugestões abaixo com os modelos reais disponíveis nesse gateway.
-                                </p>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    disabled={!editing.hasApiKey || fetchingModels}
-                                    onClick={handleFetchModels}
-                                >
-                                    {fetchingModels ? (
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <Download className="mr-2 h-4 w-4" />
-                                    )}
-                                    Carregar modelos
-                                </Button>
-                            </div>
-                        )}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="flex flex-col gap-1.5">
                                 <Label>Modelo de transcrição (opcional)</Label>
                                 <Input
                                     list="transcription-model-suggestions"
-                                    autoComplete="off"
                                     value={form.transcriptionModel ?? ""}
                                     onChange={(e) => setForm((f) => ({ ...f, transcriptionModel: e.target.value }))}
                                     placeholder="whisper-1"
                                 />
                                 <datalist id="transcription-model-suggestions">
-                                    {fetchedModels.map((m) => (
-                                        <option key={m} value={m} />
-                                    ))}
                                     {TRANSCRIPTION_MODEL_SUGGESTIONS.map((m) => (
                                         <option key={m.value} value={m.value}>
                                             {m.note}
@@ -388,15 +329,11 @@ const AiGatewaysSection: React.FC = () => {
                                 <Label>Modelo de fala (opcional)</Label>
                                 <Input
                                     list="speech-model-suggestions"
-                                    autoComplete="off"
                                     value={form.speechModel ?? ""}
                                     onChange={(e) => setForm((f) => ({ ...f, speechModel: e.target.value }))}
                                     placeholder="tts-1"
                                 />
                                 <datalist id="speech-model-suggestions">
-                                    {fetchedModels.map((m) => (
-                                        <option key={m} value={m} />
-                                    ))}
                                     {SPEECH_MODEL_SUGGESTIONS.map((m) => (
                                         <option key={m.value} value={m.value}>
                                             {m.note}
