@@ -3,6 +3,7 @@ package plugins
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"strconv"
 	"strings"
 
@@ -49,6 +50,11 @@ func (r *AssistantRuntime) executePersona(ctx context.Context, st *flow.ExecStat
 		// mensagem de áudio, é porque a.AcceptsAudio é true.
 		transcript, err := r.transcribeInboundAudio(ctx, st, a, cfg.AiGatewayID)
 		if err != nil {
+			// O detail do Outcome não sobrevive no FlowRunLogs quando o nó não
+			// tem edge de saída (interpreter.go sobrescreve com "no outgoing
+			// edge") — logar aqui é a única forma de ver a causa real (modelo
+			// ausente, chave inválida, timeout etc.) sem acesso à API key.
+			log.Printf("[Assistant %d] transcricao de audio falhou (messageId=%s): %v", a.ID, st.MessageID, err)
 			turn := bumpPersonaTurn(st)
 			_ = flow.SendAssistantText(ctx, st, "t"+strconv.Itoa(turn), personaHandoffMessage)
 			return flow.Outcome{Kind: flow.OutcomeAdvance, Handle: "handoff", Detail: "assistant(persona): falha ao transcrever áudio: " + err.Error()}, nil
