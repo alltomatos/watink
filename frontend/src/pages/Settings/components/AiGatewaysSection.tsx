@@ -35,6 +35,28 @@ import {
     updateAiGateway,
 } from "../../../services/aiGatewayService";
 
+// Sugestões de modelos de transcrição/fala com estimativa de custo — o campo
+// continua livre (o usuário pode digitar qualquer nome, ex. com prefixo do
+// gateway como "openrouter/openai/whisper-large-v3-turbo"); a lista é só um
+// atalho via <datalist>. Preços são estimativas públicas dos provedores,
+// não uma cotação em tempo real do gateway configurado.
+const TRANSCRIPTION_MODEL_SUGGESTIONS = [
+    { value: "whisper-1", note: "OpenAI — ~US$ 0,006/min" },
+    { value: "gpt-4o-transcribe", note: "OpenAI — ~US$ 0,006/min" },
+    { value: "gpt-4o-mini-transcribe", note: "OpenAI — ~US$ 0,003/min" },
+    { value: "openrouter/openai/whisper-large-v3-turbo", note: "OpenRouter — ~US$ 0,0002/min" },
+    { value: "distil-whisper-large-v3-en", note: "Groq — ~US$ 0,0002/min" },
+    { value: "scribe_v1", note: "ElevenLabs — ~US$ 0,006/min" },
+];
+
+const SPEECH_MODEL_SUGGESTIONS = [
+    { value: "tts-1", note: "OpenAI — ~US$ 15/1M caracteres" },
+    { value: "tts-1-hd", note: "OpenAI — ~US$ 30/1M caracteres" },
+    { value: "gpt-4o-mini-tts", note: "OpenAI — ~US$ 12/1M caracteres" },
+    { value: "openrouter/openai/tts-1", note: "OpenRouter — ~US$ 15/1M caracteres" },
+    { value: "eleven_turbo_v2_5", note: "ElevenLabs — ~US$ 0,00018/caractere" },
+];
+
 const emptyForm: AiGatewayInput = {
     name: "",
     provider: "openai",
@@ -286,23 +308,41 @@ const AiGatewaysSection: React.FC = () => {
                             <div className="flex flex-col gap-1.5">
                                 <Label>Modelo de transcrição (opcional)</Label>
                                 <Input
+                                    list="transcription-model-suggestions"
                                     value={form.transcriptionModel ?? ""}
                                     onChange={(e) => setForm((f) => ({ ...f, transcriptionModel: e.target.value }))}
                                     placeholder="whisper-1"
                                 />
+                                <datalist id="transcription-model-suggestions">
+                                    {TRANSCRIPTION_MODEL_SUGGESTIONS.map((m) => (
+                                        <option key={m.value} value={m.value}>
+                                            {m.note}
+                                        </option>
+                                    ))}
+                                </datalist>
                                 <p className="text-xs text-muted-foreground">
-                                    Áudio → texto. Necessário para Assistants com "Entende áudio" ligado.
+                                    Áudio → texto. Necessário para Assistants com "Entende áudio" ligado. Digite
+                                    livremente ou escolha uma sugestão (com estimativa de custo).
                                 </p>
                             </div>
                             <div className="flex flex-col gap-1.5">
                                 <Label>Modelo de fala (opcional)</Label>
                                 <Input
+                                    list="speech-model-suggestions"
                                     value={form.speechModel ?? ""}
                                     onChange={(e) => setForm((f) => ({ ...f, speechModel: e.target.value }))}
                                     placeholder="tts-1"
                                 />
+                                <datalist id="speech-model-suggestions">
+                                    {SPEECH_MODEL_SUGGESTIONS.map((m) => (
+                                        <option key={m.value} value={m.value}>
+                                            {m.note}
+                                        </option>
+                                    ))}
+                                </datalist>
                                 <p className="text-xs text-muted-foreground">
                                     Texto → áudio. Necessário para Assistants com "Responde com áudio" ligado.
+                                    Digite livremente ou escolha uma sugestão (com estimativa de custo).
                                 </p>
                             </div>
                         </div>
