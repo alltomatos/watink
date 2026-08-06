@@ -1,13 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { Plus, Pencil, Trash2, Loader2, KeyRound, Zap, CheckCircle2, XCircle, Sparkles, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, KeyRound, Zap, CheckCircle2, XCircle, Sparkles } from "lucide-react";
 
 import { Button } from "../../../components/ui/button";
 import { Badge } from "../../../components/ui/badge";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../../components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
 import {
     Dialog,
     DialogContent,
@@ -32,50 +31,9 @@ import {
     createAiGateway,
     deleteAiGateway,
     listAiGateways,
-    listAiGatewayModels,
     testAiGateway,
     updateAiGateway,
 } from "../../../services/aiGatewayService";
-
-// Sugestões de modelos de transcrição/fala com estimativa de custo — o campo
-// continua livre (o usuário pode digitar qualquer nome, ex. com prefixo do
-// gateway como "openrouter/openai/whisper-large-v3-turbo"); a lista é só um
-// atalho via <datalist>. Preços são estimativas públicas dos provedores,
-// não uma cotação em tempo real do gateway configurado.
-const TRANSCRIPTION_MODEL_SUGGESTIONS = [
-    { value: "whisper-1", note: "OpenAI — ~US$ 0,006/min" },
-    { value: "gpt-4o-transcribe", note: "OpenAI — ~US$ 0,006/min" },
-    { value: "gpt-4o-mini-transcribe", note: "OpenAI — ~US$ 0,003/min" },
-    { value: "openrouter/openai/whisper-large-v3-turbo", note: "OpenRouter — ~US$ 0,0002/min" },
-    { value: "distil-whisper-large-v3-en", note: "Groq — ~US$ 0,0002/min" },
-    { value: "scribe_v1", note: "ElevenLabs — ~US$ 0,006/min" },
-];
-
-const SPEECH_MODEL_SUGGESTIONS = [
-    { value: "tts-1", note: "OpenAI — ~US$ 15/1M caracteres" },
-    { value: "tts-1-hd", note: "OpenAI — ~US$ 30/1M caracteres" },
-    { value: "gpt-4o-mini-tts", note: "OpenAI — ~US$ 12/1M caracteres" },
-    { value: "openrouter/openai/tts-1", note: "OpenRouter — ~US$ 15/1M caracteres" },
-    { value: "eleven_turbo_v2_5", note: "ElevenLabs — ~US$ 0,00018/caractere" },
-];
-
-// O campo "Provedor" determina no backend qual protocolo de chamada é usado
-// (aiclient.Complete: anthropic tem payload próprio; openai/grok/custom
-// caem no mesmo caminho OpenAI-compatible) — por isso continua obrigatório,
-// mas como select fechado em vez de texto livre (ninguém sabia o que digitar).
-const PROVIDER_OPTIONS = [
-    { value: "openai", label: "OpenAI-compatible (OpenAI, OmniRoute, OpenRouter, Groq...)" },
-    { value: "anthropic", label: "Anthropic (Claude nativo)" },
-    { value: "grok", label: "Grok (xAI)" },
-    { value: "custom", label: "Custom (OpenAI-compatible)" },
-];
-
-// Heurísticas de nome para separar, dentro da lista de modelos REAL devolvida
-// pelo gateway (GET /models — mistura chat/transcrição/fala sem marcação de
-// tipo), quais servem para transcrição e quais servem para fala. O campo
-// "Modelo" (chat) continua mostrando a lista inteira sem filtro.
-const isTranscriptionModelName = (id: string) => /whisper|transcri|scribe|\bstt\b/i.test(id);
-const isSpeechModelName = (id: string) => /\btts\b|text-to-speech|speech/i.test(id);
 
 const emptyForm: AiGatewayInput = {
     name: "",
@@ -97,8 +55,6 @@ const AiGatewaysSection: React.FC = () => {
     const [deleteTarget, setDeleteTarget] = useState<AiGateway | null>(null);
     const [testingId, setTestingId] = useState<number | null>(null);
     const [testResult, setTestResult] = useState<{ gateway: AiGateway; result: AiGatewayTestResult } | null>(null);
-    const [fetchedModels, setFetchedModels] = useState<string[]>([]);
-    const [fetchingModels, setFetchingModels] = useState(false);
 
     const fetchGateways = useCallback(async () => {
         setLoading(true);
@@ -118,7 +74,6 @@ const AiGatewaysSection: React.FC = () => {
     const openCreate = () => {
         setEditing(null);
         setForm(emptyForm);
-        setFetchedModels([]);
         setFormOpen(true);
     };
 
@@ -133,29 +88,7 @@ const AiGatewaysSection: React.FC = () => {
             transcriptionModel: gateway.transcriptionModel ?? "",
             speechModel: gateway.speechModel ?? "",
         });
-        setFetchedModels([]);
         setFormOpen(true);
-    };
-
-    const handleFetchModels = async () => {
-        if (!editing) return;
-        setFetchingModels(true);
-        try {
-            const result = await listAiGatewayModels(editing.id);
-            if (result.success && result.models) {
-                setFetchedModels(result.models);
-                toast.success(`${result.models.length} modelo(s) carregado(s) do gateway`);
-            } else {
-                toast.error(result.error ?? "Não foi possível carregar os modelos do gateway");
-            }
-        } catch (err) {
-            const message =
-                (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
-                "Erro ao carregar modelos do gateway";
-            toast.error(message);
-        } finally {
-            setFetchingModels(false);
-        }
     };
 
     const handleSave = async () => {
@@ -323,6 +256,24 @@ const AiGatewaysSection: React.FC = () => {
                                 placeholder="Ex: OpenAI principal"
                             />
                         </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="flex flex-col gap-1.5">
+                                <Label>Provedor</Label>
+                                <Input
+                                    value={form.provider}
+                                    onChange={(e) => setForm((f) => ({ ...f, provider: e.target.value }))}
+                                    placeholder="openai, anthropic..."
+                                />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <Label>Modelo</Label>
+                                <Input
+                                    value={form.model}
+                                    onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))}
+                                    placeholder="gpt-4o"
+                                />
+                            </div>
+                        </div>
                         <div className="flex flex-col gap-1.5">
                             <Label>Base URL (opcional)</Label>
                             <Input
@@ -331,136 +282,40 @@ const AiGatewaysSection: React.FC = () => {
                                 placeholder="https://api.openai.com/v1"
                             />
                         </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="flex flex-col gap-1.5">
+                                <Label>Modelo de transcrição (opcional)</Label>
+                                <Input
+                                    value={form.transcriptionModel ?? ""}
+                                    onChange={(e) => setForm((f) => ({ ...f, transcriptionModel: e.target.value }))}
+                                    placeholder="whisper-1"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Áudio → texto. Necessário para Assistants com "Entende áudio" ligado.
+                                </p>
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <Label>Modelo de fala (opcional)</Label>
+                                <Input
+                                    value={form.speechModel ?? ""}
+                                    onChange={(e) => setForm((f) => ({ ...f, speechModel: e.target.value }))}
+                                    placeholder="tts-1"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Texto → áudio. Necessário para Assistants com "Responde com áudio" ligado.
+                                </p>
+                            </div>
+                        </div>
                         <div className="flex flex-col gap-1.5">
                             <Label>
                                 API Key {editing && <span className="text-muted-foreground">(deixe em branco para manter a atual)</span>}
                             </Label>
                             <Input
                                 type="password"
-                                autoComplete="new-password"
-                                data-lpignore="true"
-                                data-1p-ignore=""
                                 value={form.apiKey ?? ""}
                                 onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))}
                                 placeholder={editing?.hasApiKey ? "••••••••" : "sk-..."}
                             />
-                        </div>
-
-                        {editing && (
-                            <div className="flex items-center justify-between gap-3 rounded-xl border border-dashed p-3">
-                                <p className="text-xs text-muted-foreground">
-                                    Consulta {"{baseURL}"}/models com a chave já salva e preenche os campos
-                                    de modelo abaixo com os modelos reais disponíveis nesse gateway.
-                                </p>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="shrink-0"
-                                    disabled={!editing.hasApiKey || fetchingModels}
-                                    onClick={handleFetchModels}
-                                >
-                                    {fetchingModels ? (
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <Download className="mr-2 h-4 w-4" />
-                                    )}
-                                    Carregar modelos
-                                </Button>
-                            </div>
-                        )}
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="flex flex-col gap-1.5">
-                                <Label>Provedor</Label>
-                                <Select
-                                    value={form.provider}
-                                    onValueChange={(v) => setForm((f) => ({ ...f, provider: v }))}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Selecione o provedor" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {PROVIDER_OPTIONS.map((p) => (
-                                            <SelectItem key={p.value} value={p.value}>
-                                                {p.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="flex flex-col gap-1.5">
-                                <Label>Modelo</Label>
-                                <Input
-                                    list="chat-model-suggestions"
-                                    autoComplete="off"
-                                    data-lpignore="true"
-                                    data-1p-ignore=""
-                                    value={form.model}
-                                    onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))}
-                                    placeholder="gpt-4o"
-                                />
-                                <datalist id="chat-model-suggestions">
-                                    {fetchedModels.map((m) => (
-                                        <option key={m} value={m} />
-                                    ))}
-                                </datalist>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="flex flex-col gap-1.5">
-                                <Label>Modelo de transcrição (opcional)</Label>
-                                <Input
-                                    list="transcription-model-suggestions"
-                                    autoComplete="off"
-                                    data-lpignore="true"
-                                    data-1p-ignore=""
-                                    value={form.transcriptionModel ?? ""}
-                                    onChange={(e) => setForm((f) => ({ ...f, transcriptionModel: e.target.value }))}
-                                    placeholder="whisper-1"
-                                />
-                                <datalist id="transcription-model-suggestions">
-                                    {fetchedModels.filter(isTranscriptionModelName).map((m) => (
-                                        <option key={m} value={m} />
-                                    ))}
-                                    {TRANSCRIPTION_MODEL_SUGGESTIONS.map((m) => (
-                                        <option key={m.value} value={m.value}>
-                                            {m.note}
-                                        </option>
-                                    ))}
-                                </datalist>
-                                <p className="text-xs text-muted-foreground">
-                                    Áudio → texto. Necessário para Assistants com "Entende áudio" ligado. Digite
-                                    livremente ou escolha uma sugestão (com estimativa de custo).
-                                </p>
-                            </div>
-                            <div className="flex flex-col gap-1.5">
-                                <Label>Modelo de fala (opcional)</Label>
-                                <Input
-                                    list="speech-model-suggestions"
-                                    autoComplete="off"
-                                    data-lpignore="true"
-                                    data-1p-ignore=""
-                                    value={form.speechModel ?? ""}
-                                    onChange={(e) => setForm((f) => ({ ...f, speechModel: e.target.value }))}
-                                    placeholder="tts-1"
-                                />
-                                <datalist id="speech-model-suggestions">
-                                    {fetchedModels.filter(isSpeechModelName).map((m) => (
-                                        <option key={m} value={m} />
-                                    ))}
-                                    {SPEECH_MODEL_SUGGESTIONS.map((m) => (
-                                        <option key={m.value} value={m.value}>
-                                            {m.note}
-                                        </option>
-                                    ))}
-                                </datalist>
-                                <p className="text-xs text-muted-foreground">
-                                    Texto → áudio. Necessário para Assistants com "Responde com áudio" ligado.
-                                    Digite livremente ou escolha uma sugestão (com estimativa de custo).
-                                </p>
-                            </div>
                         </div>
                     </div>
                     <DialogFooter>
