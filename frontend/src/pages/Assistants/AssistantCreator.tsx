@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { toast } from "react-toastify";
-import { Save, PlayCircle, Loader2, CheckCircle2, XCircle, Info } from "lucide-react";
+import { Save, PlayCircle, Loader2, CheckCircle2, XCircle, Info, AlertTriangle, Download } from "lucide-react";
 import { PageContainer, PageHeader, PageContent } from "@/components/ui/page-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,7 +34,7 @@ import {
     testAssistant,
     updateAssistant,
 } from "../../services/assistantService";
-import { listAiGateways, AiGateway } from "../../services/aiGatewayService";
+import { listAiGateways, listAiGatewayModels, updateAiGateway, AiGateway } from "../../services/aiGatewayService";
 import AssistantRouterOptions from "./AssistantRouterOptions";
 import AssistantGroupsPanel from "./AssistantGroupsPanel";
 import PersonaSectionsEditor from "./PersonaSectionsEditor";
@@ -106,6 +106,9 @@ const AssistantCreator: React.FC = () => {
     const [groupsMode, setGroupsMode] = useState<"legacy" | "selective">("legacy");
     const [acceptsAudio, setAcceptsAudio] = useState(false);
     const [respondsWithAudio, setRespondsWithAudio] = useState(false);
+    const [gatewayModels, setGatewayModels] = useState<string[]>([]);
+    const [fetchingGatewayModels, setFetchingGatewayModels] = useState(false);
+    const [savingGatewayModel, setSavingGatewayModel] = useState(false);
 
     // Modo flow
     const [flowId, setFlowId] = useState<string>("");
@@ -207,6 +210,58 @@ const AssistantCreator: React.FC = () => {
 
     const handlePersonaSectionChange = (key: string, value: string) => {
         setPersonaSections((prev) => ({ ...prev, [key]: value }));
+    };
+
+    const selectedGateway = aiGateways.find((g) => String(g.id) === aiGatewayId) ?? null;
+
+    // Carrega os modelos reais disponíveis no AiGateway selecionado (mesmo
+    // endpoint usado em Configurações → Agentes de IA) para popular os
+    // selects de transcrição/fala aqui — evita ter que ir em Configurações
+    // pra descobrir o nome exato do modelo de áudio do gateway.
+    const handleFetchGatewayModels = async () => {
+        if (!selectedGateway) return;
+        setFetchingGatewayModels(true);
+        try {
+            const result = await listAiGatewayModels(selectedGateway.id);
+            if (result.success && result.models) {
+                setGatewayModels(result.models);
+                toast.success(`${result.models.length} modelo(s) carregado(s) do gateway`);
+            } else {
+                toast.error(result.error ?? "Não foi possível carregar os modelos do gateway");
+            }
+        } catch (err) {
+            const message =
+                (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+                "Erro ao carregar modelos do gateway";
+            toast.error(message);
+        } finally {
+            setFetchingGatewayModels(false);
+        }
+    };
+
+    // Grava direto no AiGateway (Configurações → Agentes de IA) — é o MESMO
+    // campo, compartilhado por todos os Assistants que usam esse gateway;
+    // este select aqui é só um atalho pra não precisar trocar de tela.
+    const handleSaveGatewayModel = async (field: "transcriptionModel" | "speechModel", value: string) => {
+        if (!selectedGateway) return;
+        setSavingGatewayModel(true);
+        try {
+            const updated = await updateAiGateway(selectedGateway.id, {
+                name: selectedGateway.name,
+                provider: selectedGateway.provider,
+                apiKey: "",
+                baseUrl: selectedGateway.baseUrl,
+                model: selectedGateway.model,
+                transcriptionModel: field === "transcriptionModel" ? value : selectedGateway.transcriptionModel,
+                speechModel: field === "speechModel" ? value : selectedGateway.speechModel,
+            });
+            setAiGateways((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
+            toast.success("Modelo salvo no AiGateway");
+        } catch {
+            toast.error("Erro ao salvar modelo no AiGateway");
+        } finally {
+            setSavingGatewayModel(false);
+        }
     };
 
     const buildConfig = (): Record<string, unknown> => {
@@ -724,6 +779,102 @@ const AssistantCreator: React.FC = () => {
                                             <Switch checked={respondsWithAudio} onCheckedChange={setRespondsWithAudio} />
                                         </div>
                                     </div>
+
+                                    {(acceptsAudio || respondsWithAudio) && (
+                                        <div className="flex flex-col gap-3 rounded-xl border border-dashed p-3">
+                                            {!selectedGateway ? (
+                                                <p className="flex items-center gap-2 text-sm text-amber-600">
+                                                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                                                    Selecione um Gateway de IA na aba "Persona" antes de escolher os
+                                                    modelos de áudio.
+                                                </p>
+                                            ) : (
+                                                <>
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Modelos do gateway "{selectedGateway.name}" — grava direto
+                                                            nele (compartilhado com Configurações → Agentes de IA).
+                                                        </p>
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="shrink-0"
+                                                            disabled={!selectedGateway.hasApiKey || fetchingGatewayModels}
+                                                            onClick={handleFetchGatewayModels}
+                                                        >
+                                                            {fetchingGatewayModels ? (
+                                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                            ) : (
+                                                                <Download className="mr-2 h-4 w-4" />
+                                                            )}
+                                                            Carregar modelos
+                                                        </Button>
+                                                    </div>
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                        {acceptsAudio && (
+                                                            <div className="flex flex-col gap-1.5">
+                                                                <Label>Modelo de transcrição</Label>
+                                                                <Select
+                                                                    value={selectedGateway.transcriptionModel ?? ""}
+                                                                    onValueChange={(v) =>
+                                                                        handleSaveGatewayModel("transcriptionModel", v)
+                                                                    }
+                                                                    disabled={savingGatewayModel}
+                                                                >
+                                                                    <SelectTrigger>
+                                                                        <SelectValue placeholder="Nenhum selecionado" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        {gatewayModels.map((m) => (
+                                                                            <SelectItem key={m} value={m}>
+                                                                                {m}
+                                                                            </SelectItem>
+                                                                        ))}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                                {!selectedGateway.transcriptionModel && (
+                                                                    <p className="flex items-center gap-1.5 text-xs text-amber-600">
+                                                                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                                                                        Sem modelo configurado — áudio cai em handoff.
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                        {respondsWithAudio && (
+                                                            <div className="flex flex-col gap-1.5">
+                                                                <Label>Modelo de fala</Label>
+                                                                <Select
+                                                                    value={selectedGateway.speechModel ?? ""}
+                                                                    onValueChange={(v) =>
+                                                                        handleSaveGatewayModel("speechModel", v)
+                                                                    }
+                                                                    disabled={savingGatewayModel}
+                                                                >
+                                                                    <SelectTrigger>
+                                                                        <SelectValue placeholder="Nenhum selecionado" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        {gatewayModels.map((m) => (
+                                                                            <SelectItem key={m} value={m}>
+                                                                                {m}
+                                                                            </SelectItem>
+                                                                        ))}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                                {!selectedGateway.speechModel && (
+                                                                    <p className="flex items-center gap-1.5 text-xs text-amber-600">
+                                                                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                                                                        Sem modelo configurado — cai de volta pra texto.
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
                                 </TabsContent>
 
                                 <TabsContent value="grupos" className="flex flex-col gap-4 pt-2">
