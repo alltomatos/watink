@@ -33,7 +33,7 @@ import (
 // @Param        messageId  path      string  true  "ID da mensagem"
 // @Success      200        {object}  map[string]interface{}
 // @Security     BearerAuth
-// @Router       /messages/{messageId}/transcribe [post]
+// @Router       /message/{messageId}/transcribe [post]
 func (mc *MessageController) TranscribeAudio(c *gin.Context) {
 	db, tenantID, ok := auth.GetScoped(c, "Messages")
 	if !ok {

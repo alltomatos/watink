@@ -207,12 +207,12 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		// On-demand media download (separate path to avoid Gin wildcard conflict
 		// with :ticketId at the same position)
 		protected.POST("/media/:messageId/download", messageController.DownloadMedia)
-		protected.POST("/messages/:messageId/transcribe", messageController.TranscribeAudio)
 		// Nested under a distinct literal segment ("message", singular) --
 		// gin's radix router panics at startup if two routes share a path
 		// position with different wildcard names (":messageId" here vs the
 		// existing ":ticketId" under "/messages/:ticketId").
 		protected.POST("/message/:messageId/react", messageController.ReactToMessage)
+		protected.POST("/message/:messageId/transcribe", messageController.TranscribeAudio)
 
 		// WhatsApp Connections
 		protected.GET("/whatsapp", auth.RequirePermission("connections", "read"), whatsappController.ListWhatsapps)

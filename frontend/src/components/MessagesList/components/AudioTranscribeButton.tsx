@@ -28,7 +28,7 @@ const AudioTranscribeButton: React.FC<Props> = ({ message, onTranscribed }) => {
     setLoading(true);
     try {
       const { data } = await api.post<TranscribeResponse>(
-        `/messages/${message.id}/transcribe`
+        `/message/${message.id}/transcribe`
       );
       if (data.success && data.transcription) {
         onTranscribed(data.transcription);
