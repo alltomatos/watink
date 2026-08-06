@@ -196,6 +196,18 @@ MUI v4 **completamente removido** — `@material-ui/*` não é dependência do p
 - **Redis cache**: mensagens com TTL 24h em `wbot:msg:{jid}:{id}`.
 - **Plugin activation**: opt-in por tenant via Marketplace grava `PluginInstallations.active` (alocação); plugin `pro` exige licença válida do Hub (via `plugin-manager`, pull+cache ~60s) + teto de tenants. Ver [`docs/agents/plugins.md`](docs/agents/plugins.md) e ADR 0024.
 
+## ⚠️ Débito técnico conhecido — filas RabbitMQ globais (não por tenant)
+
+**Diagnosticado ao vivo em homolog (ago/2026), corrigido pontualmente, mas a causa estrutural segue aberta — retomar em sessão futura.**
+
+`business` (`ConsumeEvents("api.events.process.go", ...)`) e `engine-go` (`ConsumeCommands("engine.go.commands", ...)`) usam **uma única fila fixa cada**, com routing keys wildcard (`wbot.*.*.<tipo>`) — ou seja, **todos os tenants compartilham a mesma fila**, consumida por **um único loop sequencial** (`for d := range msgs { handler(d) }`, uma Delivery por vez). Um tenant com tráfego alto (muitos grupos ativos) pode atrasar em minutos o processamento de eventos/comandos de **outros tenants**, porque tudo passa pela mesma fila serial.
+
+Medido ao vivo: um evento `message.media` (resultado de download de áudio) esperou ~2 minutos na fila do `business` atrás de eventos de grupos não relacionados, mesmo o download em si (engine-go) tendo levado 250ms.
+
+**Mitigado pontualmente** (não resolve a causa raiz): `media.download` no engine-go (PR #578) e `message.media` no business (PR #583) agora rodam em goroutine própria em vez de bloquear o loop — seguro porque nenhum dos dois depende de ordem com outros eventos. Mensagens normais, recibos, presença etc. continuam seriais e globais entre tenants.
+
+**Investigar depois:** filas por tenant (ou por shard), ou processamento concorrente com garantias de ordem só onde importa (por conversa/ticket, não globalmente). Decisão de arquitetura maior, fora do escopo de uma correção pontual.
+
 ## Módulo: Pipeline
 
 **Responsabilidade:** Funis de vendas com estágios sequenciais, visualizações Kanban/Funil/Gantt/KPIs, e assistente de IA para criação de stages.
