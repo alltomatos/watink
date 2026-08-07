@@ -117,18 +117,18 @@ func TestPickDueSends_IgnoresFutureScheduledAt(t *testing.T) {
 	assert.Empty(t, due)
 }
 
-// ── drainOneSend / settleSendFailure (sendOne é stub nesta issue) ────────
+// ── drainOneSend / settleSendFailure (adapter nil == fail-closed) ───────
 
-func TestDrainOneSend_StubSendOneRetriesThenFails(t *testing.T) {
+func TestDrainOneSend_NilAdapterRetriesThenFails(t *testing.T) {
 	db := setupPluginTestDB(t)
 	w, c := campaignFixture(t, db, "CONNECTED")
 	run := runFixture(t, db, c)
 	send := pendingSendFixture(t, db, w, c, run, "a@g.us", time.Now())
 
-	// sendOne (stub) sempre falha nesta issue -- drainOneSend deve
-	// reagendar com backoff (não falhar de primeira, já que attempts
-	// começa em 0 após o claim incrementar pra 1).
-	drainOneSend(db, send)
+	// sendOne com adapter nil (Publisher não configurado) sempre falha
+	// fail-closed -- drainOneSend deve reagendar com backoff (não falhar de
+	// primeira, já que attempts começa em 0 após o claim incrementar pra 1).
+	drainOneSend(t.Context(), db, nil, nil, send)
 
 	var reloaded models.GroupCampaignSend
 	require.NoError(t, db.First(&reloaded, send.ID).Error)
@@ -149,7 +149,7 @@ func TestDrainOneSend_ExhaustedAttemptsFailsPermanently(t *testing.T) {
 	}
 	require.NoError(t, db.Create(&send).Error)
 
-	drainOneSend(db, send)
+	drainOneSend(t.Context(), db, nil, nil, send)
 
 	var reloaded models.GroupCampaignSend
 	require.NoError(t, db.First(&reloaded, send.ID).Error)
@@ -277,6 +277,6 @@ func TestRegisterGroupCampaignCrons_NoSchedulerSupport_DoesNotPanic(t *testing.T
 	mockCore.On("GetDB").Return(db)
 
 	assert.NotPanics(t, func() {
-		registerGroupCampaignCrons(mockCore, db)
+		registerGroupCampaignCrons(mockCore, db, nil)
 	})
 }
