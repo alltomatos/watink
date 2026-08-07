@@ -96,6 +96,7 @@ func (gp *GroupsPlugin) OnActivate(core sdk.WatinkCore) error {
 	core.RegisterRoute("GET", "/groups/watch-matches", withPermission("whatsappGroups", "read", handleListGroupWatchMatches(core)))
 	registerGroupWatchEvents(core)
 	registerGroupsCacheSync(core, gp.Resolver)
+	registerGroupCampaignReplyEvents(core)
 
 	var adapter *flow.WhatsAppAdapter
 	if gp.Publisher != nil {
