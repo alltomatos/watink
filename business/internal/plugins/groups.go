@@ -97,6 +97,14 @@ func (gp *GroupsPlugin) OnActivate(core sdk.WatinkCore) error {
 	registerGroupWatchEvents(core)
 	registerGroupsCacheSync(core, gp.Resolver)
 
+	// Campanhas de grupo (issue #596) -- raiz estática própria, não aninhada
+	// em /groups (que já carrega :id na profundidade 2 com 4 filhos).
+	core.RegisterRoute("GET", "/group-campaigns", withPermission("whatsappGroups", "read", handleListGroupCampaigns()))
+	core.RegisterRoute("GET", "/group-campaigns/:campaignId", withPermission("whatsappGroups", "read", handleGetGroupCampaign()))
+	core.RegisterRoute("POST", "/group-campaigns", withPermission("whatsappGroups", "manage", handleCreateGroupCampaign()))
+	core.RegisterRoute("PUT", "/group-campaigns/:campaignId", withPermission("whatsappGroups", "manage", handleUpdateGroupCampaign()))
+	core.RegisterRoute("DELETE", "/group-campaigns/:campaignId", withPermission("whatsappGroups", "manage", handleDeleteGroupCampaign()))
+
 	var adapter *flow.WhatsAppAdapter
 	if gp.Publisher != nil {
 		adapter = flow.NewWhatsAppAdapter(gp.Publisher, gp.Redis, flow.WhatsAppAdapterDeps{
