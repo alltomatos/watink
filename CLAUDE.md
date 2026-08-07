@@ -63,6 +63,7 @@ Frontend (React/Vite) ←REST/SSE→ Backend Go (Gin/GORM) ←SQL→ PostgreSQL
 | Plugins — Marketplace respeita instância gerida por Watink SaaS (ADR 0026; ADRs irmãos: Hub ADR 0005, watink-saas ADR 0008) | 🟡 Desenho aceito e verificado; implementação a fazer (mudança cirúrgica em `PluginController.Activate`) |
 | Frontend — Redesign corporativo: paleta, componentes compartilhados (DataTable/EmptyState/ErrorState/FormField/notify), telas de referência | ✅ Concluída (PRs #507-#510) — rollout das ~25 páginas restantes é trabalho incremental futuro, ver [`docs/frontend/design-system.md`](docs/frontend/design-system.md) |
 | Plugins — Grupos e Comunidades (slug `groups`, `pro`): API interna de grupos no engine-go, providers `enginego`/`izapia`, plugin embarcado, frontend, catálogo do Hub (plano em `docs/agents/plugin-grupos-comunidades.md`) | ✅ Concluída (código+testes; issues #515-#524) — catálogo do Hub em `status: draft`, preço pendente de definição pelo dono antes de publicar |
+| Plugins — Campanhas de Grupo (4ª aba do plugin Grupos, ADR 0030): modelos+scheduler+drain+captura de resposta no backend, editor+relatório completos no frontend | ✅ Concluída (código+testes contra Postgres real; issues #590-#602) — texto do aviso de risco na UI marcado como pendente de aval do dono do produto (issue #600); tipos Botões/Lista ainda não validados manualmente em grupo real |
 | Atividades (Ordens de Serviço) — entidade core (ADR 0029): model+migration+RBAC+backfill, SLA real (não placeholder como o Helpdesk), CRUD+execução+evidência S3+KPIs, listagem redesenhada + tela de gestão (lista/criar/editar/atribuir/checklist) | ✅ Fase 0 concluída (código+testes contra Postgres real+verificação manual no browser; issues #527-#537) — ✅ Fase 1 concluída (`sdk.WatinkCoreActivities` + Helpdesk cria Activity ao abrir Protocol; issues #538/#541/#542/#543) — Fase 2 (Pipeline/Deal) não iniciada |
 
 ## Services & Ports
@@ -575,6 +576,29 @@ resolve o provider da conexão e devolve 501 claro quando ele não suporta grupo
   `ListCommunities` na interface) — funciona em conexões `enginego`, fica sempre vazio em
   `izapia` pelo motivo acima.
 
+**Campanhas de grupo (4ª aba, ADR 0030, issues #589-#602):** postar uma mensagem programada em
+vários grupos de uma vez. Entidade própria (`GroupCampaign`/`GroupCampaignVariant`/`Target`/
+`Run`/`Send`/`Reply`, todas prefixadas de propósito) — **nunca confundir com `Campaign`/
+`CampaignRecipient` do FlowBuilder (ADR 0016)**, que é disparo-a-**contato**, não a grupo.
+
+- **Uma conexão por campanha** (`GroupCampaign.WhatsappID` fixo, sem rotação) — postar o mesmo
+  conteúdo no mesmo grupo a partir de dois números é sinal de spam MAIS forte, não menor (ADR
+  0030 explica por que a rotação de chip do ADR 0016 não se aplica aqui).
+- **Cadência é sempre `scheduledAt` pré-calculado** (`buildSendSchedule`, nunca `time.Sleep`) —
+  o drain (`pickDueSends`) é um `WHERE scheduledAt <= now()` sem estado, no máximo um envio por
+  conexão por tick.
+- **Claim contra double-send é o `UPDATE ... WHERE status = 'pending'` condicional + checagem de
+  `RowsAffected`** (`claimSend`) — o leader-lock do cron é defesa em profundidade, não a garantia.
+- **`/start` é a única ignição** — `POST`/`PUT` sempre deixam a campanha em `draft`, mesmo com
+  `scheduleMode=immediate`.
+- Toda escrita/agregação que reusa um `db` já escopado (`auth.GetScoped`) ou uma sessão
+  (`Session(NewDB:true)`) precisa de uma **sessão nova por query** quando há 2+ operações
+  sequenciais — reusar a mesma acumula condições `Where` de uma chamada na próxima e casa 0
+  linhas silenciosamente (bug real, pego rodando contra Postgres real durante a issue #597).
+- Correlação forte de resposta (`matchType=quoted`) casa `QuotedMsgID` da mensagem recebida com
+  `GroupCampaignSend.MessageID` (== `EnvID` por construção); correlação fraca (`window`), só com
+  `captureMode=quoted_and_window`, nunca soma no mesmo número que a forte.
+
 **O que NÃO fazer:**
 - Não expor a API HTTP interna do engine-go fora da rede docker (`expose:`, nunca `ports:`) —
   nem subir o servidor sem `GROUPS_API_TOKEN` configurado (fail-closed).
@@ -584,15 +608,24 @@ resolve o provider da conexão e devolve 501 claro quando ele não suporta grupo
   sistema de plugins).
 - Não assumir que os campos ausentes na resposta da izapia (ver invariants) são um bug a
   corrigir sem antes checar se a própria API de origem os retorna.
+- Não confundir `GroupCampaign` com `Campaign`/`CampaignRecipient` do FlowBuilder — são
+  entidades e ADRs distintos (0030 vs 0016), apesar do risco estrutural de ban ser o mesmo.
+- Não rotacionar a conexão de uma campanha de grupo entre múltiplos chips — decisão permanente
+  (ADR 0030), não um débito a resolver depois.
+- Não somar respostas `quoted` e `window` num único número de "engajamento" — sempre reportar
+  separado (relatório e UI).
+- Não deixar `/start` disparar uma campanha sem `riskAckAt` preenchido, sem alvo, ou sem
+  variante ativa — as três validações são obrigatórias e têm mensagem específica por caso.
 
 **Referência:** [`docs/agents/plugin-grupos-comunidades.md`](docs/agents/plugin-grupos-comunidades.md) ·
 [`engine-go/docs/groups-api.md`](engine-go/docs/groups-api.md) ·
-[`docs/frontend/groups/OVERVIEW.md`](docs/frontend/groups/OVERVIEW.md) · Issues #514-#524
+[`docs/frontend/groups/OVERVIEW.md`](docs/frontend/groups/OVERVIEW.md) · ADR 0030 (campanhas de
+grupo — divergências do ADR 0016) · Issues #514-#524, #589-#602
 
 ## Domain Docs
 
 - **Glossário**: [`CONTEXT.md`](CONTEXT.md)
-- **ADRs**: [`docs/adr/`](docs/adr/) — ver **ADR 0009** para stage upsert, **ADR 0008** para política anti-MUI, **ADR 0007** para decomposição de componentes. **FlowBuilder/Automação**: **0011** FlowRun unificado · **0012** trigger polimórfico · **0013** contrato versionado FlowGraph · **0014** channel adapters · **0015** pgvector RAG · **0016** campanhas anti-ban (risco estrutural + opt-in + roadmap BSP) · **0017** scheduler multi-node. **Base de Conhecimento/RAG**: **0028** RAG nativo em Go (supera **0018**, microsserviço descomissionado) · **0015** (atualizado) pgvector RAG · **0018** microsserviço watink-knowledge + trust boundary (histórico, superado e removido) · **0019** S3 Storage Driver · **0020** (atualizado) Agent Runtime. **Acessos/RBAC**: **0022** modelo Cargo/Setor/Alcance + enforcement real (supera **0005**, ABAC via RolePermission.Scope/Conditions nunca implementado). **Clientes/CRM**: **0023** Client como entidade core (sai do plugin "pro"), transitividade Contact→Client, documento cifrado at-rest. **Plugins/Licenciamento**: **0024** redesenho do sistema de plugins (Watink Hub como autoridade, token assinado Ed25519, trilho duplo, licença por instância+teto, fronteira core/plugin = ativação; supera **0003** no ponto da flag) · **0025** marketplace de terceiros (publishers, artefatos assinados, runtime out-of-process em fases; plano executável em `docs/agents/marketplace-terceiros.md`; ADR irmão: Hub 0004). **Atividades/Ordens de Serviço**: **0029** Activity como entidade core (análogo ao 0023 de Clientes), SLA lido de verdade desde a Fase 0 (ao contrário do placeholder do Helpdesk), presign de evidência em S3.
+- **ADRs**: [`docs/adr/`](docs/adr/) — ver **ADR 0009** para stage upsert, **ADR 0008** para política anti-MUI, **ADR 0007** para decomposição de componentes. **FlowBuilder/Automação**: **0011** FlowRun unificado · **0012** trigger polimórfico · **0013** contrato versionado FlowGraph · **0014** channel adapters · **0015** pgvector RAG · **0016** campanhas anti-ban (risco estrutural + opt-in + roadmap BSP) · **0017** scheduler multi-node. **Base de Conhecimento/RAG**: **0028** RAG nativo em Go (supera **0018**, microsserviço descomissionado) · **0015** (atualizado) pgvector RAG · **0018** microsserviço watink-knowledge + trust boundary (histórico, superado e removido) · **0019** S3 Storage Driver · **0020** (atualizado) Agent Runtime. **Acessos/RBAC**: **0022** modelo Cargo/Setor/Alcance + enforcement real (supera **0005**, ABAC via RolePermission.Scope/Conditions nunca implementado). **Clientes/CRM**: **0023** Client como entidade core (sai do plugin "pro"), transitividade Contact→Client, documento cifrado at-rest. **Plugins/Licenciamento**: **0024** redesenho do sistema de plugins (Watink Hub como autoridade, token assinado Ed25519, trilho duplo, licença por instância+teto, fronteira core/plugin = ativação; supera **0003** no ponto da flag) · **0025** marketplace de terceiros (publishers, artefatos assinados, runtime out-of-process em fases; plano executável em `docs/agents/marketplace-terceiros.md`; ADR irmão: Hub 0004). **Atividades/Ordens de Serviço**: **0029** Activity como entidade core (análogo ao 0023 de Clientes), SLA lido de verdade desde a Fase 0 (ao contrário do placeholder do Helpdesk), presign de evidência em S3. **Grupos/Campanhas de Grupo**: **0030** divergências do ADR 0016 pra disparo em grupo (sem opt-in por destinatário, sem rotação de chip, sem caminho oficial via BSP — supera o 0016 só nesses pontos, não o edita).
 - **Arquitetura**: [`docs/dev/architecture.md`](docs/dev/architecture.md)
 - **Frontend DS**: [`docs/frontend/design-system.md`](docs/frontend/design-system.md)
 - **Git Workflow**: [`docs/dev/git_workflow_policy.md`](docs/dev/git_workflow_policy.md)

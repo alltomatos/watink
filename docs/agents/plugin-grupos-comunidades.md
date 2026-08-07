@@ -333,3 +333,80 @@ T3.1  (frontend)      T4.1 (hub, paralelo)
    MVP ou deixar para uma iteração 2?).
 2. Abrir o PR de T0.1 (engine-go) e T0.2 (watinkdev) em paralelo — são só design, sem código de
    produção ainda.
+
+---
+
+## Campanhas de Grupo (4ª aba — concluída, issues #589-#602)
+
+Evolução do plugin, planejada e executada depois das Fases 0-5 acima: postar uma mensagem
+programada em vários grupos de uma vez, com agendamento (imediato/único/recorrente), variantes de
+mensagem rotacionadas, cadência anti-ban e captura de resposta. Entidade própria
+(`GroupCampaign`/`Variant`/`Target`/`Run`/`Send`/`Reply`) — **nunca confundir com
+`Campaign`/`CampaignRecipient` do FlowBuilder** (ADR 0016, disparo-a-contato). Ver
+[ADR 0030](../adr/0030-campanhas-de-grupo-divergencias-do-0016.md) para a análise completa de
+quais guard-rails do ADR 0016 transferem para grupo e quais não.
+
+### Arquitetura
+
+- **Modelos** (`business/internal/models/group_campaign*.go`): `GroupCampaign` é a definição
+  (agendamento, cadência, captura, aceite de risco); `GroupCampaignVariant` são as N mensagens
+  rotacionadas; `GroupCampaignTarget` são os grupos selecionados; `GroupCampaignRun` é UMA
+  ocorrência disparada (congela as variantes ativas no momento em `VariantsSnapshot`);
+  `GroupCampaignSend` é uma entrega (run × grupo), a unidade real de cadência; `GroupCampaignReply`
+  é uma resposta capturada.
+- **Cadência** (`groups_campaign_schedule.go`): `clampPacing` aplica um piso anti-ban fixo no
+  backend (intervalo mín. 60s, jitter ≤ intervalo/4, lote máx. 20, pausa entre lotes mín. 180s) —
+  ajusta em vez de rejeitar, e devolve `pacingAdjusted: true` pro cliente saber. `buildSendSchedule`
+  pré-calcula o `scheduledAt` de cada envio (nunca `time.Sleep`), com rotação de variante por
+  offset de ocorrência (`sequence`) pra não repetir sempre a mesma variante no mesmo grupo.
+- **Agendamento** (`groups_campaign_materialize.go`, `groups_campaign_cron.go`): dois crons
+  independentes — `group-campaigns-materialize` (60s, cria a run + os sends de uma ocorrência
+  vencida) e `group-campaigns-drain` (30s, dispara os sends vencidos, no máximo um por conexão por
+  tick). `materializeRun` é a função compartilhada entre o cron (once/recorrente) e `/start`
+  (imediato, chamado inline).
+- **Claim contra double-send** (`groups_campaign_drain.go`, `claimSend`): `UPDATE ... WHERE
+  status = 'pending'` condicional + `RowsAffected` — o leader-lock do cron é defesa em
+  profundidade, não a garantia. `pickDueSends` só seleciona sends de campanhas com
+  `status='running'` (join com `group_campaigns`) — é isso que faz `/pause` realmente parar o
+  drain.
+- **Envio** (`groups_campaign_send.go`, `groups_campaign_ticket.go`): `sendOne` monta o mesmo
+  payload que `flow/executor_quickanswer.go` já usa (`flow.BuildQuickAnswerCommand` +
+  `flow.NormalizeQuickAnswerContent`), persiste a `Message` (com `ID == EnvID`) **antes** do
+  publish — é isso que faz a correlação de resposta citada funcionar (a mensagem citada precisa
+  existir na tabela `Messages` quando a resposta chega). `/test` (`dispatchCampaignMessage`) reusa
+  o mesmo núcleo pra um envio avulso sem criar Run/Send.
+- **Captura de resposta** (`groups_campaign_replies.go`): segundo assinante de
+  `"message.received"`, ao lado do monitoramento de frase — o bus faz `append` de handlers. Gate
+  TTL de 60s por tenant (`EXISTS` em `group_campaign_sends`) pra que mensagens de tenants sem
+  campanha custem zero query. Correlação forte (`QuotedMsgID` → `GroupCampaignSend.MessageID`)
+  sempre tem precedência sobre a fraca (janela de tempo, só com `captureMode=quoted_and_window`).
+- **Rotas** (`groups_campaign_handler.go` CRUD, `groups_campaign_actions.go` ações,
+  `groups_campaign_report.go` relatório): raiz estática `/group-campaigns` (não aninhada em
+  `/groups`). `POST`/`PUT` sempre deixam a campanha em `draft` — `/start` é a única ignição.
+  Relatório pagina desde o início (20/página).
+
+### Frontend
+
+- `services/groupCampaignService.ts` — cliente tipado cobrindo CRUD + ações + relatório.
+- `pages/GroupsWhatsapp/components/CampanhasTab.tsx` — 4ª aba, listagem com cards.
+- `pages/GroupCampaigns/GroupCampaignEditor.tsx` + 6 componentes — reusa os editores de tipo de
+  mensagem das Respostas Rápidas (`pages/QuickAnswers/editors/`), não duplica.
+- `pages/GroupCampaigns/GroupCampaignReport.tsx` — ocorrências, envios, respostas (citação/janela
+  sempre separadas), taxa de resposta por variante.
+
+### Limitações de captura de resposta (documentar, não é bug)
+
+- A correlação fraca (`window`) conta **qualquer** mensagem do grupo dentro da janela, relacionada
+  ou não à campanha — por isso o padrão é `captureMode=quoted` (só citação), e quando a janela é
+  ligada o relatório NUNCA soma os dois números num único "engajamento".
+- Opt-out (`PARAR`/`STOP`/`SAIR`/`DESCADASTRAR`) marca a resposta, mas não suprime o grupo inteiro
+  automaticamente — um membro não tem autoridade pra desinscrever quem foi adicionado por um
+  admin. Vira ação manual do operador no relatório.
+- `Contacts.number` é único globalmente, não por tenant (débito pré-existente do core) — dois
+  tenants com chip no mesmo grupo colidem em `ensureGroupContact`; o código já captura e relê em
+  vez de propagar erro, mas o vazamento de existência entre tenants nesse caso específico é um
+  débito conhecido, não resolvido por esta epic.
+- Tipos Botões/Lista estão liberados no seletor de variante, mas **ainda não confirmados
+  renderizando de fato num grupo real** (a Lista já falhou uma vez em conta pessoal, ver plano
+  original) — validar manualmente antes de anunciar esses dois tipos como suportados; se falhar,
+  restringir a v1 a Texto/Mídia/Enquete.
