@@ -96,6 +96,12 @@ func Migrate() {
 		&models.GroupWatchTag{},
 		&models.GroupWatchMatch{},
 		&models.GroupCache{},
+		&models.GroupCampaign{},
+		&models.GroupCampaignVariant{},
+		&models.GroupCampaignTarget{},
+		&models.GroupCampaignRun{},
+		&models.GroupCampaignSend{},
+		&models.GroupCampaignReply{},
 	)
 
 	if err != nil {
@@ -384,6 +390,23 @@ func addCustomIndexes() error {
 		// ("tenantId", "whatsappId").
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_group_caches_whatsapp_jid ON "group_caches" ("whatsappId", jid)`,
 		`CREATE INDEX IF NOT EXISTS idx_group_caches_tenant_whatsapp ON "group_caches" ("tenantId", "whatsappId")`,
+		// GroupCampaign (plugin Grupos e Comunidades, aba Campanhas -- issue
+		// #591/#593/#594/#598). Os dois UNIQUE abaixo são âncoras de
+		// idempotência (materialização de ocorrência e claim de envio), não
+		// só otimização de leitura.
+		`CREATE INDEX IF NOT EXISTS idx_group_campaigns_tenant_status ON "group_campaigns" ("tenantId", status)`,
+		`CREATE INDEX IF NOT EXISTS idx_group_campaigns_due ON "group_campaigns" (status, "nextOccurrenceAt")`,
+		`CREATE INDEX IF NOT EXISTS idx_group_campaign_variants_campaign ON "group_campaign_variants" ("campaignId", position)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_group_campaign_targets_campaign_jid ON "group_campaign_targets" ("campaignId", jid)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_group_campaign_runs_occurrence ON "group_campaign_runs" ("campaignId", "occurrenceKey")`,
+		`CREATE INDEX IF NOT EXISTS idx_group_campaign_runs_tenant_campaign ON "group_campaign_runs" ("tenantId", "campaignId", "scheduledFor")`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_group_campaign_sends_run_jid ON "group_campaign_sends" ("runId", jid)`,
+		`CREATE INDEX IF NOT EXISTS idx_group_campaign_sends_due ON "group_campaign_sends" (status, "scheduledAt")`,
+		`CREATE INDEX IF NOT EXISTS idx_group_campaign_sends_tenant_run ON "group_campaign_sends" ("tenantId", "runId", status)`,
+		`CREATE INDEX IF NOT EXISTS idx_group_campaign_sends_messageid ON "group_campaign_sends" ("tenantId", "messageId")`,
+		`CREATE INDEX IF NOT EXISTS idx_group_campaign_sends_jid_sentat ON "group_campaign_sends" ("tenantId", jid, "sentAt")`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_group_campaign_replies_message ON "group_campaign_replies" ("tenantId", "messageId")`,
+		`CREATE INDEX IF NOT EXISTS idx_group_campaign_replies_campaign ON "group_campaign_replies" ("tenantId", "campaignId", "repliedAt")`,
 	}
 
 	// Best-effort: um índice que falha (ex.: tabela de plugin ainda não migrada
