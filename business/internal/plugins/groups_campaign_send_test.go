@@ -81,7 +81,7 @@ func sendFixtureWithVariant(t *testing.T, db *gorm.DB, w models.Whatsapp, c mode
 	s := models.GroupCampaignSend{
 		TenantID: c.TenantID, CampaignID: c.ID, RunID: run.ID, WhatsappID: w.ID,
 		JID: jid, Subject: "Grupo Teste", Status: models.GroupCampaignSendStatusPending,
-		ScheduledAt: time.Now(), VariantIndex: variantIndex, EnvID: "env-" + jid,
+		ScheduledAt: time.Now(), VariantIndex: variantIndex, EnvID: "env-" + uuid.New().String(),
 	}
 	require.NoError(t, db.Create(&s).Error)
 	return s
