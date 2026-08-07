@@ -39,6 +39,7 @@ const PluginDetail = lazy(() => import("../pages/Marketplace/PluginDetail"));
 const Clients = lazy(() => import("../pages/Clients"));
 const GroupsWhatsapp = lazy(() => import("../pages/GroupsWhatsapp"));
 const GroupDetail = lazy(() => import("../pages/Groups/GroupDetail"));
+const GroupCampaignEditor = lazy(() => import("../pages/GroupCampaigns/GroupCampaignEditor"));
 const CommunityDetail = lazy(() => import("../pages/Communities/CommunityDetail"));
 const Helpdesk = lazy(() => import("../pages/Helpdesk"));
 const ProtocolDetails = lazy(() => import("../pages/Helpdesk/ProtocolDetails"));
@@ -105,6 +106,8 @@ const PrivateRoutes = () => {
      <Route path="/grupos-whatsapp" element={<Navigate to="/grupos-whatsapp/grupos" replace />} />
      <Route path="/grupos-whatsapp/:tab" element={<PrivateRoute isPrivate><GroupsWhatsapp /></PrivateRoute>} />
      <Route path="/groups/:jid" element={<PrivateRoute isPrivate><GroupDetail /></PrivateRoute>} />
+     <Route path="/group-campaigns/new" element={<PrivateRoute isPrivate><GroupCampaignEditor /></PrivateRoute>} />
+     <Route path="/group-campaigns/:campaignId" element={<PrivateRoute isPrivate><GroupCampaignEditor /></PrivateRoute>} />
      <Route path="/communities/:jid" element={<PrivateRoute isPrivate><CommunityDetail /></PrivateRoute>} />
      <Route path="/helpdesk" element={<PrivateRoute isPrivate><Helpdesk /></PrivateRoute>} />
      <Route path="/helpdesk/kanban" element={<PrivateRoute isPrivate><HelpdeskKanban /></PrivateRoute>} />
