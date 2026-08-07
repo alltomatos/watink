@@ -1,6 +1,6 @@
 import React from "react";
 import { useParams, useNavigate, Navigate } from "react-router";
-import { Users, Network, Bell } from "lucide-react";
+import { Users, Network, Bell, Megaphone } from "lucide-react";
 
 import { PageContainer, PageHeader, PageContent } from "@/components/ui/page-layout";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -9,6 +9,7 @@ import { GROUPS_WHATSAPP_TABS, type GroupsWhatsappTab } from "./groupsWhatsappTy
 import GruposTab from "./components/GruposTab";
 import ComunidadesTab from "./components/ComunidadesTab";
 import MonitoramentoTab from "./components/MonitoramentoTab";
+import CampanhasTab from "./components/CampanhasTab";
 
 /**
  * Central "Grupos WhatsApp" — mesmo padrão da Central de Acessos
@@ -54,6 +55,10 @@ const GroupsWhatsapp: React.FC = () => {
                             <Bell className="h-4 w-4" />
                             Monitoramento
                         </TabsTrigger>
+                        <TabsTrigger value="campanhas" className="gap-1.5">
+                            <Megaphone className="h-4 w-4" />
+                            Campanhas
+                        </TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="grupos">
@@ -64,6 +69,9 @@ const GroupsWhatsapp: React.FC = () => {
                     </TabsContent>
                     <TabsContent value="monitoramento">
                         <MonitoramentoTab />
+                    </TabsContent>
+                    <TabsContent value="campanhas">
+                        <CampanhasTab />
                     </TabsContent>
                 </Tabs>
             </PageContent>
