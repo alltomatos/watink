@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/alltomatos/watinkdev/business/internal/flow"
 	"github.com/alltomatos/watinkdev/business/pkg/sdk"
 	"gorm.io/gorm"
 )
@@ -22,11 +23,11 @@ const (
 // sdk.WatinkCoreScheduler, log-and-return when the core doesn't support
 // it, log (never panic OnActivate) if RegisterCron itself errors.
 //
-// NOT yet called from GroupsPlugin.OnActivate as of this issue (#594) --
-// the drain's sendOne is still a stub (groups_campaign_send.go); wiring
-// this into OnActivate lands in issue #595 alongside the real send path,
-// so the crons never run against a stub in production.
-func registerGroupCampaignCrons(core sdk.WatinkCore, db *gorm.DB) {
+// adapter is nil-safe at the call site (sendOne fails closed on a nil
+// adapter, see groups_campaign_send.go) -- OnActivate only builds a real
+// one when Publisher/Redis were injected (groups.go), so an incomplete
+// wiring degrades to "every send fails and retries" rather than a panic.
+func registerGroupCampaignCrons(core sdk.WatinkCore, db *gorm.DB, adapter *flow.WhatsAppAdapter) {
 	scheduler, ok := core.(sdk.WatinkCoreScheduler)
 	if !ok {
 		log.Printf("[groups] WatinkCoreScheduler não disponível — scheduler de campanhas desabilitado")
@@ -41,7 +42,7 @@ func registerGroupCampaignCrons(core sdk.WatinkCore, db *gorm.DB) {
 	}
 
 	if err := scheduler.RegisterCron("group-campaigns-drain", groupCampaignDrainInterval, func(ctx context.Context) error {
-		drainDueSends(ctx, core, db)
+		drainDueSends(ctx, core, db, adapter)
 		return nil
 	}); err != nil {
 		log.Printf("[groups] RegisterCron(group-campaigns-drain) falhou: %v", err)

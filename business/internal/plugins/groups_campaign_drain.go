@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/alltomatos/watinkdev/business/internal/flow"
 	"github.com/alltomatos/watinkdev/business/internal/models"
 	"github.com/alltomatos/watinkdev/business/pkg/sdk"
 	"github.com/google/uuid"
@@ -30,7 +31,7 @@ const (
 // backlog protection: if a node was down and many sends came due at once,
 // draining them one-per-connection-per-tick re-spreads the backlog instead
 // of bursting every group at once.
-func drainDueSends(ctx context.Context, core sdk.WatinkCore, db *gorm.DB) {
+func drainDueSends(ctx context.Context, core sdk.WatinkCore, db *gorm.DB, adapter *flow.WhatsAppAdapter) {
 	reapStuckClaims(ctx, db)
 
 	due, err := pickDueSends(ctx, db)
@@ -44,7 +45,7 @@ func drainDueSends(ctx context.Context, core sdk.WatinkCore, db *gorm.DB) {
 			log.Printf("[groups] campaign drain: contexto expirado, encerrando tick cedo")
 			return
 		}
-		drainOneSend(db, send)
+		drainOneSend(ctx, db, core, adapter, send)
 	}
 
 	closeFinishedRuns(db)
@@ -96,7 +97,7 @@ func pickDueSends(ctx context.Context, db *gorm.DB) ([]models.GroupCampaignSend,
 // drainOneSend claims (see claimSend), dispatches, and settles exactly one
 // send. A lost claim race (RowsAffected==0) is a silent no-op -- another
 // node already owns this send.
-func drainOneSend(db *gorm.DB, send models.GroupCampaignSend) {
+func drainOneSend(ctx context.Context, db *gorm.DB, core sdk.WatinkCore, adapter *flow.WhatsAppAdapter, send models.GroupCampaignSend) {
 	claimed, err := claimSend(db, send.ID)
 	if err != nil {
 		log.Printf("[groups] campaign drain: claim falhou (send %d): %v", send.ID, err)
@@ -106,7 +107,7 @@ func drainOneSend(db *gorm.DB, send models.GroupCampaignSend) {
 		return // outro nó ganhou a corrida -- nunca envia
 	}
 
-	sendErr := sendOne()
+	sendErr := sendOne(ctx, db, core, adapter, send)
 	if sendErr == nil {
 		settleSendSuccess(db, send)
 		return

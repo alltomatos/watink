@@ -1,7 +1,10 @@
 package plugins
 
 import (
+	"log"
+
 	"github.com/alltomatos/watinkdev/business/internal/domain"
+	"github.com/alltomatos/watinkdev/business/internal/flow"
 	"github.com/alltomatos/watinkdev/business/pkg/auth"
 	"github.com/alltomatos/watinkdev/business/pkg/sdk"
 	"github.com/gin-gonic/gin"
@@ -14,8 +17,17 @@ import (
 // conexão — por isso carrega um Resolver injetado no momento do registro em
 // internal/routes/routes.go (container.SessionService já implementa
 // domain.WhatsAppEngineResolver).
+//
+// Publisher/Redis (issue #595) são usados só pela feature de Campanhas, pra
+// construir um flow.WhatsAppAdapter próprio -- sdk.WatinkCore.SendTicketMessage
+// não serve aqui (é texto puro e exige um Ticket já existente). nil em
+// qualquer um dos dois é aceito (registros de rota/handlers seguem
+// funcionando) mas deixa o envio de campanha fail-closed: ver
+// groups_campaign_send.go errAdapterNotConfigured.
 type GroupsPlugin struct {
-	Resolver domain.WhatsAppEngineResolver
+	Resolver  domain.WhatsAppEngineResolver
+	Publisher domain.CommandPublisher
+	Redis     domain.RedisService
 }
 
 func (gp *GroupsPlugin) GetManifest() sdk.PluginManifest {
@@ -84,6 +96,17 @@ func (gp *GroupsPlugin) OnActivate(core sdk.WatinkCore) error {
 	core.RegisterRoute("GET", "/groups/watch-matches", withPermission("whatsappGroups", "read", handleListGroupWatchMatches(core)))
 	registerGroupWatchEvents(core)
 	registerGroupsCacheSync(core, gp.Resolver)
+
+	var adapter *flow.WhatsAppAdapter
+	if gp.Publisher != nil {
+		adapter = flow.NewWhatsAppAdapter(gp.Publisher, gp.Redis, flow.WhatsAppAdapterDeps{
+			DB:      core.GetDB(),
+			Engines: gp.Resolver,
+		})
+	} else {
+		log.Printf("[groups] Publisher não configurado — envio de campanha ficará fail-closed")
+	}
+	registerGroupCampaignCrons(core, core.GetDB(), adapter)
 
 	return nil
 }

@@ -180,7 +180,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		pluginManager.Register(&plugins.HelpdeskPlugin{})
 		pluginManager.Register(&plugins.WebchatPlugin{})
 		pluginManager.Register(&plugins.AssistantPlugin{})
-		pluginManager.Register(&plugins.GroupsPlugin{Resolver: container.SessionService})
+		pluginManager.Register(&plugins.GroupsPlugin{Resolver: container.SessionService, Publisher: rabbitMQ, Redis: container.RedisSvc})
 
 		// Auth
 		protected.DELETE("/auth/logout", authController.Logout)
