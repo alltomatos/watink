@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -168,10 +169,11 @@ func TestEvaluateCircuitBreaker_PausesAfterAllFailedInWindow(t *testing.T) {
 	run := runFixture(t, db, c)
 
 	for i := 0; i < groupCampaignBreakerWindow; i++ {
+		jid := "g" + strconv.Itoa(i) + "@g.us"
 		s := models.GroupCampaignSend{
 			TenantID: c.TenantID, CampaignID: c.ID, RunID: run.ID, WhatsappID: w.ID,
-			JID: "g@g.us", Status: models.GroupCampaignSendStatusFailed, ScheduledAt: time.Now(),
-			EnvID: "env", UpdatedAt: time.Now(),
+			JID: jid, Status: models.GroupCampaignSendStatusFailed, ScheduledAt: time.Now(),
+			EnvID: "env-" + jid, UpdatedAt: time.Now(),
 		}
 		require.NoError(t, db.Create(&s).Error)
 	}
@@ -191,15 +193,16 @@ func TestEvaluateCircuitBreaker_DoesNotPauseWithARecentSuccess(t *testing.T) {
 	run := runFixture(t, db, c)
 
 	for i := 0; i < groupCampaignBreakerWindow-1; i++ {
+		jid := "g" + strconv.Itoa(i) + "@g.us"
 		s := models.GroupCampaignSend{
 			TenantID: c.TenantID, CampaignID: c.ID, RunID: run.ID, WhatsappID: w.ID,
-			JID: "g@g.us", Status: models.GroupCampaignSendStatusFailed, ScheduledAt: time.Now(), EnvID: "env",
+			JID: jid, Status: models.GroupCampaignSendStatusFailed, ScheduledAt: time.Now(), EnvID: "env-" + jid,
 		}
 		require.NoError(t, db.Create(&s).Error)
 	}
 	success := models.GroupCampaignSend{
 		TenantID: c.TenantID, CampaignID: c.ID, RunID: run.ID, WhatsappID: w.ID,
-		JID: "g@g.us", Status: models.GroupCampaignSendStatusSent, ScheduledAt: time.Now(), EnvID: "env-ok",
+		JID: "g-success@g.us", Status: models.GroupCampaignSendStatusSent, ScheduledAt: time.Now(), EnvID: "env-ok",
 	}
 	require.NoError(t, db.Create(&success).Error)
 
