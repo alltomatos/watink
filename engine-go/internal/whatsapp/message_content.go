@@ -73,6 +73,42 @@ func extractMentionedJIDs(msg *waProto.Message) []string {
 	return nil
 }
 
+// extractQuotedStanzaID returns the id of the message this one replies to,
+// across every message type that can carry a ContextInfo (a plain
+// Conversation cannot — mirrors extractMentionedJIDs above). Empty string
+// when the message isn't a reply. Feeds Message.QuotedMsgID
+// (business/internal/services/event_payloads.go MessagePayload.QuotedMsgId),
+// which the business side already declares and maps but nothing populates
+// today — receive_message.go's QuotedMsgID branch never fires.
+func extractQuotedStanzaID(msg *waProto.Message) string {
+	if ext := msg.GetExtendedTextMessage(); ext != nil {
+		if id := ext.GetContextInfo().GetStanzaID(); id != "" {
+			return id
+		}
+	}
+	if img := msg.GetImageMessage(); img != nil {
+		if id := img.GetContextInfo().GetStanzaID(); id != "" {
+			return id
+		}
+	}
+	if video := msg.GetVideoMessage(); video != nil {
+		if id := video.GetContextInfo().GetStanzaID(); id != "" {
+			return id
+		}
+	}
+	if doc := msg.GetDocumentMessage(); doc != nil {
+		if id := doc.GetContextInfo().GetStanzaID(); id != "" {
+			return id
+		}
+	}
+	if audio := msg.GetAudioMessage(); audio != nil {
+		if id := audio.GetContextInfo().GetStanzaID(); id != "" {
+			return id
+		}
+	}
+	return ""
+}
+
 func encodeThumb(b []byte) string {
 	if len(b) == 0 {
 		return ""
