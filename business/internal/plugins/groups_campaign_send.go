@@ -10,6 +10,7 @@ import (
 	"github.com/alltomatos/watinkdev/business/internal/models"
 	"github.com/alltomatos/watinkdev/business/pkg/sdk"
 	"github.com/alltomatos/watinkdev/business/pkg/utils"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -53,60 +54,18 @@ func sendOne(ctx context.Context, db *gorm.DB, core sdk.WatinkCore, adapter *flo
 	}
 	v := snapshot[send.VariantIndex]
 
-	contact, err := ensureGroupContact(db, send.TenantID, send.JID, send.Subject)
+	ticket, err := dispatchCampaignMessage(ctx, db, core, adapter, dispatchCampaignMessageParams{
+		TenantID:     send.TenantID,
+		WhatsappID:   send.WhatsappID,
+		JID:          send.JID,
+		Subject:      send.Subject,
+		CampaignName: campaign.Name,
+		EnvID:        send.EnvID,
+		VariantType:  v.Type,
+		Message:      v.Message,
+		Content:      v.Content,
+	})
 	if err != nil {
-		return err
-	}
-	ticket, err := ensureGroupTicket(db, send.TenantID, send.WhatsappID, contact)
-	if err != nil {
-		return err
-	}
-
-	vars := map[string]string{
-		"group_name":    send.Subject,
-		"campaign_name": campaign.Name,
-	}
-	message := utils.InterpolateVariables(v.Message, vars)
-
-	var contentMap map[string]interface{}
-	if v.Content != "" {
-		_ = json.Unmarshal([]byte(v.Content), &contentMap)
-	}
-	contentMap = flow.NormalizeQuickAnswerContent(v.Type, contentMap)
-	if body, ok := contentMap["body"].(string); ok {
-		contentMap["body"] = utils.InterpolateVariables(body, vars)
-	}
-
-	commandType, payload := flow.BuildQuickAnswerCommand(v.Type, message, contentMap, send.WhatsappID, send.EnvID, send.JID)
-
-	if _, err := persistOutgoingCampaignMessage(db, core, send.TenantID, ticket, send, v.Type, message, contentMap); err != nil {
-		return err
-	}
-
-	msg := flow.OutboundMessage{
-		TenantID:    send.TenantID,
-		SubjectType: "none",
-		EnvID:       send.EnvID,
-		To:          send.JID,
-		SessionID:   strconv.Itoa(send.WhatsappID),
-		Body:        message,
-		Meta: map[string]interface{}{
-			"commandType": commandType,
-			"payload":     payload,
-			"qaType":      v.Type,
-			"qaContent":   contentMap,
-			"qaMessage":   message,
-			"messageId":   send.EnvID,
-		},
-	}
-	if v.Type == "media" {
-		msg.Meta["mediaUrl"] = payload["mediaUrl"]
-		msg.Meta["mediaType"] = payload["mediaType"]
-		msg.Meta["mimeType"] = payload["mimeType"]
-	}
-
-	if err := adapter.Send(ctx, msg); err != nil {
-		markOutgoingCampaignMessageUndelivered(db, send.EnvID, send.TenantID)
 		return err
 	}
 
@@ -116,4 +75,92 @@ func sendOne(ctx context.Context, db *gorm.DB, core sdk.WatinkCore, adapter *flo
 	})
 
 	return nil
+}
+
+// dispatchCampaignMessageParams is the explicit-field equivalent of the
+// GroupCampaignSend-shaped input sendOne consumes -- lets /test (issue
+// #597) dispatch a real message for a single ad-hoc group WITHOUT a
+// GroupCampaignSend row (nothing scheduled, nothing to claim).
+type dispatchCampaignMessageParams struct {
+	TenantID     uuid.UUID
+	WhatsappID   int
+	JID          string
+	Subject      string
+	CampaignName string
+	EnvID        string
+	VariantType  string
+	Message      string
+	Content      string
+}
+
+// dispatchCampaignMessage is the shared core of sendOne and /test: resolve
+// (or create) the group's ticket/contact, interpolate+normalize the
+// variant content, persist the outgoing Message BEFORE publishing (needed
+// for quoted-reply correlation, issue #598), then hand it to
+// flow.WhatsAppAdapter using the exact Meta shape
+// flow/executor_quickanswer.go already builds for the FlowBuilder
+// quickAnswer node.
+func dispatchCampaignMessage(ctx context.Context, db *gorm.DB, core sdk.WatinkCore, adapter *flow.WhatsAppAdapter, p dispatchCampaignMessageParams) (models.Ticket, error) {
+	var ticket models.Ticket
+	if adapter == nil {
+		return ticket, errAdapterNotConfigured
+	}
+
+	contact, err := ensureGroupContact(db, p.TenantID, p.JID, p.Subject)
+	if err != nil {
+		return ticket, err
+	}
+	ticket, err = ensureGroupTicket(db, p.TenantID, p.WhatsappID, contact)
+	if err != nil {
+		return ticket, err
+	}
+
+	vars := map[string]string{
+		"group_name":    p.Subject,
+		"campaign_name": p.CampaignName,
+	}
+	message := utils.InterpolateVariables(p.Message, vars)
+
+	var contentMap map[string]interface{}
+	if p.Content != "" {
+		_ = json.Unmarshal([]byte(p.Content), &contentMap)
+	}
+	contentMap = flow.NormalizeQuickAnswerContent(p.VariantType, contentMap)
+	if body, ok := contentMap["body"].(string); ok {
+		contentMap["body"] = utils.InterpolateVariables(body, vars)
+	}
+
+	commandType, payload := flow.BuildQuickAnswerCommand(p.VariantType, message, contentMap, p.WhatsappID, p.EnvID, p.JID)
+
+	if _, err := persistOutgoingCampaignMessageForTicket(db, core, p.TenantID, ticket, p.EnvID, p.VariantType, message, contentMap); err != nil {
+		return ticket, err
+	}
+
+	msg := flow.OutboundMessage{
+		TenantID:    p.TenantID,
+		SubjectType: "none",
+		EnvID:       p.EnvID,
+		To:          p.JID,
+		SessionID:   strconv.Itoa(p.WhatsappID),
+		Body:        message,
+		Meta: map[string]interface{}{
+			"commandType": commandType,
+			"payload":     payload,
+			"qaType":      p.VariantType,
+			"qaContent":   contentMap,
+			"qaMessage":   message,
+			"messageId":   p.EnvID,
+		},
+	}
+	if p.VariantType == "media" {
+		msg.Meta["mediaUrl"] = payload["mediaUrl"]
+		msg.Meta["mediaType"] = payload["mediaType"]
+		msg.Meta["mimeType"] = payload["mimeType"]
+	}
+
+	if err := adapter.Send(ctx, msg); err != nil {
+		markOutgoingCampaignMessageUndelivered(db, p.EnvID, p.TenantID)
+		return ticket, err
+	}
+	return ticket, nil
 }

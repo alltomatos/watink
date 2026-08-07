@@ -85,6 +85,7 @@ func TestReapStuckClaims_ResetsUnderMaxAttemptsFailsOver(t *testing.T) {
 func TestDrain_SkipsDisconnectedConnections(t *testing.T) {
 	db := setupPluginTestDB(t)
 	w, c := campaignFixture(t, db, "DISCONNECTED")
+	require.NoError(t, db.Model(&c).Update("status", models.GroupCampaignStatusRunning).Error)
 	run := runFixture(t, db, c)
 	pendingSendFixture(t, db, w, c, run, "a@g.us", time.Now().Add(-time.Minute))
 
@@ -96,6 +97,7 @@ func TestDrain_SkipsDisconnectedConnections(t *testing.T) {
 func TestPickDueSends_OneAtMostPerConnection(t *testing.T) {
 	db := setupPluginTestDB(t)
 	w, c := campaignFixture(t, db, "CONNECTED")
+	require.NoError(t, db.Model(&c).Update("status", models.GroupCampaignStatusRunning).Error)
 	run := runFixture(t, db, c)
 	pendingSendFixture(t, db, w, c, run, "a@g.us", time.Now().Add(-2*time.Minute))
 	pendingSendFixture(t, db, w, c, run, "b@g.us", time.Now().Add(-time.Minute))
@@ -109,12 +111,28 @@ func TestPickDueSends_OneAtMostPerConnection(t *testing.T) {
 func TestPickDueSends_IgnoresFutureScheduledAt(t *testing.T) {
 	db := setupPluginTestDB(t)
 	w, c := campaignFixture(t, db, "CONNECTED")
+	require.NoError(t, db.Model(&c).Update("status", models.GroupCampaignStatusRunning).Error)
 	run := runFixture(t, db, c)
 	pendingSendFixture(t, db, w, c, run, "a@g.us", time.Now().Add(time.Hour))
 
 	due, err := pickDueSends(t.Context(), db)
 	require.NoError(t, err)
 	assert.Empty(t, due)
+}
+
+// TestPickDueSends_IgnoresPausedCampaigns is the actual guard /pause
+// depends on (issue #597) -- a pending send whose campaign was paused
+// (e.g. by the circuit breaker) must never be picked up by the drain.
+func TestPickDueSends_IgnoresPausedCampaigns(t *testing.T) {
+	db := setupPluginTestDB(t)
+	w, c := campaignFixture(t, db, "CONNECTED")
+	require.NoError(t, db.Model(&c).Update("status", models.GroupCampaignStatusPaused).Error)
+	run := runFixture(t, db, c)
+	pendingSendFixture(t, db, w, c, run, "a@g.us", time.Now().Add(-time.Minute))
+
+	due, err := pickDueSends(t.Context(), db)
+	require.NoError(t, err)
+	assert.Empty(t, due, "campanha pausada não deve ter envios drenados")
 }
 
 // ── drainOneSend / settleSendFailure (adapter nil == fail-closed) ───────

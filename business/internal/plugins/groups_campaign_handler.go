@@ -292,6 +292,14 @@ func replaceGroupCampaignVariants(db *gorm.DB, tenantID uuid.UUID, campaignID in
 			if err := tx.Create(&v).Error; err != nil {
 				return err
 			}
+			// GORM's `default:true` tag on Active makes Create SILENTLY
+			// skip the column when the Go zero value (false) is set --
+			// the DB default then overrides it back to true, even with
+			// Select("*"). An explicit follow-up Update forces the exact
+			// value regardless of the zero-value-skip heuristic.
+			if err := tx.Model(&v).Update("active", in.Active).Error; err != nil {
+				return err
+			}
 		}
 		return nil
 	})
