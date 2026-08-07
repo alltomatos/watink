@@ -101,6 +101,9 @@ export interface GroupCampaignRun {
     failedCount: number;
     skippedCount: number;
     replyCount: number;
+    /** Frozen variants this run actually sent (models.GroupCampaignRun.VariantsSnapshot,
+     * variantSnapshotEntry in Go) -- index matches GroupCampaignSend.variantIndex. */
+    variantsSnapshot?: Array<{ id: number; type: string; message: string; content: string }>;
     createdAt: string;
     updatedAt: string;
 }
