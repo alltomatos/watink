@@ -145,6 +145,11 @@ func TestGroupsPlugin_OnActivate_RegistersAllRoutes(t *testing.T) {
 		{Method: "PUT", Path: "/groups/watch-tags/:id"},
 		{Method: "DELETE", Path: "/groups/watch-tags/:id"},
 		{Method: "GET", Path: "/groups/watch-matches"},
+		{Method: "GET", Path: "/group-campaigns"},
+		{Method: "GET", Path: "/group-campaigns/:campaignId"},
+		{Method: "POST", Path: "/group-campaigns"},
+		{Method: "PUT", Path: "/group-campaigns/:campaignId"},
+		{Method: "DELETE", Path: "/group-campaigns/:campaignId"},
 	}
 	assert.Len(t, mockCore.registeredRoutes, len(expected))
 	for _, want := range expected {
