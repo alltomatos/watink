@@ -78,17 +78,19 @@ func ensureGroupTicket(db *gorm.DB, tenantID uuid.UUID, whatsappID int, contact 
 	return ticket, nil
 }
 
-// persistOutgoingCampaignMessage records the campaign send as a normal
-// outbound Message (ID == send.EnvID -- see models.GroupCampaignSend doc)
-// BEFORE the publish, not after: receive_message.go only sets
-// Message.QuotedMsgID on an INBOUND reply when the quoted message id
-// already exists in the Messages table (ExistsByID check) -- persisting
-// first is what makes quoted-reply correlation (issue #598) possible at
-// all, not just a nicety for the chat UI.
-func persistOutgoingCampaignMessage(db *gorm.DB, core sdk.WatinkCore, tenantID uuid.UUID, ticket models.Ticket, send models.GroupCampaignSend, qaType, body string, contentMap map[string]interface{}) (models.Message, error) {
+// persistOutgoingCampaignMessageForTicket records the outgoing campaign
+// message as a normal outbound Message (ID == envID -- see
+// models.GroupCampaignSend doc) BEFORE the publish, not after:
+// receive_message.go only sets Message.QuotedMsgID on an INBOUND reply
+// when the quoted message id already exists in the Messages table
+// (ExistsByID check) -- persisting first is what makes quoted-reply
+// correlation (issue #598) possible at all, not just a nicety for the chat
+// UI. Takes envID directly (not a GroupCampaignSend) so /test (issue #597)
+// can reuse it without a send row.
+func persistOutgoingCampaignMessageForTicket(db *gorm.DB, core sdk.WatinkCore, tenantID uuid.UUID, ticket models.Ticket, envID, qaType, body string, contentMap map[string]interface{}) (models.Message, error) {
 	now := time.Now()
 	msg := models.Message{
-		ID:        send.EnvID,
+		ID:        envID,
 		Body:      body,
 		TicketID:  ticket.ID,
 		FromMe:    true,
@@ -118,7 +120,7 @@ func persistOutgoingCampaignMessage(db *gorm.DB, core sdk.WatinkCore, tenantID u
 }
 
 // markOutgoingCampaignMessageUndelivered soft-deletes the just-persisted
-// Message when the actual publish fails AFTER persistOutgoingCampaignMessage
+// Message when the actual publish fails AFTER persistOutgoingCampaignMessageForTicket
 // already wrote it -- the chat must never show a message that never left
 // (IsDeleted mirrors the existing convention used for revoked messages).
 func markOutgoingCampaignMessageUndelivered(db *gorm.DB, messageID string, tenantID uuid.UUID) {

@@ -97,14 +97,6 @@ func (gp *GroupsPlugin) OnActivate(core sdk.WatinkCore) error {
 	registerGroupWatchEvents(core)
 	registerGroupsCacheSync(core, gp.Resolver)
 
-	// Campanhas de grupo (issue #596) -- raiz estática própria, não aninhada
-	// em /groups (que já carrega :id na profundidade 2 com 4 filhos).
-	core.RegisterRoute("GET", "/group-campaigns", withPermission("whatsappGroups", "read", handleListGroupCampaigns()))
-	core.RegisterRoute("GET", "/group-campaigns/:campaignId", withPermission("whatsappGroups", "read", handleGetGroupCampaign()))
-	core.RegisterRoute("POST", "/group-campaigns", withPermission("whatsappGroups", "manage", handleCreateGroupCampaign()))
-	core.RegisterRoute("PUT", "/group-campaigns/:campaignId", withPermission("whatsappGroups", "manage", handleUpdateGroupCampaign()))
-	core.RegisterRoute("DELETE", "/group-campaigns/:campaignId", withPermission("whatsappGroups", "manage", handleDeleteGroupCampaign()))
-
 	var adapter *flow.WhatsAppAdapter
 	if gp.Publisher != nil {
 		adapter = flow.NewWhatsAppAdapter(gp.Publisher, gp.Redis, flow.WhatsAppAdapterDeps{
@@ -114,6 +106,24 @@ func (gp *GroupsPlugin) OnActivate(core sdk.WatinkCore) error {
 	} else {
 		log.Printf("[groups] Publisher não configurado — envio de campanha ficará fail-closed")
 	}
+
+	// Campanhas de grupo (issues #596/#597) -- raiz estática própria, não
+	// aninhada em /groups (que já carrega :id na profundidade 2 com 4
+	// filhos).
+	core.RegisterRoute("GET", "/group-campaigns", withPermission("whatsappGroups", "read", handleListGroupCampaigns()))
+	core.RegisterRoute("GET", "/group-campaigns/:campaignId", withPermission("whatsappGroups", "read", handleGetGroupCampaign()))
+	core.RegisterRoute("POST", "/group-campaigns", withPermission("whatsappGroups", "manage", handleCreateGroupCampaign()))
+	core.RegisterRoute("PUT", "/group-campaigns/:campaignId", withPermission("whatsappGroups", "manage", handleUpdateGroupCampaign()))
+	core.RegisterRoute("DELETE", "/group-campaigns/:campaignId", withPermission("whatsappGroups", "manage", handleDeleteGroupCampaign()))
+	core.RegisterRoute("GET", "/group-campaigns/:campaignId/runs", withPermission("whatsappGroups", "read", handleListGroupCampaignRuns()))
+	core.RegisterRoute("GET", "/group-campaigns/:campaignId/runs/:runId/sends", withPermission("whatsappGroups", "read", handleListGroupCampaignSends()))
+	core.RegisterRoute("GET", "/group-campaigns/:campaignId/replies", withPermission("whatsappGroups", "read", handleListGroupCampaignReplies()))
+	core.RegisterRoute("POST", "/group-campaigns/:campaignId/start", withPermission("whatsappGroups", "manage", handleStartGroupCampaign()))
+	core.RegisterRoute("POST", "/group-campaigns/:campaignId/test", withPermission("whatsappGroups", "manage", handleTestGroupCampaign(core, adapter)))
+	core.RegisterRoute("POST", "/group-campaigns/:campaignId/pause", withPermission("whatsappGroups", "manage", handlePauseGroupCampaign()))
+	core.RegisterRoute("POST", "/group-campaigns/:campaignId/resume", withPermission("whatsappGroups", "manage", handleResumeGroupCampaign()))
+	core.RegisterRoute("POST", "/group-campaigns/:campaignId/cancel", withPermission("whatsappGroups", "manage", handleCancelGroupCampaign()))
+
 	registerGroupCampaignCrons(core, core.GetDB(), adapter)
 
 	return nil

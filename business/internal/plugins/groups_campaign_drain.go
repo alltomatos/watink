@@ -76,20 +76,24 @@ func reapStuckClaims(ctx context.Context, db *gorm.DB) {
 
 // pickDueSends selects AT MOST ONE pending send per WhatsApp connection --
 // DISTINCT ON ("whatsappId") ordered by scheduledAt -- restricted to
-// connections that are actually CONNECTED right now. This is the anti-ban
-// backlog guard from groups_campaign_schedule.go's design doc: never a
-// thundering herd against a single chip, and a dead connection never
-// silently accumulates an unbounded queue of claims.
+// connections that are actually CONNECTED right now, AND to campaigns
+// still "running". This is the anti-ban backlog guard from
+// groups_campaign_schedule.go's design doc: never a thundering herd
+// against a single chip, and a dead connection never silently accumulates
+// an unbounded queue of claims. The campaign-status join is what makes
+// /pause (issue #597) actually stop the drain -- without it, a paused
+// campaign's already-materialized pending sends would keep going out.
 func pickDueSends(ctx context.Context, db *gorm.DB) ([]models.GroupCampaignSend, error) {
 	var due []models.GroupCampaignSend
 	err := db.WithContext(ctx).Raw(`
 		SELECT DISTINCT ON (s."whatsappId") s.*
 		  FROM "group_campaign_sends" s
 		  JOIN "Whatsapps" w ON w.id = s."whatsappId"
-		 WHERE s.status = ? AND s."scheduledAt" <= ? AND w.status = ?
+		  JOIN "group_campaigns" c ON c.id = s."campaignId"
+		 WHERE s.status = ? AND s."scheduledAt" <= ? AND w.status = ? AND c.status = ?
 		 ORDER BY s."whatsappId", s."scheduledAt" ASC
 		 LIMIT ?
-	`, models.GroupCampaignSendStatusPending, time.Now(), "CONNECTED", groupCampaignDrainBatchLimit).
+	`, models.GroupCampaignSendStatusPending, time.Now(), "CONNECTED", models.GroupCampaignStatusRunning, groupCampaignDrainBatchLimit).
 		Scan(&due).Error
 	return due, err
 }
