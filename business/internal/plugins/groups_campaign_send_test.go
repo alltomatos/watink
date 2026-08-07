@@ -10,6 +10,7 @@ import (
 
 	"github.com/alltomatos/watinkdev/business/internal/flow"
 	"github.com/alltomatos/watinkdev/business/internal/models"
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -67,7 +68,7 @@ func runWithSnapshot(t *testing.T, db *gorm.DB, c models.GroupCampaign, variants
 	snap, err := json.Marshal(variants)
 	require.NoError(t, err)
 	r := models.GroupCampaignRun{
-		TenantID: c.TenantID, CampaignID: c.ID, OccurrenceKey: "manual-" + c.Name,
+		TenantID: c.TenantID, CampaignID: c.ID, OccurrenceKey: "manual-" + uuid.New().String(),
 		Status: models.GroupCampaignRunStatusRunning, ScheduledFor: time.Now(),
 		VariantsSnapshot: snap,
 	}
@@ -153,9 +154,8 @@ func TestEnsureGroupTicket_ReusesOpenTicketAndContact(t *testing.T) {
 	var afterFirst models.GroupCampaignSend
 	require.NoError(t, db.First(&afterFirst, sendA.ID).Error)
 
-	sendB := sendFixtureWithVariant(t, db, w, c, run, jid, 0)
-	sendB.EnvID = "env-" + jid + "-2"
-	require.NoError(t, db.Model(&models.GroupCampaignSend{}).Where("id = ?", sendB.ID).Update("envId", sendB.EnvID).Error)
+	run2 := runWithSnapshot(t, db, c, []variantSnapshotEntry{{ID: 1, Type: "text", Message: "oi"}})
+	sendB := sendFixtureWithVariant(t, db, w, c, run2, jid, 0)
 	require.NoError(t, sendOne(context.Background(), db, nil, adapter, sendB))
 
 	var afterSecond models.GroupCampaignSend
