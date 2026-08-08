@@ -337,8 +337,11 @@ type ProvisionPlanSpec struct {
 	ConnectionsLimit int
 	QueuesLimit      int
 	PluginQuota      int
-	Price            float64
-	Active           bool
+	// PluginEntitlements é a lista de slugs de plugins `pro` concedidos por
+	// este plano (eixo comercial, distinto de licença e de alocação).
+	PluginEntitlements []string
+	Price              float64
+	Active             bool
 }
 
 // ProvisionResult é o retorno do provisionamento interno: o id do tenant e o id

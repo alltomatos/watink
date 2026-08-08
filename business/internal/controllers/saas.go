@@ -27,7 +27,7 @@ func ListTenants(c *gin.Context) {
 	c.JSON(http.StatusOK, tenants)
 }
 
-// GetTenantPlan returns a single tenant by ID.
+// GetTenantPlan returns the tenant's subscription + plan.
 // Route is guarded by SuperAdminOnly middleware.
 // @Summary      Plano do tenant (superadmin)
 // @Tags         saas
@@ -43,13 +43,13 @@ func GetTenantPlan(c *gin.Context) {
 		return
 	}
 
-	var tenant models.Tenant
-	if err := auth.GetDB(c).Where("id = ?", tenantID).First(&tenant).Error; err != nil {
+	var subscription models.TenantSubscription
+	if err := auth.GetDB(c).Preload("Plan").Where(`"tenantId" = ?`, tenantID).First(&subscription).Error; err != nil {
 		utils.RespondWithInternalError(c, err, "GetTenantPlan")
 		return
 	}
 
-	c.JSON(http.StatusOK, tenant)
+	c.JSON(http.StatusOK, subscription)
 }
 
 // ListPlans returns all plans.

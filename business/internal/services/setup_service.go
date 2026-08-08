@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/alltomatos/watinkdev/business/internal/domain"
 	"github.com/alltomatos/watinkdev/business/internal/models"
 	"github.com/google/uuid"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -190,20 +192,26 @@ func upsertProvisionPlan(tx *gorm.DB, spec domain.ProvisionPlanSpec) (*models.Pl
 	if strings.TrimSpace(name) == "" {
 		name = "Community"
 	}
+	entitlements, err := marshalPluginEntitlements(spec.PluginEntitlements)
+	if err != nil {
+		return nil, err
+	}
+
 	var plan models.Plan
-	err := tx.Where("name = ?", name).First(&plan).Error
+	err = tx.Where("name = ?", name).First(&plan).Error
 	if err != nil {
 		if err != gorm.ErrRecordNotFound {
 			return nil, err
 		}
 		plan = models.Plan{
-			Name:             name,
-			UsersLimit:       spec.UsersLimit,
-			ConnectionsLimit: spec.ConnectionsLimit,
-			QueuesLimit:      spec.QueuesLimit,
-			PluginQuota:      spec.PluginQuota,
-			Price:            spec.Price,
-			Active:           spec.Active,
+			Name:               name,
+			UsersLimit:         spec.UsersLimit,
+			ConnectionsLimit:   spec.ConnectionsLimit,
+			QueuesLimit:        spec.QueuesLimit,
+			PluginQuota:        spec.PluginQuota,
+			PluginEntitlements: entitlements,
+			Price:              spec.Price,
+			Active:             spec.Active,
 		}
 		if err := tx.Session(&gorm.Session{CreateBatchSize: 1}).Create(&plan).Error; err != nil {
 			return nil, err
@@ -214,12 +222,27 @@ func upsertProvisionPlan(tx *gorm.DB, spec domain.ProvisionPlanSpec) (*models.Pl
 	plan.ConnectionsLimit = spec.ConnectionsLimit
 	plan.QueuesLimit = spec.QueuesLimit
 	plan.PluginQuota = spec.PluginQuota
+	plan.PluginEntitlements = entitlements
 	plan.Price = spec.Price
 	plan.Active = spec.Active
 	if err := tx.Save(&plan).Error; err != nil {
 		return nil, err
 	}
 	return &plan, nil
+}
+
+// marshalPluginEntitlements converte a lista de slugs recebida do snapshot do
+// Watink SaaS em datatypes.JSON. nil/vazio vira "[]" (fail-closed: plano sem
+// entitlements explícitos não concede nenhum plugin em modo plan_only).
+func marshalPluginEntitlements(slugs []string) (datatypes.JSON, error) {
+	if slugs == nil {
+		slugs = []string{}
+	}
+	b, err := json.Marshal(slugs)
+	if err != nil {
+		return nil, err
+	}
+	return datatypes.JSON(b), nil
 }
 
 func isDuplicateKey(err error) bool {

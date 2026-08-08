@@ -260,31 +260,28 @@ func (pc *PluginController) Activate(c *gin.Context) {
 	writeDB := db.Session(&gorm.Session{NewDB: true})
 
 	if info.TenantCap > 0 {
-		var existing models.PluginInstallation
-		hasRow := true
+		// O gate de teto SEMPRE roda, contando outros tenants (exclui o
+		// próprio tenantID) -- upsertInstallation faz seu próprio
+		// lookup/branch create-vs-update mais abaixo, então não precisamos
+		// checar a existência da linha aqui. Antes este bloco era pulado
+		// inteiro quando já existia uma linha com active=false, permitindo
+		// reativar um plugin já desativado furando o tenantCap -- bug real:
+		// reativação nunca deveria escapar do gate que uma nova ativação
+		// respeita.
+		var count int64
 		if err := writeDB.Session(&gorm.Session{NewDB: true}).
-			Where(`"tenantId" = ? AND "pluginId" = ?`, tenantID, slug).
-			First(&existing).Error; err != nil {
-			if err != gorm.ErrRecordNotFound {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to check allocation"})
-				return
-			}
-			hasRow = false
+			Model(&models.PluginInstallation{}).
+			Where(`"pluginId" = ? AND active = ? AND "tenantId" <> ?`, slug, true, tenantID).
+			Count(&count).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to check tenant cap"})
+			return
 		}
-
-		if !hasRow {
-			var count int64
-			if err := writeDB.Session(&gorm.Session{NewDB: true}).
-				Model(&models.PluginInstallation{}).
-				Where(`"pluginId" = ? AND active = ?`, slug, true).
-				Count(&count).Error; err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to check tenant cap"})
-				return
-			}
-			if count >= int64(info.TenantCap) {
-				c.JSON(http.StatusPaymentRequired, gin.H{"error": "plugin_tenant_cap_reached"})
-				return
-			}
+		if count >= int64(info.TenantCap) {
+			c.JSON(http.StatusPaymentRequired, gin.H{
+				"error":   "plugin_tenant_cap_reached",
+				"message": "O limite de contas com este recurso foi atingido nesta instalação. Fale com o administrador da sua conta.",
+			})
+			return
 		}
 	}
 

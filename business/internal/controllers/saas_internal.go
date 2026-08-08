@@ -57,24 +57,26 @@ func (ctrl *SaaSInternalController) Ping(c *gin.Context) {
 }
 
 type provisionPlanBody struct {
-	Name             string  `json:"name"`
-	UsersLimit       int     `json:"usersLimit"`
-	ConnectionsLimit int     `json:"connectionsLimit"`
-	QueuesLimit      int     `json:"queuesLimit"`
-	PluginQuota      int     `json:"pluginQuota"`
-	Price            float64 `json:"price"`
-	Active           bool    `json:"active"`
+	Name               string   `json:"name"`
+	UsersLimit         int      `json:"usersLimit"`
+	ConnectionsLimit   int      `json:"connectionsLimit"`
+	QueuesLimit        int      `json:"queuesLimit"`
+	PluginQuota        int      `json:"pluginQuota"`
+	PluginEntitlements []string `json:"pluginEntitlements"`
+	Price              float64  `json:"price"`
+	Active             bool     `json:"active"`
 }
 
 func (b provisionPlanBody) toSpec() domain.ProvisionPlanSpec {
 	return domain.ProvisionPlanSpec{
-		Name:             b.Name,
-		UsersLimit:       b.UsersLimit,
-		ConnectionsLimit: b.ConnectionsLimit,
-		QueuesLimit:      b.QueuesLimit,
-		PluginQuota:      b.PluginQuota,
-		Price:            b.Price,
-		Active:           b.Active,
+		Name:               b.Name,
+		UsersLimit:         b.UsersLimit,
+		ConnectionsLimit:   b.ConnectionsLimit,
+		QueuesLimit:        b.QueuesLimit,
+		PluginQuota:        b.PluginQuota,
+		PluginEntitlements: b.PluginEntitlements,
+		Price:              b.Price,
+		Active:             b.Active,
 	}
 }
 
