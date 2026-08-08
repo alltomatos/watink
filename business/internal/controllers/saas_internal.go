@@ -29,12 +29,22 @@ type saasProvisioner interface {
 // cross-tenant com o DB sem escopo e WHERE explícito; nunca passa por
 // IsAuth/TenantMiddleware.
 type SaaSInternalController struct {
-	db   *gorm.DB
-	prov saasProvisioner
+	db           *gorm.DB
+	prov         saasProvisioner
+	tenantStatus *services.TenantStatusService
 }
 
 func NewSaaSInternalController(db *gorm.DB, prov saasProvisioner) *SaaSInternalController {
 	return &SaaSInternalController{db: db, prov: prov}
+}
+
+// WithTenantStatusService plugs the TenantStatusGate cache so SetStatus can
+// invalidate it immediately — without this, a fresh suspension can take up to
+// the 60s TTL to take effect (docs/integration-core.md §2.1). Optional/fluent,
+// same pattern as AuthController.WithTenantStatusService.
+func (ctrl *SaaSInternalController) WithTenantStatusService(svc *services.TenantStatusService) *SaaSInternalController {
+	ctrl.tenantStatus = svc
+	return ctrl
 }
 
 // Ping godoc
@@ -190,6 +200,9 @@ func (ctrl *SaaSInternalController) SetStatus(c *gin.Context) {
 	if res.RowsAffected == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "tenant not found"})
 		return
+	}
+	if ctrl.tenantStatus != nil {
+		ctrl.tenantStatus.Invalidate(tenantID)
 	}
 	c.JSON(http.StatusOK, gin.H{"tenantId": tenantID.String(), "status": body.Status})
 }

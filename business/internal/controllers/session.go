@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/alltomatos/watinkdev/business/internal/domain"
+	"github.com/alltomatos/watinkdev/business/internal/services"
 	"github.com/alltomatos/watinkdev/business/pkg/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -14,11 +15,21 @@ import (
 )
 
 type AuthController struct {
-	userRepo domain.UserRepository
+	userRepo     domain.UserRepository
+	tenantStatus *services.TenantStatusService
 }
 
 func NewAuthController(ur domain.UserRepository) *AuthController {
 	return &AuthController{userRepo: ur}
+}
+
+// WithTenantStatusService plugs the Onda 2/A.3 gate (docs/integration-core.md
+// §2.1) into Login. Optional/fluent so the many existing NewAuthController
+// call sites (tests) keep compiling untouched; nil means the check is
+// skipped entirely (same fail-open default as TenantStatusGate).
+func (ac *AuthController) WithTenantStatusService(svc *services.TenantStatusService) *AuthController {
+	ac.tenantStatus = svc
+	return ac
 }
 
 type LoginRequest struct {
@@ -53,6 +64,19 @@ func (ac *AuthController) Login(c *gin.Context) {
 	if !userModel.CheckPassword(req.Password) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "ERR_INVALID_CREDENTIALS"})
 		return
+	}
+
+	// TenantStatusGate covers every authenticated route AFTER login, but a
+	// suspended/canceled tenant must never receive a fresh token in the first
+	// place (docs/integration-core.md §2.1) — same superadmin bypass and
+	// fail-open-on-db-error semantics as the middleware.
+	if ac.tenantStatus != nil && domainUser.Alcance != "plataforma" {
+		if status, err := ac.tenantStatus.GetStatus(domainUser.TenantID); err == nil {
+			if status == "suspended" || status == "canceled" {
+				c.JSON(http.StatusForbidden, gin.H{"error": "tenant_" + status, "status": status})
+				return
+			}
+		}
 	}
 
 	claims := utils.JWTClaims{
