@@ -1,10 +1,12 @@
 package controllers
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 
 	"github.com/alltomatos/watinkdev/business/internal/models"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -19,8 +21,14 @@ import (
 //  3. Nenhum dos dois → "self_service", o comportamento de hoje (Checkout
 //     direto no Hub, sem intermediação de plano) byte-por-byte.
 func marketplaceMode(db *gorm.DB) string {
+	// Session(NewDB:true) obrigatório: db aqui é tipicamente o handle já
+	// escopado por tenant devolvido por auth.GetScoped (WHERE "tenantId" =
+	// ?) -- InstancePolicy não tem essa coluna, e reusar o handle sem sessão
+	// nova acumula esse Where nas queries seguintes feitas no mesmo db
+	// (bug real: quebrou os testes de Activate na primeira versão desta
+	// função).
 	var policy models.InstancePolicy
-	err := db.First(&policy).Error
+	err := db.Session(&gorm.Session{NewDB: true}).First(&policy).Error
 	if err == nil {
 		return policy.MarketplaceMode
 	}
@@ -38,4 +46,33 @@ func marketplaceModeFromEnv() string {
 		return "catalog_visible"
 	}
 	return "self_service"
+}
+
+// planEntitlements resolve os slugs de plugin `pro` que o plano atual do
+// tenant concede (Plan.PluginEntitlements, populado pelo snapshot do Watink
+// SaaS). Fail-closed: qualquer situação que impeça saber com certeza o que o
+// plano concede (sem assinatura, sem plano, JSON inválido) devolve slice
+// vazio -- nenhum plugin implicitamente liberado.
+func planEntitlements(db *gorm.DB, tenantID uuid.UUID) []string {
+	var sub models.TenantSubscription
+	if err := db.Session(&gorm.Session{NewDB: true}).Preload("Plan").Where(`"tenantId" = ?`, tenantID).First(&sub).Error; err != nil {
+		return []string{}
+	}
+	if len(sub.Plan.PluginEntitlements) == 0 {
+		return []string{}
+	}
+	var slugs []string
+	if err := json.Unmarshal(sub.Plan.PluginEntitlements, &slugs); err != nil {
+		return []string{}
+	}
+	return slugs
+}
+
+func entitlementIncludes(entitlements []string, slug string) bool {
+	for _, s := range entitlements {
+		if s == slug {
+			return true
+		}
+	}
+	return false
 }

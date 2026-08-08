@@ -201,15 +201,47 @@ func (pc *PluginController) Activate(c *gin.Context) {
 	// já existente).
 	var info plugins.LicenseInfo
 	var err error
-	if pc.isFreePlugin(slug) {
+	isFree := pc.isFreePlugin(slug)
+	if isFree {
 		info = plugins.LicenseInfo{Status: "active", TenantCap: 0}
 	} else {
 		info, err = pc.license.GetLicense(slug)
 	}
+
+	// Gate 2/3 (ADR 0026): plugin free nunca passa por aqui -- o eixo
+	// comercial de planEntitlements só existe pra plugins pagos. Numa
+	// instância plan_only (Watink SaaS gerindo o comércio), o plano do
+	// tenant é quem decide se ele PODE ter o plugin, antes mesmo de checar
+	// se a instância TEM licença pra ele -- por isso este gate vem antes do
+	// gate de licença (4).
+	mode := marketplaceMode(db)
+	if !isFree && mode == "plan_only" {
+		entitlements := planEntitlements(db, tenantID)
+		if !entitlementIncludes(entitlements, slug) {
+			c.JSON(http.StatusPaymentRequired, gin.H{
+				"error":   "plugin_not_in_plan",
+				"message": "O seu plano não inclui este recurso. Fale com o administrador da sua conta.",
+			})
+			return
+		}
+	}
+
 	// Sem licença válida (indeterminado, unlicensed, blocked, readonly) nunca
 	// autoriza uma NOVA ativação -- só "active" libera crescimento (ADR 0024,
 	// fail-closed).
 	if err != nil || info.Status != "active" {
+		// Fora do modo self_service a instância é gerida pelo Watink SaaS
+		// (plan_only/catalog_visible) -- não faz sentido disparar um
+		// checkout individual do tenant direto no Hub; quem contrata a
+		// licença da instância é o dono via SaaS (ADR 0026).
+		if mode != "self_service" {
+			c.JSON(http.StatusPaymentRequired, gin.H{
+				"error":   "plugin_managed_by_saas",
+				"message": "Este recurso precisa ser contratado pelo administrador da sua conta.",
+			})
+			return
+		}
+
 		// A resposta continua sendo 402 SEMPRE neste branch -- a licença nunca é
 		// concedida de forma síncrona aqui, então "unlicensed" permanece
 		// verdade mesmo quando o checkout é disparado com sucesso.
@@ -229,7 +261,7 @@ func (pc *PluginController) Activate(c *gin.Context) {
 			c.JSON(http.StatusPaymentRequired, gin.H{
 				"error":             "plugin_unlicensed",
 				"checkoutRequested": false,
-				"message":           "Plugin sem licença e o serviço de checkout está indisponível.",
+				"message":           "Não foi possível verificar a licença do plugin.",
 			})
 			return
 		}
@@ -244,7 +276,7 @@ func (pc *PluginController) Activate(c *gin.Context) {
 			c.JSON(http.StatusPaymentRequired, gin.H{
 				"error":             "plugin_unlicensed",
 				"checkoutRequested": false,
-				"message":           "Não foi possível solicitar a licença: " + checkoutErr.Error(),
+				"message":           "Não foi possível verificar a licença do plugin.",
 			})
 			return
 		}

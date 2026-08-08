@@ -462,6 +462,127 @@ func TestPluginController_Activate_Idempotent_ReactivatesWithoutDuplicating(t *t
 	assert.True(t, inst.Active)
 }
 
+// =====================================================================
+// Activate — gates de marketplaceMode (issue #621, ADR 0026)
+// =====================================================================
+
+func seedPlanOnlyInstance(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	require.NoError(t, db.Create(&models.InstancePolicy{MarketplaceMode: "plan_only"}).Error)
+}
+
+func seedTenantPlan(t *testing.T, db *gorm.DB, tenantID uuid.UUID, entitlements []string) {
+	t.Helper()
+	raw, err := json.Marshal(entitlements)
+	require.NoError(t, err)
+	plan := models.Plan{Name: "plan-" + tenantID.String(), PluginEntitlements: raw}
+	require.NoError(t, db.Create(&plan).Error)
+	require.NoError(t, db.Create(&models.TenantSubscription{TenantID: tenantID, PlanID: plan.ID, Status: "active"}).Error)
+}
+
+func TestPluginController_Activate_PlanOnly_NotEntitled_Returns402BeforeLicenseCheck(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	tenantID := uuid.New()
+	seedPlanOnlyInstance(t, db)
+	seedTenantPlan(t, db, tenantID, []string{"webchat"}) // helpdesk NOT included
+
+	// Licença ativa não deve importar -- o gate de entitlement vem antes.
+	fetcher := &fakeLicenseFetcher{info: map[string]plugins.LicenseInfo{
+		"helpdesk": {Status: "active", TenantCap: 0},
+	}}
+	registry := plugins.NewPluginRegistry(db, fetcher, nil)
+	ctrl := NewPluginController(&mockPlanLimitSvc{}, db, registry, fetcher, nil)
+
+	c, w := newTestPluginContext("POST", "/plugins/helpdesk/activate", nil, db, tenantID)
+	c.Params = gin.Params{{Key: "slug", Value: "helpdesk"}}
+
+	ctrl.Activate(c)
+
+	assert.Equal(t, http.StatusPaymentRequired, w.Code)
+	var resp map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Equal(t, "plugin_not_in_plan", resp["error"])
+
+	var count int64
+	db.Model(&models.PluginInstallation{}).Where(`"tenantId" = ? AND "pluginId" = ?`, tenantID, "helpdesk").Count(&count)
+	assert.Equal(t, int64(0), count)
+}
+
+func TestPluginController_Activate_PlanOnly_Entitled_GrantsAllocation(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	tenantID := uuid.New()
+	seedPlanOnlyInstance(t, db)
+	seedTenantPlan(t, db, tenantID, []string{"helpdesk"})
+
+	fetcher := &fakeLicenseFetcher{info: map[string]plugins.LicenseInfo{
+		"helpdesk": {Status: "active", TenantCap: 0},
+	}}
+	registry := plugins.NewPluginRegistry(db, fetcher, nil)
+	ctrl := NewPluginController(&mockPlanLimitSvc{}, db, registry, fetcher, nil)
+
+	c, w := newTestPluginContext("POST", "/plugins/helpdesk/activate", nil, db, tenantID)
+	c.Params = gin.Params{{Key: "slug", Value: "helpdesk"}}
+
+	ctrl.Activate(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestPluginController_Activate_CatalogVisible_Unlicensed_ReturnsManagedBySaaS(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	tenantID := uuid.New()
+	require.NoError(t, db.Create(&models.InstancePolicy{MarketplaceMode: "catalog_visible"}).Error)
+
+	fetcher := &fakeLicenseFetcher{info: map[string]plugins.LicenseInfo{
+		"helpdesk": {Status: "unlicensed"},
+	}}
+	registry := plugins.NewPluginRegistry(db, fetcher, nil)
+	// pmProxy non-nil, mas não deve ser chamado -- managed_by_saas nunca dispara checkout.
+	proxy := &fakePMProxy{}
+	ctrl := NewPluginController(&mockPlanLimitSvc{}, db, registry, fetcher, proxy)
+
+	c, w := newTestPluginContext("POST", "/plugins/helpdesk/activate", nil, db, tenantID)
+	c.Params = gin.Params{{Key: "slug", Value: "helpdesk"}}
+
+	ctrl.Activate(c)
+
+	assert.Equal(t, http.StatusPaymentRequired, w.Code)
+	var resp map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Equal(t, "plugin_managed_by_saas", resp["error"])
+
+	var count int64
+	db.Model(&models.PluginInstallation{}).Where(`"tenantId" = ? AND "pluginId" = ?`, tenantID, "helpdesk").Count(&count)
+	assert.Equal(t, int64(0), count)
+}
+
+func TestPluginController_Activate_SelfService_Unlicensed_StillAttemptsCheckout(t *testing.T) {
+	// self_service é o default sem InstancePolicy nem SAAS_INTERNAL_TOKEN --
+	// comportamento pré-existente preservado byte-por-byte (mesmo teste que
+	// TestPluginController_Activate_Unlicensed_ChecksOutSuccessfully_Returns402WithRequestedTrue,
+	// mas explícito quanto ao modo pra travar a regressão do gate 4).
+	db := testutil.NewTestDB(t)
+	tenantID := uuid.New()
+
+	fetcher := &fakeLicenseFetcher{info: map[string]plugins.LicenseInfo{
+		"helpdesk": {Status: "unlicensed"},
+	}}
+	registry := plugins.NewPluginRegistry(db, fetcher, nil)
+	proxy := &fakePMProxy{}
+	ctrl := NewPluginController(&mockPlanLimitSvc{}, db, registry, fetcher, proxy)
+
+	c, w := newTestPluginContext("POST", "/plugins/helpdesk/activate", nil, db, tenantID)
+	c.Params = gin.Params{{Key: "slug", Value: "helpdesk"}}
+
+	ctrl.Activate(c)
+
+	assert.Equal(t, http.StatusPaymentRequired, w.Code)
+	var resp map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Equal(t, "plugin_unlicensed", resp["error"])
+	assert.Equal(t, true, resp["checkoutRequested"])
+}
+
 func TestPluginController_Deactivate_MarksInactive(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	tenantID := uuid.New()
