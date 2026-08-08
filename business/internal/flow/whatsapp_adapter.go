@@ -56,21 +56,40 @@ func (a *WhatsAppAdapter) Channel() string { return "whatsapp" }
 // absent — but the caller should supply the EnvID-derived id for the persisted
 // row to match the ack), "mediaType"/"mediaUrl"/"mimeType" (string).
 func (a *WhatsAppAdapter) Send(ctx context.Context, msg OutboundMessage) error {
+	_, err := a.sendInternal(ctx, msg)
+	return err
+}
+
+// SendReportingID behaves exactly like Send, but additionally returns the
+// EFFECTIVE WhatsApp message ID actually assigned to the outbound message.
+// For every AMQP/whatsmeow path this always equals the id we requested
+// (engine-go forces it via whatsmeow's SendRequestExtra) -- but izapia (and
+// any future domain.WhatsAppEngine that assigns its own id) can return a
+// DIFFERENT one, and callers that persist a Message row keyed by their own
+// EnvID (campaign sendOne/dispatchCampaignMessage) need the real value, or
+// reply correlation (QuotedMsgID matching) can never find it. Plain Send
+// callers that don't care about this (FlowBuilder text/media nodes) keep
+// using Send unchanged.
+func (a *WhatsAppAdapter) SendReportingID(ctx context.Context, msg OutboundMessage) (string, error) {
+	return a.sendInternal(ctx, msg)
+}
+
+func (a *WhatsAppAdapter) sendInternal(ctx context.Context, msg OutboundMessage) (string, error) {
 	if msg.To == "" {
-		return fmt.Errorf("whatsapp adapter: empty destination (to)")
+		return "", fmt.Errorf("whatsapp adapter: empty destination (to)")
 	}
 	if msg.SessionID == "" {
-		return fmt.Errorf("whatsapp adapter: empty sessionId")
+		return "", fmt.Errorf("whatsapp adapter: empty sessionId")
 	}
 
 	// Dedup BEFORE any real send. SetLock is SetNX: false => already sent.
 	if a.redis != nil && msg.EnvID != "" {
 		acquired, err := a.redis.SetLock("wbot:msg:"+msg.EnvID, "1", dedupTTL)
 		if err != nil {
-			return fmt.Errorf("whatsapp adapter: dedup lock: %w", err)
+			return "", fmt.Errorf("whatsapp adapter: dedup lock: %w", err)
 		}
 		if !acquired {
-			return nil
+			return msg.EnvID, nil
 		}
 	}
 
@@ -108,9 +127,13 @@ func (a *WhatsAppAdapter) Send(ctx context.Context, msg OutboundMessage) error {
 					log.Printf("[WhatsAppAdapter] dedup lock release after publish failure failed (env=%s): %v", msg.EnvID, delErr)
 				}
 			}
-			return fmt.Errorf("whatsapp adapter: publish rich command: %w", err)
+			return "", fmt.Errorf("whatsapp adapter: publish rich command: %w", err)
 		}
-		return nil
+		effectiveID, _ := payload["messageId"].(string)
+		if effectiveID == "" {
+			effectiveID = msg.EnvID
+		}
+		return effectiveID, nil
 	}
 
 	mediaType := metaString(msg.Meta, "mediaType")
@@ -169,9 +192,9 @@ func (a *WhatsAppAdapter) Send(ctx context.Context, msg OutboundMessage) error {
 				log.Printf("[WhatsAppAdapter] dedup lock release after publish failure failed (env=%s): %v", msg.EnvID, delErr)
 			}
 		}
-		return fmt.Errorf("whatsapp adapter: publish command: %w", err)
+		return "", fmt.Errorf("whatsapp adapter: publish command: %w", err)
 	}
-	return nil
+	return messageID, nil
 }
 
 // applyHumanPacing shows the "digitando..." indicator and waits a delay
@@ -199,11 +222,16 @@ func (a *WhatsAppAdapter) applyHumanPacing(ctx context.Context, engine domain.Wh
 // the AMQP-shaped commandType/payload — see executor_quickanswer.go) go
 // through RichMessageEngine when the engine implements it; otherwise they
 // fail loudly rather than silently no-op.
-func (a *WhatsAppAdapter) sendViaEngine(ctx context.Context, whatsapp models.Whatsapp, msg OutboundMessage) error {
+// sendViaEngine returns the EFFECTIVE WhatsApp message id -- for izapia (and
+// any future engine that assigns its own id server-side) this can differ
+// from the requested messageID; callers that persist a Message row keyed by
+// their own EnvID need this real value for reply correlation to work (see
+// SendReportingID's doc comment).
+func (a *WhatsAppAdapter) sendViaEngine(ctx context.Context, whatsapp models.Whatsapp, msg OutboundMessage) (string, error) {
 	engine, err := a.deps.Engines.EngineFor(whatsapp)
 	if err != nil {
 		a.releaseLock(msg.EnvID)
-		return fmt.Errorf("whatsapp adapter: resolve engine: %w", err)
+		return "", fmt.Errorf("whatsapp adapter: resolve engine: %w", err)
 	}
 
 	// qaType is only set (by executor_quickanswer.go) for sends that originate
@@ -215,7 +243,7 @@ func (a *WhatsAppAdapter) sendViaEngine(ctx context.Context, whatsapp models.Wha
 		richEngine, ok := engine.(domain.RichMessageEngine)
 		if !ok {
 			a.releaseLock(msg.EnvID)
-			return fmt.Errorf("whatsapp adapter: resposta rápida do tipo %q não suportada no engine %q", qaType, whatsapp.EngineType)
+			return "", fmt.Errorf("whatsapp adapter: resposta rápida do tipo %q não suportada no engine %q", qaType, whatsapp.EngineType)
 		}
 		contentMap, _ := msg.Meta["qaContent"].(map[string]interface{})
 		req := BuildRichMessageRequest(qaType, metaString(msg.Meta, "qaMessage"), contentMap)
@@ -223,11 +251,15 @@ func (a *WhatsAppAdapter) sendViaEngine(ctx context.Context, whatsapp models.Wha
 		if messageID == "" {
 			messageID = msg.EnvID
 		}
-		if err := richEngine.SendInteractive(ctx, whatsapp, msg.To, messageID, req); err != nil {
+		effectiveID, err := richEngine.SendInteractive(ctx, whatsapp, msg.To, messageID, req)
+		if err != nil {
 			a.releaseLock(msg.EnvID)
-			return fmt.Errorf("whatsapp adapter: engine send: %w", err)
+			return "", fmt.Errorf("whatsapp adapter: engine send: %w", err)
 		}
-		return nil
+		if effectiveID == "" {
+			effectiveID = messageID
+		}
+		return effectiveID, nil
 	}
 
 	mediaURL := metaString(msg.Meta, "mediaUrl")
@@ -236,16 +268,20 @@ func (a *WhatsAppAdapter) sendViaEngine(ctx context.Context, whatsapp models.Wha
 		messageID = msg.EnvID
 	}
 
+	var effectiveID string
 	if mediaURL != "" {
-		err = engine.SendMedia(ctx, whatsapp, msg.To, messageID, metaString(msg.Meta, "mediaType"), mediaURL, metaString(msg.Meta, "mimeType"))
+		effectiveID, err = engine.SendMedia(ctx, whatsapp, msg.To, messageID, metaString(msg.Meta, "mediaType"), mediaURL, metaString(msg.Meta, "mimeType"))
 	} else {
-		err = engine.SendText(ctx, whatsapp, msg.To, messageID, msg.Body)
+		effectiveID, err = engine.SendText(ctx, whatsapp, msg.To, messageID, msg.Body)
 	}
 	if err != nil {
 		a.releaseLock(msg.EnvID)
-		return fmt.Errorf("whatsapp adapter: engine send: %w", err)
+		return "", fmt.Errorf("whatsapp adapter: engine send: %w", err)
 	}
-	return nil
+	if effectiveID == "" {
+		effectiveID = messageID
+	}
+	return effectiveID, nil
 }
 
 // releaseLock best-effort releases the dedup lock so a retry after a failed

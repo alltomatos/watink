@@ -281,16 +281,20 @@ func (p *Provider) DeleteSession(ctx context.Context, w models.Whatsapp) error {
 	return nil
 }
 
-func (p *Provider) SendText(ctx context.Context, w models.Whatsapp, to, messageID, body string) error {
+// SendText returns izapia's OWN message_id, not the requested messageID --
+// the izapia API assigns its own id server-side and there is no way to
+// force it like whatsmeow's SendRequestExtra (see enginego.Provider).
+// Callers that need the real WhatsApp id (e.g. reply correlation) MUST use
+// the returned value; the requested messageID is otherwise unused here.
+func (p *Provider) SendText(ctx context.Context, w models.Whatsapp, to, messageID, body string) (string, error) {
 	if w.IzapiaSessionID == nil || *w.IzapiaSessionID == "" {
-		return fmt.Errorf("izapia: conexão %d sem sessão izapia ativa", w.ID)
+		return "", fmt.Errorf("izapia: conexão %d sem sessão izapia ativa", w.ID)
 	}
 	client, err := p.clientFor(w)
 	if err != nil {
-		return err
+		return "", err
 	}
-	_, err = client.SendText(ctx, *w.IzapiaSessionID, to, body)
-	return err
+	return client.SendText(ctx, *w.IzapiaSessionID, to, body)
 }
 
 // SendPresence implements domain.PresenceEngine. state is "composing" or
@@ -341,24 +345,24 @@ func (p *Provider) GetContactPictureURL(ctx context.Context, w models.Whatsapp, 
 	return url
 }
 
-func (p *Provider) SendMedia(ctx context.Context, w models.Whatsapp, to, messageID, mediaType, mediaURL, mimeType string) error {
+// SendMedia returns izapia's own message_id -- see SendText's doc comment.
+func (p *Provider) SendMedia(ctx context.Context, w models.Whatsapp, to, messageID, mediaType, mediaURL, mimeType string) (string, error) {
 	if w.IzapiaSessionID == nil || *w.IzapiaSessionID == "" {
-		return fmt.Errorf("izapia: conexão %d sem sessão izapia ativa", w.ID)
+		return "", fmt.Errorf("izapia: conexão %d sem sessão izapia ativa", w.ID)
 	}
 	client, err := p.clientFor(w)
 	if err != nil {
-		return err
+		return "", err
 	}
 	absURL, err := p.absoluteMediaURL(w, mediaURL)
 	if err != nil {
-		return err
+		return "", err
 	}
 	kind, ok := mediaTypeToKind[mediaType]
 	if !ok {
 		kind = "document"
 	}
-	_, err = client.SendMedia(ctx, *w.IzapiaSessionID, to, kind, absURL, mimeType, "")
-	return err
+	return client.SendMedia(ctx, *w.IzapiaSessionID, to, kind, absURL, mimeType, "")
 }
 
 func randomHex(n int) (string, error) {

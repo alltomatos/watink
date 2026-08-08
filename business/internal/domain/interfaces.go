@@ -115,8 +115,16 @@ type WhatsAppEngine interface {
 	StartSession(ctx context.Context, w models.Whatsapp, usePairingCode bool, phoneNumber string, force bool) error
 	StopSession(ctx context.Context, w models.Whatsapp) error
 	DeleteSession(ctx context.Context, w models.Whatsapp) error
-	SendText(ctx context.Context, w models.Whatsapp, to, messageID, body string) error
-	SendMedia(ctx context.Context, w models.Whatsapp, to, messageID, mediaType, mediaURL, mimeType string) error
+	// SendText/SendMedia return the EFFECTIVE message ID actually assigned to
+	// the outbound message -- for engine-go (AMQP, whatsmeow) this always
+	// equals the requested messageID (forced via SendRequestExtra on the
+	// engine-go side), but izapia's HTTP API generates its own message_id
+	// server-side and returns it in the response; callers that need the real
+	// WhatsApp id for reply correlation (e.g. campaign send, issue: izapia
+	// message id discarded) MUST use the returned value, never assume it
+	// equals the requested messageID.
+	SendText(ctx context.Context, w models.Whatsapp, to, messageID, body string) (string, error)
+	SendMedia(ctx context.Context, w models.Whatsapp, to, messageID, mediaType, mediaURL, mimeType string) (string, error)
 }
 
 // InteractiveButton is an engine-neutral display button for an interactive
@@ -175,7 +183,9 @@ type RichMessageRequest struct {
 // engine-go one, which already handles these types through its own
 // AMQP-shaped flow.BuildQuickAnswerCommand path) simply isn't asked.
 type RichMessageEngine interface {
-	SendInteractive(ctx context.Context, w models.Whatsapp, to, messageID string, req RichMessageRequest) error
+	// SendInteractive returns the EFFECTIVE message id (see WhatsAppEngine's
+	// SendText/SendMedia doc comment for why this can differ from messageID).
+	SendInteractive(ctx context.Context, w models.Whatsapp, to, messageID string, req RichMessageRequest) (string, error)
 }
 
 // PresenceEngine is an OPTIONAL extension of WhatsAppEngine for engines that

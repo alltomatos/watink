@@ -381,12 +381,12 @@ func (qac *QuickAnswerController) Send(c *gin.Context) {
 		switch commandType {
 		case "message.send.text":
 			body, _ := payload["body"].(string)
-			err = engine.SendText(c.Request.Context(), whatsapp, to, msgID, body)
+			_, err = engine.SendText(c.Request.Context(), whatsapp, to, msgID, body)
 		case "message.send.media":
 			mediaURL, _ := payload["mediaUrl"].(string)
 			mediaType, _ := payload["mediaType"].(string)
 			mimeType, _ := payload["mimeType"].(string)
-			err = engine.SendMedia(c.Request.Context(), whatsapp, to, msgID, mediaType, mediaURL, mimeType)
+			_, err = engine.SendMedia(c.Request.Context(), whatsapp, to, msgID, mediaType, mediaURL, mimeType)
 		default:
 			richEngine, ok := engine.(domain.RichMessageEngine)
 			if !ok {
@@ -394,7 +394,7 @@ func (qac *QuickAnswerController) Send(c *gin.Context) {
 				break
 			}
 			req := flow.BuildRichMessageRequest(qaType, message, contentMap)
-			err = richEngine.SendInteractive(c.Request.Context(), whatsapp, to, msgID, req)
+			_, err = richEngine.SendInteractive(c.Request.Context(), whatsapp, to, msgID, req)
 		}
 		if err != nil {
 			utils.RespondWithInternalError(c, err, "SendQuickAnswer")
