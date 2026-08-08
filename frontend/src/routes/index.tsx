@@ -52,6 +52,7 @@ const MonitorQueues = lazy(() => import("../pages/MonitorQueues"));
 const SaaSAdmin = lazy(() => import("../pages/SaaS"));
 const InitialSetup = lazy(() => import("../pages/InitialSetup"));
 const PublicProtocol = lazy(() => import("../pages/PublicProtocol"));
+const AccountSuspended = lazy(() => import("../pages/AccountSuspended"));
 import { AuthProvider } from "../context/Auth/AuthContext";
 import { WhatsAppsProvider } from "../context/WhatsApp/WhatsAppsContext";
 import { ThemeProvider } from "../context/DarkMode";
@@ -141,6 +142,7 @@ const Routes = () => {
      <Route path="/register" element={<PrivateRoute><Register /></PrivateRoute>} />
      <Route path="/planos" element={<PrivateRoute><Plans /></PrivateRoute>} />
      <Route path="/public/protocols/:token" element={<PrivateRoute isPublic><PublicProtocol /></PrivateRoute>} />
+     <Route path="/conta-suspensa" element={<PrivateRoute isPublic><AccountSuspended /></PrivateRoute>} />
      <Route path="/*" element={<PrivateRoute isPrivate><PrivateRoutes /></PrivateRoute>} />
      </RouterRoutes>
  </Suspense>
