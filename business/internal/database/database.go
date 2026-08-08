@@ -102,6 +102,7 @@ func Migrate() {
 		&models.GroupCampaignRun{},
 		&models.GroupCampaignSend{},
 		&models.GroupCampaignReply{},
+		&models.InstancePolicy{},
 	)
 
 	if err != nil {

@@ -29,12 +29,22 @@ type saasProvisioner interface {
 // cross-tenant com o DB sem escopo e WHERE explícito; nunca passa por
 // IsAuth/TenantMiddleware.
 type SaaSInternalController struct {
-	db   *gorm.DB
-	prov saasProvisioner
+	db           *gorm.DB
+	prov         saasProvisioner
+	tenantStatus *services.TenantStatusService
 }
 
 func NewSaaSInternalController(db *gorm.DB, prov saasProvisioner) *SaaSInternalController {
 	return &SaaSInternalController{db: db, prov: prov}
+}
+
+// WithTenantStatusService plugs the TenantStatusGate cache so SetStatus can
+// invalidate it immediately — without this, a fresh suspension can take up to
+// the 60s TTL to take effect (docs/integration-core.md §2.1). Optional/fluent,
+// same pattern as AuthController.WithTenantStatusService.
+func (ctrl *SaaSInternalController) WithTenantStatusService(svc *services.TenantStatusService) *SaaSInternalController {
+	ctrl.tenantStatus = svc
+	return ctrl
 }
 
 // Ping godoc
@@ -57,24 +67,26 @@ func (ctrl *SaaSInternalController) Ping(c *gin.Context) {
 }
 
 type provisionPlanBody struct {
-	Name             string  `json:"name"`
-	UsersLimit       int     `json:"usersLimit"`
-	ConnectionsLimit int     `json:"connectionsLimit"`
-	QueuesLimit      int     `json:"queuesLimit"`
-	PluginQuota      int     `json:"pluginQuota"`
-	Price            float64 `json:"price"`
-	Active           bool    `json:"active"`
+	Name               string   `json:"name"`
+	UsersLimit         int      `json:"usersLimit"`
+	ConnectionsLimit   int      `json:"connectionsLimit"`
+	QueuesLimit        int      `json:"queuesLimit"`
+	PluginQuota        int      `json:"pluginQuota"`
+	PluginEntitlements []string `json:"pluginEntitlements"`
+	Price              float64  `json:"price"`
+	Active             bool     `json:"active"`
 }
 
 func (b provisionPlanBody) toSpec() domain.ProvisionPlanSpec {
 	return domain.ProvisionPlanSpec{
-		Name:             b.Name,
-		UsersLimit:       b.UsersLimit,
-		ConnectionsLimit: b.ConnectionsLimit,
-		QueuesLimit:      b.QueuesLimit,
-		PluginQuota:      b.PluginQuota,
-		Price:            b.Price,
-		Active:           b.Active,
+		Name:               b.Name,
+		UsersLimit:         b.UsersLimit,
+		ConnectionsLimit:   b.ConnectionsLimit,
+		QueuesLimit:        b.QueuesLimit,
+		PluginQuota:        b.PluginQuota,
+		PluginEntitlements: b.PluginEntitlements,
+		Price:              b.Price,
+		Active:             b.Active,
 	}
 }
 
@@ -189,6 +201,9 @@ func (ctrl *SaaSInternalController) SetStatus(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "tenant not found"})
 		return
 	}
+	if ctrl.tenantStatus != nil {
+		ctrl.tenantStatus.Invalidate(tenantID)
+	}
 	c.JSON(http.StatusOK, gin.H{"tenantId": tenantID.String(), "status": body.Status})
 }
 
@@ -281,6 +296,54 @@ type tenantListRow struct {
 	Status     string    `json:"status"`
 	OwnerEmail string    `json:"ownerEmail"`
 	CreatedAt  time.Time `json:"createdAt"`
+}
+
+type setInstancePolicyBody struct {
+	MarketplaceMode string `json:"marketplaceMode" binding:"required"`
+}
+
+// SetInstancePolicy godoc
+// @Summary      Definir política de marketplace da instância (control plane SaaS)
+// @Tags         internal-saas
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Router       /internal/saas/instance/policy [put]
+func (ctrl *SaaSInternalController) SetInstancePolicy(c *gin.Context) {
+	var body setInstancePolicyBody
+	if err := c.ShouldBindJSON(&body); err != nil {
+		utils.RespondWithBindError(c, err)
+		return
+	}
+	switch body.MarketplaceMode {
+	case "plan_only", "catalog_visible", "self_service":
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "marketplaceMode must be plan_only, catalog_visible or self_service"})
+		return
+	}
+
+	var policy models.InstancePolicy
+	err := ctrl.db.First(&policy).Error
+	switch {
+	case err == nil:
+		policy.MarketplaceMode = body.MarketplaceMode
+		if err := ctrl.db.Save(&policy).Error; err != nil {
+			utils.RespondWithInternalError(c, err, "SaaSSetInstancePolicy")
+			return
+		}
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		policy = models.InstancePolicy{MarketplaceMode: body.MarketplaceMode}
+		if err := ctrl.db.Create(&policy).Error; err != nil {
+			utils.RespondWithInternalError(c, err, "SaaSSetInstancePolicy")
+			return
+		}
+	default:
+		utils.RespondWithInternalError(c, err, "SaaSSetInstancePolicy")
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"marketplaceMode": policy.MarketplaceMode})
 }
 
 // ListTenants godoc

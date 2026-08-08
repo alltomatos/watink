@@ -161,5 +161,6 @@ func allModels() []interface{} {
 		&models.GroupCampaignRun{},
 		&models.GroupCampaignSend{},
 		&models.GroupCampaignReply{},
+		&models.InstancePolicy{},
 	}
 }

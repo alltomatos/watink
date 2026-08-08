@@ -33,7 +33,12 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 	systemController := controllers.NewSystemController(container.SystemRepo, rabbitMQ)
 	setupService := services.NewSetupService(container.DB)
 	setupController := controllers.NewSetupController(setupService)
-	saasInternalController := controllers.NewSaaSInternalController(db, setupService)
+	// Onda 2/A.3 do watink-saas (docs/integration-core.md §2.1): gate real de
+	// suspensão/cancelamento comercial, tanto no login quanto em toda rota
+	// autenticada (TenantStatusGate abaixo). Cache TTL 60s, invalidado na hora
+	// pelo próprio SetStatus do control plane.
+	tenantStatusSvc := services.NewTenantStatusService(db)
+	saasInternalController := controllers.NewSaaSInternalController(db, setupService).WithTenantStatusService(tenantStatusSvc)
 	pluginManagerInternalController := controllers.NewPluginManagerInternalController(db, build)
 	registerController := controllers.NewRegisterController(saasclient.NewFromEnv(), saasclient.NewCaptchaVerifierFromEnv())
 	userController := controllers.NewUserController(container.UserRepo, container.PlanLimitSvc)
@@ -60,7 +65,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 	pluginCatalogFetcher := plugins.NewCatalogFetcher(pluginLicenseClient)
 	pluginRegistry := plugins.NewPluginRegistry(db, pluginLicenseFetcher, pluginCatalogFetcher)
 	pluginController := controllers.NewPluginController(container.PlanLimitSvc, db, pluginRegistry, pluginLicenseFetcher, pluginLicenseClient)
-	authController := controllers.NewAuthController(container.UserRepo)
+	authController := controllers.NewAuthController(container.UserRepo).WithTenantStatusService(tenantStatusSvc)
 	settingController := controllers.NewSettingController(container.SettingRepo, container.Broadcast)
 	tagController := controllers.NewTagController()
 	pipelineController := controllers.NewPipelineController()
@@ -124,6 +129,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		internalSaaS.PATCH("/tenants/:tenantId/status", saasInternalController.SetStatus)
 		internalSaaS.PUT("/tenants/:tenantId/subscription", saasInternalController.PushSubscription)
 		internalSaaS.GET("/tenants/:tenantId/usage", saasInternalController.Usage)
+		internalSaaS.PUT("/instance/policy", saasInternalController.SetInstancePolicy)
 	}
 
 	// Internal control-plane (Watink Hub via plugin-manager local) — mesmo
@@ -143,6 +149,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 	protected.Use(controllers.MaintenanceMiddleware())
 	protected.Use(middleware.IsAuth(db))
 	protected.Use(middleware.TenantMiddleware())
+	protected.Use(middleware.TenantStatusGate(tenantStatusSvc))
 	{
 		// System (superadmin only — exposes cross-tenant stats and infrastructure)
 		system := protected.Group("/system")

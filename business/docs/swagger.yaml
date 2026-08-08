@@ -17,6 +17,8 @@ definitions:
         type: string
       password:
         type: string
+      rememberMe:
+        type: boolean
     required:
     - email
     - password
@@ -527,6 +529,12 @@ definitions:
         description: Relations
       ticketId:
         type: integer
+      transcription:
+        description: |-
+          Transcription is filled on-demand when an operator clicks "Transcrever
+          áudio" on an audio message (message_transcription.go) — never written
+          automatically on receipt, and never sent back to WhatsApp.
+        type: string
       updatedAt:
         type: string
     type: object
@@ -2990,6 +2998,27 @@ paths:
       security:
       - BearerAuth: []
       summary: Reagir a uma mensagem
+      tags:
+      - messages
+  /message/{messageId}/transcribe:
+    post:
+      parameters:
+      - description: ID da mensagem
+        in: path
+        name: messageId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Transcrever mensagem de áudio
       tags:
       - messages
   /messages/{ticketId}:
