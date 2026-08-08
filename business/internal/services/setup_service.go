@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/alltomatos/watinkdev/business/internal/domain"
 	"github.com/alltomatos/watinkdev/business/internal/models"
+	"github.com/alltomatos/watinkdev/business/internal/plugins"
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -168,13 +171,83 @@ func (s *SetupService) PushSubscription(tenantID uuid.UUID, spec domain.Provisio
 				Status:    status,
 				ExpiresAt: expiresAt,
 			}
-			return tx.Create(&sub).Error
+			if err := tx.Create(&sub).Error; err != nil {
+				return err
+			}
+			return reconcileDeactivations(tx, tenantID, spec.PluginEntitlements)
 		}
 		sub.PlanID = plan.ID
 		sub.Status = status
 		sub.ExpiresAt = expiresAt
-		return tx.Save(&sub).Error
+		if err := tx.Save(&sub).Error; err != nil {
+			return err
+		}
+		return reconcileDeactivations(tx, tenantID, spec.PluginEntitlements)
 	})
+}
+
+// reconcileDeactivations desativa em tempo real os plugins `pro` que o novo
+// plano não concede mais (downgrade, issue #622) -- sem isso, um tenant
+// continuaria com acesso a um plugin que o próprio Watink SaaS acabou de
+// remover do plano dele até a próxima ação manual. Só age em modo
+// plan_only (marketplaceMode): em catalog_visible/self_service, a licença
+// do Hub segue sendo a única autoridade de crescimento, e cortar um plugin
+// aqui derrubaria acesso que o dono da instância nunca delegou ao SaaS.
+//
+// active=false SEMPRE, nunca DELETE -- preserva ActivatedAt/histórico de
+// auditoria (mesmo invariante do PluginController.Deactivate).
+func reconcileDeactivations(tx *gorm.DB, tenantID uuid.UUID, entitlements []string) error {
+	if marketplaceModeForReconciliation(tx) != "plan_only" {
+		return nil
+	}
+
+	entitled := make(map[string]bool, len(entitlements))
+	for _, slug := range entitlements {
+		entitled[slug] = true
+	}
+	proSlugs := plugins.KnownProSlugs()
+
+	var installations []models.PluginInstallation
+	if err := tx.Session(&gorm.Session{NewDB: true}).
+		Where(`"tenantId" = ? AND active = ?`, tenantID, true).
+		Find(&installations).Error; err != nil {
+		return err
+	}
+
+	var deactivated []string
+	for _, inst := range installations {
+		if !proSlugs[inst.PluginID] || entitled[inst.PluginID] {
+			continue
+		}
+		if err := tx.Session(&gorm.Session{NewDB: true}).
+			Model(&models.PluginInstallation{}).
+			Where(`"tenantId" = ? AND "pluginId" = ?`, tenantID, inst.PluginID).
+			Update("active", false).Error; err != nil {
+			return err
+		}
+		deactivated = append(deactivated, inst.PluginID)
+	}
+
+	if len(deactivated) > 0 {
+		log.Printf("[setup] reconcileDeactivations: tenant=%s desativou %d plugin(s) fora do plano novo: %v", tenantID, len(deactivated), deactivated)
+	}
+	return nil
+}
+
+// marketplaceModeForReconciliation replica o fallback de
+// controllers.marketplaceMode (InstancePolicy > SAAS_INTERNAL_TOKEN >
+// self_service) sem importar o pacote controllers -- controllers já importa
+// services (saas_internal.go), então a direção inversa cicla o build.
+func marketplaceModeForReconciliation(tx *gorm.DB) string {
+	var policy models.InstancePolicy
+	err := tx.Session(&gorm.Session{NewDB: true}).First(&policy).Error
+	if err == nil {
+		return policy.MarketplaceMode
+	}
+	if os.Getenv("SAAS_INTERNAL_TOKEN") != "" {
+		return "catalog_visible"
+	}
+	return "self_service"
 }
 
 func tenantToResult(t models.Tenant) domain.ProvisionResult {
