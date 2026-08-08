@@ -298,6 +298,54 @@ type tenantListRow struct {
 	CreatedAt  time.Time `json:"createdAt"`
 }
 
+type setInstancePolicyBody struct {
+	MarketplaceMode string `json:"marketplaceMode" binding:"required"`
+}
+
+// SetInstancePolicy godoc
+// @Summary      Definir política de marketplace da instância (control plane SaaS)
+// @Tags         internal-saas
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Failure      400  {object}  map[string]interface{}
+// @Router       /internal/saas/instance/policy [put]
+func (ctrl *SaaSInternalController) SetInstancePolicy(c *gin.Context) {
+	var body setInstancePolicyBody
+	if err := c.ShouldBindJSON(&body); err != nil {
+		utils.RespondWithBindError(c, err)
+		return
+	}
+	switch body.MarketplaceMode {
+	case "plan_only", "catalog_visible", "self_service":
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "marketplaceMode must be plan_only, catalog_visible or self_service"})
+		return
+	}
+
+	var policy models.InstancePolicy
+	err := ctrl.db.First(&policy).Error
+	switch {
+	case err == nil:
+		policy.MarketplaceMode = body.MarketplaceMode
+		if err := ctrl.db.Save(&policy).Error; err != nil {
+			utils.RespondWithInternalError(c, err, "SaaSSetInstancePolicy")
+			return
+		}
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		policy = models.InstancePolicy{MarketplaceMode: body.MarketplaceMode}
+		if err := ctrl.db.Create(&policy).Error; err != nil {
+			utils.RespondWithInternalError(c, err, "SaaSSetInstancePolicy")
+			return
+		}
+	default:
+		utils.RespondWithInternalError(c, err, "SaaSSetInstancePolicy")
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"marketplaceMode": policy.MarketplaceMode})
+}
+
 // ListTenants godoc
 // @Summary      Listar tenants para importação (control plane SaaS)
 // @Tags         internal-saas

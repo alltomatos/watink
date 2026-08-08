@@ -129,6 +129,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		internalSaaS.PATCH("/tenants/:tenantId/status", saasInternalController.SetStatus)
 		internalSaaS.PUT("/tenants/:tenantId/subscription", saasInternalController.PushSubscription)
 		internalSaaS.GET("/tenants/:tenantId/usage", saasInternalController.Usage)
+		internalSaaS.PUT("/instance/policy", saasInternalController.SetInstancePolicy)
 	}
 
 	// Internal control-plane (Watink Hub via plugin-manager local) — mesmo
