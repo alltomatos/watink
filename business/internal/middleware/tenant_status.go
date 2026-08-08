@@ -29,6 +29,15 @@ func TenantStatusGate(svc *services.TenantStatusService) gin.HandlerFunc {
 			return
 		}
 
+		// Bypass de logout (docs/integration-core.md §2.1): um tenant
+		// suspenso/cancelado precisa continuar conseguindo sair da conta.
+		// /auth/refresh_token não passa por aqui -- fica fora do grupo
+		// `protected` (routes.go), então não precisa de bypass explícito.
+		if c.FullPath() == "/api/v1/auth/logout" {
+			c.Next()
+			return
+		}
+
 		tenantIDRaw, exists := c.Get("tenantId")
 		if !exists {
 			c.Next()
@@ -49,7 +58,7 @@ func TenantStatusGate(svc *services.TenantStatusService) gin.HandlerFunc {
 		}
 
 		if status == "suspended" || status == "canceled" {
-			c.JSON(http.StatusForbidden, gin.H{"error": "tenant_suspended", "status": status})
+			c.JSON(http.StatusForbidden, gin.H{"error": "tenant_" + status, "status": status})
 			c.Abort()
 			return
 		}

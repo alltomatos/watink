@@ -87,9 +87,25 @@ const useAuth = (): UseAuthResult => {
       async (error) => {
         const originalRequest = error.config || {};
         const status = error?.response?.status as number | undefined;
+        const errorCode = error?.response?.data?.error as string | undefined;
         const isRefreshRequest = originalRequest.url?.includes(
           "/auth/refresh_token"
         );
+
+        // Onda 2/A.3+A.5 do watink-saas (docs/integration-core.md §2.1/§3):
+        // TenantStatusGate bloqueia QUALQUER rota autenticada (incluindo
+        // /auth/login) com 403 tenant_suspended/tenant_canceled -- cobre os
+        // dois casos com uma única checagem global: tentativa de login com
+        // conta suspensa, e sessão já aberta que é suspensa no meio do uso
+        // (cache do gate tem TTL de 60s no backend).
+        if (
+          status === 403 &&
+          (errorCode === "tenant_suspended" || errorCode === "tenant_canceled")
+        ) {
+          clearSession();
+          navigate(`/conta-suspensa?reason=${errorCode}`);
+          return Promise.reject(error);
+        }
 
         if (status === 401 && isRefreshRequest) {
           clearSession();

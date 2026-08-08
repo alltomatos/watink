@@ -594,6 +594,22 @@ const messages = {
           "This color is already in use, pick another one.",
         ERR_WAPP_GREETING_REQUIRED:
           "Greeting message is required if there is more than one queue.",
+        plan_limit_reached: "Your plan's limit has been reached.",
+      },
+      planLimitResources: {
+        users: "users",
+        connections: "connections",
+        queues: "queues",
+        plugins: "plugins",
+      },
+      accountSuspended: {
+        suspendedTitle: "Account suspended",
+        suspendedMessage:
+          "Access to this account is temporarily suspended. Contact support to regularize your situation and resume using the platform.",
+        canceledTitle: "Account canceled",
+        canceledMessage:
+          "This account has been canceled. Contact support if you believe this is a mistake.",
+        backToLogin: "Back to login",
       },
     },
   },

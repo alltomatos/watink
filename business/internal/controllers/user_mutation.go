@@ -139,7 +139,7 @@ func (uc *UserController) CreateUser(c *gin.Context) {
 	}
 
 	if err := uc.planLimitSvc.CheckLimit(tenantID, "users"); err != nil {
-		utils.RespondWithServiceError(c, http.StatusForbidden, err, "User limit reached for this plan")
+		respondPlanLimitError(c, err, "User limit reached for this plan")
 		return
 	}
 
