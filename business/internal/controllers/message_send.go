@@ -160,9 +160,9 @@ func (mc *MessageController) SendMessage(c *gin.Context) {
 			return
 		}
 		if mediaURL != "" {
-			err = engine.SendMedia(c.Request.Context(), whatsapp, to, messageID, mediaType, mediaURL, mimeType)
+			_, err = engine.SendMedia(c.Request.Context(), whatsapp, to, messageID, mediaType, mediaURL, mimeType)
 		} else {
-			err = engine.SendText(c.Request.Context(), whatsapp, to, messageID, body)
+			_, err = engine.SendText(c.Request.Context(), whatsapp, to, messageID, body)
 		}
 		if err != nil {
 			utils.RespondWithInternalError(c, err, "SendMessage")

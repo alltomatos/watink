@@ -84,11 +84,11 @@ func (nonGroupEngine) StartSession(ctx context.Context, w models.Whatsapp, usePa
 }
 func (nonGroupEngine) StopSession(ctx context.Context, w models.Whatsapp) error   { return nil }
 func (nonGroupEngine) DeleteSession(ctx context.Context, w models.Whatsapp) error { return nil }
-func (nonGroupEngine) SendText(ctx context.Context, w models.Whatsapp, to, messageID, body string) error {
-	return nil
+func (nonGroupEngine) SendText(ctx context.Context, w models.Whatsapp, to, messageID, body string) (string, error) {
+	return messageID, nil
 }
-func (nonGroupEngine) SendMedia(ctx context.Context, w models.Whatsapp, to, messageID, mediaType, mediaURL, mimeType string) error {
-	return nil
+func (nonGroupEngine) SendMedia(ctx context.Context, w models.Whatsapp, to, messageID, mediaType, mediaURL, mimeType string) (string, error) {
+	return messageID, nil
 }
 
 var _ domain.WhatsAppEngine = nonGroupEngine{}

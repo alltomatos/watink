@@ -74,17 +74,21 @@ func (p *Provider) DeleteSession(ctx context.Context, whatsapp models.Whatsapp) 
 	return p.publisher.PublishCommand(routingKey, command)
 }
 
-func (p *Provider) SendText(ctx context.Context, whatsapp models.Whatsapp, to, messageID, body string) error {
-	return p.sendCommand(whatsapp, "message.send.text", map[string]interface{}{
+// SendText always honors the requested messageID -- engine-go forces it as
+// the real WhatsApp stanza ID via whatsmeow's SendRequestExtra, so the
+// effective ID returned here always equals the input (see domain.WhatsAppEngine).
+func (p *Provider) SendText(ctx context.Context, whatsapp models.Whatsapp, to, messageID, body string) (string, error) {
+	err := p.sendCommand(whatsapp, "message.send.text", map[string]interface{}{
 		"sessionId": whatsapp.ID,
 		"messageId": messageID,
 		"to":        to,
 		"body":      body,
 	})
+	return messageID, err
 }
 
-func (p *Provider) SendMedia(ctx context.Context, whatsapp models.Whatsapp, to, messageID, mediaType, mediaURL, mimeType string) error {
-	return p.sendCommand(whatsapp, "message.send.media", map[string]interface{}{
+func (p *Provider) SendMedia(ctx context.Context, whatsapp models.Whatsapp, to, messageID, mediaType, mediaURL, mimeType string) (string, error) {
+	err := p.sendCommand(whatsapp, "message.send.media", map[string]interface{}{
 		"sessionId": whatsapp.ID,
 		"messageId": messageID,
 		"to":        to,
@@ -92,6 +96,7 @@ func (p *Provider) SendMedia(ctx context.Context, whatsapp models.Whatsapp, to, 
 		"mediaUrl":  mediaURL,
 		"mimeType":  mimeType,
 	})
+	return messageID, err
 }
 
 // SendPresence implements domain.PresenceEngine, publishing chat.presence to

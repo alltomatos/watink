@@ -159,7 +159,7 @@ func handleTestGroupCampaign(core sdk.WatinkCore, adapter *flow.WhatsAppAdapter)
 		if subject == "" {
 			subject = "Grupo de teste"
 		}
-		ticket, err := dispatchCampaignMessage(c.Request.Context(), db.Session(&gorm.Session{NewDB: true}), core, adapter, dispatchCampaignMessageParams{
+		ticket, effectiveID, err := dispatchCampaignMessage(c.Request.Context(), db.Session(&gorm.Session{NewDB: true}), core, adapter, dispatchCampaignMessageParams{
 			TenantID:     tenantID,
 			WhatsappID:   campaign.WhatsappID,
 			JID:          req.JID,
@@ -175,7 +175,7 @@ func handleTestGroupCampaign(core sdk.WatinkCore, adapter *flow.WhatsAppAdapter)
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"ticketId": ticket.ID, "messageId": envID})
+		c.JSON(http.StatusOK, gin.H{"ticketId": ticket.ID, "messageId": effectiveID})
 	}
 }
 
