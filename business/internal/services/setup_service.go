@@ -197,7 +197,7 @@ func (s *SetupService) PushSubscription(tenantID uuid.UUID, spec domain.Provisio
 // active=false SEMPRE, nunca DELETE -- preserva ActivatedAt/histórico de
 // auditoria (mesmo invariante do PluginController.Deactivate).
 func reconcileDeactivations(tx *gorm.DB, tenantID uuid.UUID, entitlements []string) error {
-	if marketplaceModeForReconciliation(tx) != "plan_only" {
+	if ResolveMarketplaceMode(tx) != "plan_only" {
 		return nil
 	}
 
@@ -234,12 +234,23 @@ func reconcileDeactivations(tx *gorm.DB, tenantID uuid.UUID, entitlements []stri
 	return nil
 }
 
-// marketplaceModeForReconciliation replica o fallback de
-// controllers.marketplaceMode (InstancePolicy > SAAS_INTERNAL_TOKEN >
-// self_service) sem importar o pacote controllers -- controllers já importa
-// services (saas_internal.go), então a direção inversa cicla o build.
-func marketplaceModeForReconciliation(tx *gorm.DB) string {
+// ResolveMarketplaceMode resolve o modo de marketplace desta instância (ADR
+// 0026), em ordem de precedência: (1) InstancePolicy gravada — sempre vence
+// quando existe; (2) env SAAS_INTERNAL_TOKEN setada (instância gerida por um
+// Watink SaaS auto-hospedado, mas sem política explícita gravada) →
+// "catalog_visible"; (3) nenhum dos dois → "self_service" (Checkout direto no
+// Hub, sem intermediação de plano).
+//
+// Fica em services (não em controllers) porque controllers já importa
+// services (saas_internal.go) — a direção inversa cicla o build. É a única
+// implementação: controllers.marketplaceMode e o reconciler de assinaturas
+// chamam esta função em vez de duplicar a lógica (issue #630).
+func ResolveMarketplaceMode(tx *gorm.DB) string {
 	var policy models.InstancePolicy
+	// Session(NewDB:true) obrigatório: tx aqui é tipicamente um handle já
+	// escopado por tenant (auth.GetScoped ou uma transação de provisionamento)
+	// — InstancePolicy não tem tenantId, e reusar o handle sem sessão nova
+	// acumula esse Where nas queries seguintes feitas no mesmo tx.
 	err := tx.Session(&gorm.Session{NewDB: true}).First(&policy).Error
 	if err == nil {
 		return policy.MarketplaceMode

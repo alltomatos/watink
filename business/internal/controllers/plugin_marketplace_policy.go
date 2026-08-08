@@ -2,50 +2,20 @@ package controllers
 
 import (
 	"encoding/json"
-	"errors"
-	"os"
 
 	"github.com/alltomatos/watinkdev/business/internal/models"
+	"github.com/alltomatos/watinkdev/business/internal/services"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
-// marketplaceMode resolve o modo de marketplace desta instância (ADR 0026),
-// em ordem de precedência:
-//
-//  1. InstancePolicy gravada (Passo 3 do watink-saas, via
-//     PUT /internal/saas/instance/policy) — sempre vence quando existe.
-//  2. SAAS_INTERNAL_TOKEN setado (instância gerida por um Watink SaaS, mas
-//     ainda sem política explícita gravada) → "catalog_visible", a promessa
-//     do ADR 0026 até o SaaS empurrar a política real.
-//  3. Nenhum dos dois → "self_service", o comportamento de hoje (Checkout
-//     direto no Hub, sem intermediação de plano) byte-por-byte.
+// marketplaceMode resolve o modo de marketplace desta instância (ADR 0026).
+// Delega para services.ResolveMarketplaceMode — única implementação do
+// fallback InstancePolicy > SAAS_INTERNAL_TOKEN > self_service (issue #630;
+// antes havia uma cópia duplicada aqui e outra em
+// services.setup_service.go, uma para cada lado do ciclo de import).
 func marketplaceMode(db *gorm.DB) string {
-	// Session(NewDB:true) obrigatório: db aqui é tipicamente o handle já
-	// escopado por tenant devolvido por auth.GetScoped (WHERE "tenantId" =
-	// ?) -- InstancePolicy não tem essa coluna, e reusar o handle sem sessão
-	// nova acumula esse Where nas queries seguintes feitas no mesmo db
-	// (bug real: quebrou os testes de Activate na primeira versão desta
-	// função).
-	var policy models.InstancePolicy
-	err := db.Session(&gorm.Session{NewDB: true}).First(&policy).Error
-	if err == nil {
-		return policy.MarketplaceMode
-	}
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		// Falha inesperada de leitura: mesmo fallback de "sem política
-		// gravada" -- não é um caso de licença (fail-closed em CRESCIMENTO),
-		// é resolução de modo comercial, então degrada para o sinal seguinte.
-		return marketplaceModeFromEnv()
-	}
-	return marketplaceModeFromEnv()
-}
-
-func marketplaceModeFromEnv() string {
-	if os.Getenv("SAAS_INTERNAL_TOKEN") != "" {
-		return "catalog_visible"
-	}
-	return "self_service"
+	return services.ResolveMarketplaceMode(db)
 }
 
 // planEntitlements resolve os slugs de plugin `pro` que o plano atual do
