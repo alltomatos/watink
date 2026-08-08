@@ -112,7 +112,7 @@ func (wc *WhatsappController) CreateWhatsapp(c *gin.Context) {
 	}
 
 	if err := wc.planLimitSvc.CheckLimit(tenantID, "connections"); err != nil {
-		utils.RespondWithServiceError(c, http.StatusForbidden, err, "Connection limit reached for this plan")
+		respondPlanLimitError(c, err, "Connection limit reached for this plan")
 		return
 	}
 
