@@ -39,6 +39,11 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 	// pelo próprio SetStatus do control plane.
 	tenantStatusSvc := services.NewTenantStatusService(db)
 	saasInternalController := controllers.NewSaaSInternalController(db, setupService).WithTenantStatusService(tenantStatusSvc)
+	// Modo SaaS: contrato de pareamento resolvido do banco (InstancePolicy),
+	// com fallback para SAAS_INTERNAL_TOKEN (deploys auto-hospedados). Cache
+	// TTL 60s — ver middleware.SaaSTokenCache/services.SaaSContractService.
+	saasContractSvc := services.NewSaaSContractService(db)
+	saasTokenCache := middleware.NewSaaSTokenCache(saasContractSvc)
 	pluginManagerInternalController := controllers.NewPluginManagerInternalController(db, build)
 	registerController := controllers.NewRegisterController(saasclient.NewFromEnv(), saasclient.NewCaptchaVerifierFromEnv())
 	userController := controllers.NewUserController(container.UserRepo, container.PlanLimitSvc)
@@ -121,7 +126,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 	// 503 quando ausente). Cross-tenant por natureza; montado FORA da cadeia
 	// protegida (IsAuth/TenantMiddleware). Ver docs/integration-core.md §1.
 	internalSaaS := group.Group("/internal/saas")
-	internalSaaS.Use(middleware.InternalSaaSOnly())
+	internalSaaS.Use(middleware.InternalSaaSOnly(saasTokenCache))
 	{
 		internalSaaS.GET("/ping", saasInternalController.Ping)
 		internalSaaS.POST("/tenants", saasInternalController.ProvisionTenant)

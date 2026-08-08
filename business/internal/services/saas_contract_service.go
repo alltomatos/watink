@@ -128,6 +128,20 @@ func (s *SaaSContractService) Set(baseURL, instanceID, token string) error {
 	}
 }
 
+// Token é uma leitura estreita usada por middleware.SaaSTokenCache: devolve
+// o token interno atual e se a instância está pareada. "não pareada" é
+// reportado como ok=false, err=nil — estado esperado, não falha.
+func (s *SaaSContractService) Token() (token string, ok bool, err error) {
+	contract, err := s.Get()
+	if errors.Is(err, ErrSaaSContractNotConfigured) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return contract.InternalToken, contract.Paired(), nil
+}
+
 // TouchSync atualiza só lastSyncAt, sem tocar no token — usado pelo worker
 // de sync (Onda C) a cada troca bem-sucedida com o Watink SaaS.
 func (s *SaaSContractService) TouchSync() error {
