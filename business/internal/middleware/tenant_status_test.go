@@ -108,6 +108,29 @@ func TestTenantStatusGate(t *testing.T) {
 		r.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusForbidden, w.Code)
+		assert.Contains(t, w.Body.String(), "tenant_canceled")
+	})
+
+	t.Run("bypasses_logout_for_suspended_tenant", func(t *testing.T) {
+		db := testutil.NewTestDB(t)
+		tenant := models.Tenant{Name: "Suspended Co 3", Status: "suspended"}
+		if err := db.Create(&tenant).Error; err != nil {
+			t.Fatalf("create tenant: %v", err)
+		}
+		svc := services.NewTenantStatusService(db)
+
+		r := gin.New()
+		r.Use(func(c *gin.Context) {
+			c.Set("tenantId", tenant.ID.String())
+		})
+		r.Use(TenantStatusGate(svc))
+		r.DELETE("/api/v1/auth/logout", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+		req, _ := http.NewRequest("DELETE", "/api/v1/auth/logout", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code, "a suspended tenant must still be able to log out")
 	})
 
 	t.Run("superadmin_still_bypasses_even_for_suspended_tenant", func(t *testing.T) {
