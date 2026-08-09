@@ -20,7 +20,11 @@ import (
 // de env — elimina a classe de bug "empreendedor aponta para um SaaS
 // errado"). `var`, não `const`, só para os testes deste pacote apontarem a
 // um httptest.Server; nenhum código de produção reatribui isto.
-var SaaSHostedBaseURL = "https://saas.watink.com"
+//
+// Aponta para saashomol.watink.com (homologação/teste real) — saas.watink.com
+// é reservado para a produção comercial futura e ainda não existe (docs/ops.md
+// do watink-saas). Trocar aqui quando a produção comercial for ao ar.
+var SaaSHostedBaseURL = "https://saashomol.watink.com"
 
 // HostedRegisterRequest é o corpo de POST /public/operators/register
 // (watink-saas#29).
