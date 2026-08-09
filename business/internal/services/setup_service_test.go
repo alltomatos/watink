@@ -83,8 +83,12 @@ func TestSetupServiceInitializeTenantCreatesAtomicDayZeroWorkspace(t *testing.T)
 	if user.TenantID != tenant.ID {
 		t.Fatalf("user tenantId mismatch: got %s, want %s", user.TenantID, tenant.ID)
 	}
-	if user.Alcance != "tenant" {
-		t.Fatalf("user alcance: got %q, want tenant", user.Alcance)
+	// alcance="plataforma": quem roda o wizard local é o dono/operador desta
+	// instalação, precisa das seções superadmin-only de Configurações
+	// (Armazenamento, Modo SaaS) desde o primeiro login — distinto de
+	// ProvisionTenant (control plane SaaS), que continua criando "tenant".
+	if user.Alcance != "plataforma" {
+		t.Fatalf("user alcance: got %q, want plataforma", user.Alcance)
 	}
 	if user.CargoID == nil {
 		t.Fatal("user cargoId must not be nil")

@@ -86,7 +86,14 @@ func (s *SetupService) InitializeTenant(data TenantSeedData) error {
 			}
 		}
 
-		_, _, err = seedTenant(tx, data, &plan, nil)
+		// alcance="plataforma" (não "tenant"): quem roda o wizard local É o
+		// dono/operador desta instalação — precisa enxergar as seções
+		// superadmin-only de Configurações (Armazenamento, Modo SaaS) desde o
+		// primeiro login, sem promoção manual no banco depois. Distinto de
+		// ProvisionTenant (control plane SaaS): tenants registrados remotamente
+		// por um empreendedor via Modo SaaS NUNCA ganham alcance de plataforma
+		// deste core — só o dono físico da instalação, via este fluxo.
+		_, _, err = seedTenant(tx, data, &plan, nil, "plataforma")
 		return err
 	})
 }
@@ -126,7 +133,7 @@ func (s *SetupService) ProvisionTenant(data TenantSeedData, spec domain.Provisio
 		if idempotencyKey != "" {
 			key = &idempotencyKey
 		}
-		tenantID, ownerUserID, err := seedTenant(tx, data, plan, key)
+		tenantID, ownerUserID, err := seedTenant(tx, data, plan, key, "tenant")
 		if err != nil {
 			if isDuplicateKey(err) {
 				return ErrEmailAlreadyExists
@@ -334,7 +341,13 @@ func isDuplicateKey(err error) bool {
 // ao `plan` já resolvido. Retorna o id do tenant e o id do usuário dono. NÃO
 // aplica barreira single-tenant nem escolhe o plano — isso é do chamador
 // (InitializeTenant, one-shot público; ProvisionTenant, control plane SaaS).
-func seedTenant(tx *gorm.DB, data TenantSeedData, plan *models.Plan, provisionKey *string) (uuid.UUID, int, error) {
+//
+// ownerAlcance controla o alcance do usuário dono criado — "plataforma" só
+// para InitializeTenant (o dono físico desta instalação, que precisa das
+// seções superadmin-only de Configurações); "tenant" para ProvisionTenant
+// (tenants registrados remotamente por um empreendedor via Modo SaaS nunca
+// ganham acesso de plataforma deste core).
+func seedTenant(tx *gorm.DB, data TenantSeedData, plan *models.Plan, provisionKey *string, ownerAlcance string) (uuid.UUID, int, error) {
 	// 2. Tenant
 	tenant := models.Tenant{
 		Name:         data.CompanyName,
@@ -443,7 +456,7 @@ func seedTenant(tx *gorm.DB, data TenantSeedData, plan *models.Plan, provisionKe
 		Name:     data.FirstName + " " + data.LastName,
 		Email:    data.Email,
 		CargoID:  &adminCargo.ID,
-		Alcance:  "tenant",
+		Alcance:  ownerAlcance,
 		TenantID: tenant.ID,
 		Configs:  `{"dashboard":{"widgets":[{"id":"tickets_info","visible":true,"width":4,"order":1},{"id":"attendance_chart","visible":true,"width":8,"order":2}]}}`,
 	}

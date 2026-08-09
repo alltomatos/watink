@@ -76,6 +76,17 @@ func TestProvisionTenantCreatesTenantWithPlanSnapshot(t *testing.T) {
 	if sub.PlanID != plan.ID {
 		t.Fatalf("assinatura no plano %d, quer %d", sub.PlanID, plan.ID)
 	}
+
+	// Guarda de segurança: um tenant registrado remotamente via Modo SaaS
+	// NUNCA pode ganhar alcance de plataforma deste core — só o wizard local
+	// (InitializeTenant) cria alcance=plataforma.
+	var owner models.User
+	if err := svc.db.First(&owner, res.OwnerUserID).Error; err != nil {
+		t.Fatalf("carregar owner: %v", err)
+	}
+	if owner.Alcance != "tenant" {
+		t.Fatalf("SEGURANÇA: owner de tenant provisionado via SaaS com alcance=%q, quer tenant", owner.Alcance)
+	}
 }
 
 func TestProvisionTenantIsIdempotent(t *testing.T) {
