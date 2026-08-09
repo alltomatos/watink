@@ -97,6 +97,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 	versionController := controllers.NewVersionController(container.VersionRepo)
 	swaggerController := controllers.NewSwaggerController(container.SwaggerPermRepo)
 	storageController := controllers.NewStorageController(s3Store)
+	saasModeController := controllers.NewSaaSModeController(saasContractSvc)
 
 	// Public Routes
 	group.POST("/auth/login", authController.Login)
@@ -162,6 +163,9 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		{
 			system.GET("/stats", systemController.GetSystemStats)
 			system.GET("/storage", storageController.Status)
+			system.GET("/saas-mode/status", saasModeController.Status)
+			system.GET("/saas-mode/precheck", saasModeController.Precheck)
+			system.POST("/saas-mode/register", saasModeController.Register)
 			system.GET("/rabbitmq/queues", systemController.GetRabbitMQQueues)
 			system.GET("/latest-release", controllers.GetLatestRelease)
 			system.GET("/version", versionController.GetVersion)
