@@ -60,3 +60,8 @@ linters:
         - Presente
         - presentes
         - Presentes
+        # "resolvendo" é português comum (Modo SaaS, middleware/
+        # internal_saas.go) e colide com o dicionário en-US do misspell
+        # ("resolved") — não é typo.
+        - resolvendo
+        - Resolvendo
