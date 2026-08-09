@@ -31,6 +31,17 @@ type Client struct {
 	http       *http.Client
 }
 
+// httpClient constrói o *http.Client compartilhado por NewFromEnv e New —
+// honra HTTPS_PROXY/HTTP_PROXY/NO_PROXY via http.ProxyFromEnvironment
+// (issue #631): um core on-premises atrás de proxy corporativo precisa
+// funcionar sem editar código, só configurando a env padrão do SO/container.
+func httpClient() *http.Client {
+	return &http.Client{
+		Timeout:   15 * time.Second,
+		Transport: &http.Transport{Proxy: http.ProxyFromEnvironment},
+	}
+}
+
 // NewFromEnv lê SAAS_BASE_URL, SAAS_INSTANCE_ID e SAAS_INTERNAL_TOKEN do
 // ambiente. Sem fallback hardcoded — instalações que não usam o Watink SaaS
 // simplesmente não setam as envs e Enabled() fica false.
@@ -39,8 +50,16 @@ func NewFromEnv() *Client {
 		baseURL:    os.Getenv("SAAS_BASE_URL"),
 		instanceID: os.Getenv("SAAS_INSTANCE_ID"),
 		token:      os.Getenv("SAAS_INTERNAL_TOKEN"),
-		http:       &http.Client{Timeout: 15 * time.Second},
+		http:       httpClient(),
 	}
+}
+
+// New constrói o Client a partir do contrato de pareamento lido do banco
+// (services.SaaSContractService, issue #628) — usado pelo worker de sync
+// (issue #631), que não depende de env/restart para (re)configurar o
+// pareamento com o Watink SaaS hospedado.
+func New(baseURL, instanceID, token string) *Client {
+	return &Client{baseURL: baseURL, instanceID: instanceID, token: token, http: httpClient()}
 }
 
 // Enabled reporta se as três envs necessárias estão presentes. O chamador
@@ -192,6 +211,48 @@ func (c *Client) RegisterStatus(ctx context.Context, registrationID string) (*St
 		return nil, fmt.Errorf("saasclient: register status: status %d", status)
 	}
 	var out StatusResult
+	if err := json.Unmarshal(body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// SyncCommand é um comando pendente devolvido pelo sync — mesmo shape do
+// core_commands do Watink SaaS (watink-saas#28), só os campos que o core
+// precisa para executar.
+type SyncCommand struct {
+	ID       string          `json:"id"`
+	Command  string          `json:"command"`
+	Payload  json.RawMessage `json:"payload"`
+	TenantID string          `json:"tenantId,omitempty"`
+}
+
+// SyncRequest é o corpo de POST /instance/sync (issue #631/watink-saas#28).
+type SyncRequest struct {
+	CoreVersion string   `json:"coreVersion"`
+	Acks        []string `json:"acks,omitempty"`
+	Usage       any      `json:"usage,omitempty"`
+	Tenants     any      `json:"tenants,omitempty"`
+}
+
+// SyncResponse é o corpo 200 de POST /instance/sync.
+type SyncResponse struct {
+	Commands []SyncCommand `json:"commands"`
+}
+
+// Sync chama POST /instance/sync (contrato de pull, issue #631) — o worker
+// no core inicia a conexão, nunca o Watink SaaS: resolve o caso de core
+// atrás de NAT/firewall corporativo sem porta de entrada. NUNCA loga req nem
+// resp (podem carregar payload de provisionamento com senha temporária).
+func (c *Client) Sync(ctx context.Context, req SyncRequest) (*SyncResponse, error) {
+	status, body, err := c.do(ctx, http.MethodPost, "/api/v1/instance/sync", req)
+	if err != nil {
+		return nil, err
+	}
+	if status != http.StatusOK {
+		return nil, fmt.Errorf("saasclient: sync: status %d", status)
+	}
+	var out SyncResponse
 	if err := json.Unmarshal(body, &out); err != nil {
 		return nil, err
 	}

@@ -65,3 +65,12 @@ linters:
         # ("resolved") — não é typo.
         - resolvendo
         - Resolvendo
+        # "comando(s)"/"corporativo" são português comum (Modo SaaS, worker
+        # de sync — issue #631) e colidem com o dicionário en-US do misspell
+        # ("commando(s)", "corporation") — não são typos.
+        - comando
+        - Comando
+        - comandos
+        - Comandos
+        - corporativo
+        - Corporativo

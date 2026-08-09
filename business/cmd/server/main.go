@@ -39,6 +39,7 @@ import (
 	"github.com/alltomatos/watinkdev/business/internal/mediawait"
 	"github.com/alltomatos/watinkdev/business/internal/middleware"
 	"github.com/alltomatos/watinkdev/business/internal/routes"
+	"github.com/alltomatos/watinkdev/business/internal/saasclient"
 	"github.com/alltomatos/watinkdev/business/internal/services"
 	"github.com/alltomatos/watinkdev/business/internal/web"
 	"github.com/alltomatos/watinkdev/business/pkg/s3store"
@@ -92,6 +93,16 @@ func main() {
 	rabbitMQ := services.NewRabbitMQProvider(os.Getenv("AMQP_URL"))
 	// Pass hub so the container uses the same SSEHub — avoids a second instance.
 	container := application.NewContainer(database.DB, redisSvc, broadcast, rabbitMQ, hub)
+
+	// Modo SaaS: worker de sync (pull), issue #631 — inicia sempre, mesmo sem
+	// pareamento (no-op de custo zero de rede a cada tick enquanto
+	// services.SaaSContractService devolve ErrSaaSContractNotConfigured).
+	// Resolve o caso de core on-premises atrás de NAT/firewall corporativo
+	// sem porta de entrada: quem inicia a conexão é este worker, nunca o
+	// Watink SaaS. ~30s entre ciclos — mesma cadência do contrato do lado
+	// servidor (watink-saas#28, staleness em 5x este intervalo).
+	saasSyncWorker := saasclient.NewWorker(services.NewSaaSContractService(database.DB), database.DB, services.NewSetupService(database.DB), GitCommit)
+	go saasSyncWorker.Run(context.Background(), 30*time.Second)
 
 	// Knowledge Base file sources: build the S3-compatible object store from
 	// env. When S3 is unconfigured or init fails, s3Store stays nil and the
