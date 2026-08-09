@@ -13,6 +13,7 @@ import {
 } from "../../components/ui/page-layout";
 import AISettings from "./components/AISettings";
 import StorageSection from "./components/StorageSection";
+import SaaSModeSection from "./components/SaaSModeSection";
 import AboutSection from "./components/AboutSection";
 import ProxySection from "./components/ProxySection";
 import IzapiaSection from "./components/IzapiaSection";
@@ -123,6 +124,9 @@ const Settings: React.FC = () => {
               )}
               {activeSection === "storage" && isSuperAdmin && (
                 <StorageSection />
+              )}
+              {activeSection === "saas-mode" && isSuperAdmin && (
+                <SaaSModeSection />
               )}
               {activeSection === "about" && (
                 <AboutSection />
