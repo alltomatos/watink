@@ -53,3 +53,15 @@ linters:
         - Progresso
         - informativo
         - Informativo
+        # "presente(s)" é português comum (Modo SaaS, services/saas_contract_
+        # service.go) e colide com o dicionário en-US do misspell
+        # ("presents") — não é typo.
+        - presente
+        - Presente
+        - presentes
+        - Presentes
+        # "resolvendo" é português comum (Modo SaaS, middleware/
+        # internal_saas.go) e colide com o dicionário en-US do misspell
+        # ("resolved") — não é typo.
+        - resolvendo
+        - Resolvendo
