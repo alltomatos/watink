@@ -53,3 +53,10 @@ linters:
         - Progresso
         - informativo
         - Informativo
+        # "presente(s)" é português comum (Modo SaaS, services/saas_contract_
+        # service.go) e colide com o dicionário en-US do misspell
+        # ("presents") — não é typo.
+        - presente
+        - Presente
+        - presentes
+        - Presentes
