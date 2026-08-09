@@ -56,7 +56,9 @@ func (ctrl *SaaSModeController) Status(c *gin.Context) {
 // só para o teste deste pacote apontar a um endereço que garantidamente
 // falha (127.0.0.1:1) sem depender de rede real — nenhum código de produção
 // reatribui isto.
-var saasModeHostSaaS = "saas.watink.com:443"
+// saashomol.watink.com (homologação/teste real) — saas.watink.com é
+// reservado para a produção comercial futura e ainda não existe.
+var saasModeHostSaaS = "saashomol.watink.com:443"
 
 // Precheck testa conectividade de SAÍDA para o Watink SaaS hospedado (issue
 // #632, requisito explícito do dono): um core atrás de firewall corporativo
