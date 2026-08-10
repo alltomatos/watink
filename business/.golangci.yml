@@ -74,3 +74,8 @@ linters:
         - Comandos
         - corporativo
         - Corporativo
+        # "suspenso" é português comum (middleware/tenant_status.go, Onda 2 do
+        # watink-saas) e colide com o dicionário en-US do misspell
+        # ("suspension") — não é typo.
+        - suspenso
+        - Suspenso
