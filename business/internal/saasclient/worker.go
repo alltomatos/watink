@@ -10,6 +10,7 @@ import (
 	"github.com/alltomatos/watinkdev/business/internal/domain"
 	"github.com/alltomatos/watinkdev/business/internal/models"
 	"github.com/alltomatos/watinkdev/business/internal/services"
+	"github.com/alltomatos/watinkdev/business/internal/usagestats"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -72,7 +73,7 @@ func (w *Worker) tick(ctx context.Context, acks []string) []string {
 	}
 
 	client := New(contract.BaseURL, contract.InstanceID, contract.InternalToken)
-	resp, err := client.Sync(ctx, SyncRequest{CoreVersion: w.version, Acks: acks})
+	resp, err := client.Sync(ctx, SyncRequest{CoreVersion: w.version, Acks: acks, Tenants: w.collectTenantsUsage()})
 	if err != nil {
 		// NUNCA logar req/resp aqui — podem carregar payload de provisionamento
 		// com senha temporária. err de transporte não carrega o token (não é
@@ -94,6 +95,29 @@ func (w *Worker) tick(ctx context.Context, acks []string) []string {
 		executed = append(executed, cmd.ID)
 	}
 	return executed
+}
+
+// collectTenantsUsage monta o snapshot de uso (issue #631, watink-saas#28)
+// enviado a cada tick — um item por tenant local, cross-tenant por natureza
+// (mesmo padrão de controllers.SaaSInternalController.Usage, lado push).
+// Falha ao listar/coletar loga e devolve nil — o sync em si (claim/ack de
+// comandos) nunca deve travar por causa de telemetria de uso.
+func (w *Worker) collectTenantsUsage() []map[string]any {
+	var tenants []models.Tenant
+	if err := w.db.Find(&tenants).Error; err != nil {
+		slog.Error("saas sync: falha ao listar tenants para uso", "erro", err.Error())
+		return nil
+	}
+	result := make([]map[string]any, 0, len(tenants))
+	for _, t := range tenants {
+		usage, err := usagestats.Collect(w.db, t.ID)
+		if err != nil {
+			slog.Error("saas sync: falha ao coletar uso do tenant", "tenantId", t.ID, "erro", err.Error())
+			continue
+		}
+		result = append(result, usage.ToMap(t.ID))
+	}
+	return result
 }
 
 // execute despacha um comando por um ALLOWLIST estrito de tipos — qualquer
