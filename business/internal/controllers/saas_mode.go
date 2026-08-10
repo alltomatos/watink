@@ -156,3 +156,46 @@ func (ctrl *SaaSModeController) Register(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"paired": true, "instanceId": result.InstanceID})
 }
+
+type saasModePairBody struct {
+	BaseURL       string `json:"baseUrl" binding:"required,url"`
+	InstanceID    string `json:"instanceId" binding:"required"`
+	InternalToken string `json:"internalToken" binding:"required"`
+}
+
+// Pair grava um pareamento gerado manualmente por um Operator que já tem
+// conta no Watink SaaS (issue de "instância adicional on-premise sem URL
+// pública") — diferente de Register, que sempre cria um Operator novo. O
+// admin cola aqui o instanceId+token gerados no Console (POST /instances/pair
+// do watink-saas), e a baseUrl do próprio Watink SaaS (não adivinhável, ao
+// contrário do hosted padrão em Register). Testa a credencial com um Sync
+// vazio ANTES de persistir — nunca grava um contrato não verificado (mesmo
+// espírito do TestConnection do lado watink-saas).
+//
+// @Summary      Parear esta instância com um Watink SaaS via instanceId+token existentes
+// @Tags         system
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Security     BearerAuth
+// @Router       /system/saas-mode/pair [post]
+func (ctrl *SaaSModeController) Pair(c *gin.Context) {
+	var body saasModePairBody
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request"})
+		return
+	}
+
+	client := saasclient.New(body.BaseURL, body.InstanceID, body.InternalToken)
+	if _, err := client.Sync(c.Request.Context(), saasclient.SyncRequest{}); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "pair_unreachable"})
+		return
+	}
+
+	if err := ctrl.contract.Set(body.BaseURL, body.InstanceID, body.InternalToken); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "contract_save_failed"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"paired": true, "instanceId": body.InstanceID})
+}
