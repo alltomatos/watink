@@ -3321,6 +3321,40 @@ const docTemplate = `{
                 }
             }
         },
+        "/message/{messageId}/transcribe": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "messages"
+                ],
+                "summary": "Transcrever mensagem de áudio",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID da mensagem",
+                        "name": "messageId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/messages/{ticketId}": {
             "get": {
                 "security": [
@@ -6622,6 +6656,9 @@ const docTemplate = `{
                 },
                 "password": {
                     "type": "string"
+                },
+                "rememberMe": {
+                    "type": "boolean"
                 }
             }
         },
@@ -7310,6 +7347,10 @@ const docTemplate = `{
                 },
                 "ticketId": {
                     "type": "integer"
+                },
+                "transcription": {
+                    "description": "Transcription is filled on-demand when an operator clicks \"Transcrever\náudio\" on an audio message (message_transcription.go) — never written\nautomatically on receipt, and never sent back to WhatsApp.",
+                    "type": "string"
                 },
                 "updatedAt": {
                     "type": "string"

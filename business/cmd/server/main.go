@@ -36,8 +36,10 @@ import (
 	"github.com/alltomatos/watinkdev/business/internal/domain"
 	"github.com/alltomatos/watinkdev/business/internal/flow"
 	"github.com/alltomatos/watinkdev/business/internal/knowledge"
+	"github.com/alltomatos/watinkdev/business/internal/mediawait"
 	"github.com/alltomatos/watinkdev/business/internal/middleware"
 	"github.com/alltomatos/watinkdev/business/internal/routes"
+	"github.com/alltomatos/watinkdev/business/internal/saasclient"
 	"github.com/alltomatos/watinkdev/business/internal/services"
 	"github.com/alltomatos/watinkdev/business/internal/web"
 	"github.com/alltomatos/watinkdev/business/pkg/s3store"
@@ -92,6 +94,16 @@ func main() {
 	// Pass hub so the container uses the same SSEHub — avoids a second instance.
 	container := application.NewContainer(database.DB, redisSvc, broadcast, rabbitMQ, hub)
 
+	// Modo SaaS: worker de sync (pull), issue #631 — inicia sempre, mesmo sem
+	// pareamento (no-op de custo zero de rede a cada tick enquanto
+	// services.SaaSContractService devolve ErrSaaSContractNotConfigured).
+	// Resolve o caso de core on-premises atrás de NAT/firewall corporativo
+	// sem porta de entrada: quem inicia a conexão é este worker, nunca o
+	// Watink SaaS. ~30s entre ciclos — mesma cadência do contrato do lado
+	// servidor (watink-saas#28, staleness em 5x este intervalo).
+	saasSyncWorker := saasclient.NewWorker(services.NewSaaSContractService(database.DB), database.DB, services.NewSetupService(database.DB), GitCommit)
+	go saasSyncWorker.Run(context.Background(), 30*time.Second)
+
 	// Knowledge Base file sources: build the S3-compatible object store from
 	// env. When S3 is unconfigured or init fails, s3Store stays nil and the
 	// file-source path responds with a clear error (never panics). Built here
@@ -120,12 +132,21 @@ func main() {
 	// path and the on-demand/playground endpoints never disagree.
 	ragRetriever, ragResponder := knowledge.BuildRetrieverAndResponder(database.DB)
 
+	// mediaWaiter correlaciona o download assíncrono de mídia (media.download
+	// → evento message.media, sem request/reply nativo) com quem precisa dos
+	// bytes na hora — hoje só o Assistant Runtime transcrevendo áudio
+	// (AcceptsAudio). UMA instância compartilhada entre o EventListener (que
+	// recebe o evento message.media e chama Fulfill) e todo AssistantRuntime
+	// que possa chamar Await — os dois pontos de entrada (mensagem real via
+	// EventListener, e o endpoint on-demand /flows/:id/run via SetupRoutes).
+	mediaWaiter := mediawait.New()
+
 	// FlowBuilder FASE 1: the inbound seam is plugged into the EventListener
 	// (NewEventListener wires flow.NewSkeleton with the interpreter+registry),
 	// replacing the two previously-dead workers. No separate AMQP flow worker.
 	// Built unconditionally (not just when RabbitMQ connects) — the izapia
 	// webhook handler below reuses it as a transport-agnostic inbound seam.
-	eventListener := services.NewEventListener(container.ChannelSessionRepo, container.MessageRepo, container.ContactRepo, container.TicketRepo, container.ReceiveMessage, broadcast, database.DB, channelRegistry, redisSvc)
+	eventListener := services.NewEventListener(container.ChannelSessionRepo, container.MessageRepo, container.ContactRepo, container.TicketRepo, container.ReceiveMessage, broadcast, database.DB, channelRegistry, redisSvc, rabbitMQ, mediaWaiter)
 	eventListener.ConfigureKnowledge(ragRetriever, ragResponder)
 
 	if err := rabbitMQ.Connect(); err == nil {
@@ -207,7 +228,7 @@ func main() {
 			GitCommit:     GitCommit,
 			GitBranch:     GitBranch,
 			GitCommitDate: GitCommitDate,
-		}, ragRetriever, ragResponder)
+		}, ragRetriever, ragResponder, mediaWaiter)
 	}
 
 	r.GET("/api/health", func(c *gin.Context) {

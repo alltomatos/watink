@@ -7,7 +7,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/alltomatos/watinkdev/business/internal/domain"
 	"github.com/alltomatos/watinkdev/business/internal/flow"
+	"github.com/alltomatos/watinkdev/business/internal/mediawait"
 	"github.com/alltomatos/watinkdev/business/internal/models"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -19,10 +21,17 @@ import (
 // controllers/routes — DI pura.
 type AssistantRuntime struct {
 	db *gorm.DB
+	// publisher/mediaWaiter are used only by the audio transcription path
+	// (assistant_audio.go) — nil-safe: an AssistantRuntime built without them
+	// (older tests, call sites that never touch audio) just fails closed with
+	// a clear error if a message ever reaches transcribeInboundAudio, never a
+	// nil-pointer panic.
+	publisher   domain.CommandPublisher
+	mediaWaiter *mediawait.Waiter
 }
 
-func NewAssistantRuntime(db *gorm.DB) *AssistantRuntime {
-	return &AssistantRuntime{db: db}
+func NewAssistantRuntime(db *gorm.DB, publisher domain.CommandPublisher, mediaWaiter *mediawait.Waiter) *AssistantRuntime {
+	return &AssistantRuntime{db: db, publisher: publisher, mediaWaiter: mediaWaiter}
 }
 
 // Execute loads the Assistant and dispatches per Mode. A missing/inactive
@@ -62,6 +71,18 @@ func (r *AssistantRuntime) Execute(ctx context.Context, st *flow.ExecState, assi
 		} else if a.IgnoreGroups {
 			return flow.Outcome{Kind: flow.OutcomeAdvance, Detail: "assistant: ignora grupos"}, nil
 		}
+	}
+
+	// Áudio: por padrão o Assistant não entende (AcceptsAudio=false) e avisa
+	// com uma mensagem fixa, sem tentar nada — checado aqui, no único ponto
+	// de despacho que TODOS os modos atravessam, mesmo padrão do gate de
+	// grupos acima. Quando AcceptsAudio=true, a transcrição de fato acontece
+	// dentro de executePersona (só ali cfg.AiGatewayID já foi parseado) —
+	// aqui só barra o caso rejeitado, sem custo de rede.
+	if st.MediaType == "audio" && !a.AcceptsAudio {
+		turn := bumpPersonaTurn(st)
+		_ = flow.SendAssistantText(ctx, st, "audio-t"+strconv.Itoa(turn), "No momento eu não consigo entender mensagens de áudio — pode escrever, por favor?")
+		return flow.Outcome{Kind: flow.OutcomeAdvance, Detail: "assistant: não entende áudio"}, nil
 	}
 
 	switch a.Mode {

@@ -256,6 +256,18 @@ _Avoid_: target, lead de campanha, contato de envio
 **CampaignSuppression**: Lista de exclusão (opt-out) obrigatória para Campaigns — contatos que NÃO devem receber disparos. Consultada antes de materializar CampaignRecipients. O opt-out (PARAR/STOP/SAIR) também aborta FlowRuns ativos.
 _Avoid_: blacklist, denylist, unsubscribe list, lista negra
 
+**GroupCampaign**: Campanha de disparo em massa para **grupos** de WhatsApp (plugin Grupos e Comunidades, 4ª aba, ADR 0030) — **ENTIDADE DISTINTA de `Campaign`** acima, que é FlowBuilder/disparo-a-**contato** (ADR 0016). Uma conexão fixa por campanha (`WhatsappID`, sem rotação — postar de dois números no mesmo grupo é sinal de spam mais forte, não menor). `status` (draft→scheduled/running→paused/completed/canceled) só sai de `draft` via `/start`, nunca via `POST`/`PUT`. Cadência (intervalo/jitter/lote/pausa) clampada no backend a um piso anti-ban fixo.
+_Avoid_: Campaign (isolado — sempre qualificar Group), campanha de grupo (prosa ok, mas o tipo é `GroupCampaign`), broadcast de grupo
+
+**GroupCampaignRun**: Uma ocorrência disparada de uma GroupCampaign — imediato/único produzem exatamente uma run, recorrente produz uma por disparo. Congela (`VariantsSnapshot`) as variantes de mensagem ativas no momento do disparo, mesmo princípio de `FlowRun.GraphSnapshot`. Âncora de idempotência: `UNIQUE(campaignId, occurrenceKey)` impede duplo-disparo da mesma ocorrência por dois nós.
+_Avoid_: campaign run (sem o prefixo Group), execução de campanha, disparo (isolado)
+
+**GroupCampaignSend**: Uma entrega (run × grupo) — a unidade de cadência de uma GroupCampaign. Carrega o `scheduledAt` PRÉ-CALCULADO (nunca `time.Sleep`), o estado de claim (`pending→sending→sent/failed`, via `UPDATE` condicional + `RowsAffected`, não o leader-lock do cron) e `EnvID == MessageID` por construção — é essa igualdade que permite correlacionar uma resposta citada sem tabela de lookup extra.
+_Avoid_: campaign send, envio de campanha (isolado sem o vínculo à GroupCampaignRun)
+
+**GroupCampaignReply**: Uma resposta capturada, atribuída a uma GroupCampaignSend. `matchType` distingue correlação **forte** (`quoted` — a resposta cita a mensagem da campanha, via `QuotedMsgID`) de **fraca** (`window` — qualquer mensagem do grupo dentro de uma janela de tempo, só quando `captureMode=quoted_and_window`). As duas contagens NUNCA são somadas num único número de "engajamento" — sempre reportadas separadas.
+_Avoid_: campaign reply, resposta de campanha (isolado), engajamento (como número único somado)
+
 **KBChunk**: Fragmento indexado de uma KnowledgeBase para Retrieval RAG. Embedding em **`halfvec(2048)`** (HNSW `halfvec_cosine_ops`, pgvector ≥ 0.7), gerado via omniroute, com **`model`+`dim` gravados no chunk** (permite migração de modelo) e `metadata` (heading, para citação). FK `ON DELETE CASCADE` para `KnowledgeBases`/`KnowledgeBaseSources` — deletar a fonte/base remove os chunks. Tenant-scoped por `WHERE "tenantId"` manual (RLS inerte no worker).
 _Avoid_: chunk (isolado), embedding row, vector, pedaço de KB
 

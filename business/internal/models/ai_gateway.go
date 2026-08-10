@@ -20,8 +20,17 @@ type AiGateway struct {
 	ApiKeyEnc string    `gorm:"column:apiKeyEnc;type:text" json:"-"`
 	BaseURL   *string   `gorm:"column:baseUrl" json:"baseUrl"`
 	Model     string    `gorm:"not null" json:"model"`
-	CreatedAt time.Time `gorm:"column:createdAt" json:"createdAt"`
-	UpdatedAt time.Time `gorm:"column:updatedAt" json:"updatedAt"`
+	// TranscriptionModel/SpeechModel selecionam os modelos usados nos
+	// endpoints OpenAI-compatible /audio/transcriptions e /audio/speech do
+	// MESMO baseUrl/apiKey acima — nem todo gateway credencia os mesmos
+	// modelos para chat e para áudio (ex.: "whisper-1" cru pode não ter
+	// credencial, enquanto "openrouter/openai/whisper-large-v3-turbo" tem).
+	// nil/vazio = Assistant com AcceptsAudio/RespondsWithAudio ligado nesse
+	// gateway falha com erro claro em vez de adivinhar um nome de modelo.
+	TranscriptionModel *string   `gorm:"column:transcriptionModel" json:"transcriptionModel"`
+	SpeechModel        *string   `gorm:"column:speechModel" json:"speechModel"`
+	CreatedAt          time.Time `gorm:"column:createdAt" json:"createdAt"`
+	UpdatedAt          time.Time `gorm:"column:updatedAt" json:"updatedAt"`
 }
 
 func (AiGateway) TableName() string { return "AiGateways" }

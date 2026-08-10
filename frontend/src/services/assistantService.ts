@@ -26,6 +26,8 @@ export interface Assistant {
      * (ver AssistantGroupsPanel) e só recebe resposta quando o assistente
      * é mencionado — fora isso, ele só observa a conversa. */
     groupsMode: "legacy" | "selective";
+    acceptsAudio: boolean;
+    respondsWithAudio: boolean;
     active: boolean;
     createdAt: string;
     updatedAt: string;

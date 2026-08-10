@@ -155,5 +155,12 @@ func allModels() []interface{} {
 		&models.GroupWatchTag{},
 		&models.GroupWatchMatch{},
 		&models.GroupCache{},
+		&models.GroupCampaign{},
+		&models.GroupCampaignVariant{},
+		&models.GroupCampaignTarget{},
+		&models.GroupCampaignRun{},
+		&models.GroupCampaignSend{},
+		&models.GroupCampaignReply{},
+		&models.InstancePolicy{},
 	}
 }

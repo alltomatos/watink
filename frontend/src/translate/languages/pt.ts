@@ -883,6 +883,22 @@ const messages = {
           "Esta cor já está em uso, escolha outra.",
         ERR_WAPP_GREETING_REQUIRED:
           "A mensagem de saudação é obrigatório quando há mais de uma fila.",
+        plan_limit_reached: "Limite do seu plano atingido.",
+      },
+      planLimitResources: {
+        users: "usuários",
+        connections: "conexões",
+        queues: "filas",
+        plugins: "plugins",
+      },
+      accountSuspended: {
+        suspendedTitle: "Conta suspensa",
+        suspendedMessage:
+          "O acesso a esta conta está temporariamente suspenso. Regularize sua situação com o suporte para voltar a usar a plataforma.",
+        canceledTitle: "Conta cancelada",
+        canceledMessage:
+          "Esta conta foi cancelada. Entre em contato com o suporte se acredita que isso é um engano.",
+        backToLogin: "Voltar para o login",
       },
       publicProtocol: {
         header: {

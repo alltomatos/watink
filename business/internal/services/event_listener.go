@@ -10,6 +10,7 @@ import (
 	"github.com/alltomatos/watinkdev/business/internal/application/usecases"
 	"github.com/alltomatos/watinkdev/business/internal/domain"
 	"github.com/alltomatos/watinkdev/business/internal/flow"
+	"github.com/alltomatos/watinkdev/business/internal/mediawait"
 	"github.com/alltomatos/watinkdev/business/internal/plugins"
 	"github.com/google/uuid"
 	amqp "github.com/streadway/amqp"
@@ -25,9 +26,14 @@ type EventListener struct {
 	broadcast      domain.Broadcaster
 	db             *gorm.DB
 	flowSkeleton   *flow.Skeleton
+	mediaWaiter    *mediawait.Waiter
 }
 
-func NewEventListener(sessions domain.ChannelSessionRepository, messages domain.MessageRepository, contacts domain.ContactRepository, tickets domain.TicketRepository, rm *usecases.ReceiveMessageUseCase, broadcast domain.Broadcaster, db *gorm.DB, registry *flow.ChannelRegistry, redis domain.RedisService) *EventListener {
+// publisher is the minimal domain.CommandPublisher slice AssistantRuntime
+// needs to trigger an on-demand media.download itself (áudio recebido por um
+// Assistant com AcceptsAudio=true) — same contract as message_media.go's
+// HTTP handler, just invoked programmatically instead of via request.
+func NewEventListener(sessions domain.ChannelSessionRepository, messages domain.MessageRepository, contacts domain.ContactRepository, tickets domain.TicketRepository, rm *usecases.ReceiveMessageUseCase, broadcast domain.Broadcaster, db *gorm.DB, registry *flow.ChannelRegistry, redis domain.RedisService, publisher domain.CommandPublisher, mediaWaiter *mediawait.Waiter) *EventListener {
 	// SetAssistantRuntime: sem isto, todo assistant-node de toda mensagem
 	// real recebida (message.received) executa com st.AssistantRuntime==nil
 	// e assistantExecutor.Execute degrada silenciosamente pra "sem
@@ -39,8 +45,8 @@ func NewEventListener(sessions domain.ChannelSessionRepository, messages domain.
 	// FlowRun entrava no nó assistant e completava em ~0ms sem nenhuma
 	// query em Assistants/AssistantRouterOptions, sem enviar nada.
 	skeleton := flow.NewSkeleton(db, registry, redis)
-	skeleton.SetAssistantRuntime(plugins.NewAssistantRuntime(db))
-	return &EventListener{sessions: sessions, messages: messages, contacts: contacts, tickets: tickets, receiveMessage: rm, broadcast: domain.BroadcastOrNop(broadcast), db: db, flowSkeleton: skeleton}
+	skeleton.SetAssistantRuntime(plugins.NewAssistantRuntime(db, publisher, mediaWaiter))
+	return &EventListener{sessions: sessions, messages: messages, contacts: contacts, tickets: tickets, receiveMessage: rm, broadcast: domain.BroadcastOrNop(broadcast), db: db, flowSkeleton: skeleton, mediaWaiter: mediaWaiter}
 }
 
 // ConfigureKnowledge wires the flow skeleton's RAG retriever/responder (see
@@ -115,7 +121,23 @@ func StartEventListener(rabbitMQ *RabbitMQService, eventListener *EventListener)
 		case "message.reaction":
 			return eventListener.handleMessageReaction(ctx, env.Payload, tid)
 		case "message.media":
-			return eventListener.handleMediaDownloaded(ctx, env.Payload, tid)
+			// O consumidor de eventos é um único loop sequencial (ConsumeEvents
+			// processa uma Delivery por vez para TODOS os eventos do tenant —
+			// mensagens, recibos, presença, mídia). Um tenant com tráfego alto
+			// (muitos grupos ativos) enfileira o evento message.media atrás de
+			// centenas de outros eventos, atrasando o Fulfill do mediawait em
+			// minutos mesmo quando o download em si (engine-go) levou <1s —
+			// medido ao vivo em homolog. handleMediaDownloaded só libera um
+			// mediawait.Waiter (map com mutex, sem dependência de ordem com
+			// outros eventos), então rodar em goroutine própria é seguro e
+			// evita esse atraso sem mudar o contrato — ack imediato (best-effort,
+			// mesmo padrão de media.download no engine-go).
+			go func() {
+				if err := eventListener.handleMediaDownloaded(ctx, env.Payload, tid); err != nil {
+					log.Printf("[EventListener] handleMediaDownloaded falhou: %v", err)
+				}
+			}()
+			return nil
 		case "contact.update":
 			if err := handleContactUpdate(ctx, eventListener.contacts, eventListener.bcast(), env.Payload, tid); err != nil {
 				return err
@@ -224,6 +246,9 @@ func (el *EventListener) processMessage(ctx context.Context, p MessagePayload, r
 			Ticket:        result.Ticket,
 			Contact:       result.Contact,
 			MentionedJIDs: p.MentionedJids,
+			MessageID:     result.Message.ID,
+			MediaType:     p.Type,
+			Mimetype:      p.Mimetype,
 		})
 	}
 

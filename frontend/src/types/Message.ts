@@ -46,4 +46,10 @@ export interface Message {
    */
   dataJson?: string | Record<string, unknown>;
   participant?: string;
+  /**
+   * Text transcribed on-demand from an audio message (operator clicks
+   * "Transcrever áudio"). Only ever shown in the Watink UI — never sent to
+   * WhatsApp.
+   */
+  transcription?: string | null;
 }

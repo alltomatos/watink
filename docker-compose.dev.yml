@@ -184,11 +184,11 @@ services:
   plugin-manager:
     # Componente PROPRIETÁRIO (ADR 0024) — fonte no repo privado
     # alltomatos/watink-plugin-manager, distribuído APENAS como imagem compilada
-    # (GHCR). O core NÃO builda do source: é a trava real de licenciamento e o
-    # fonte é fechado. Para desenvolver o plugin-manager, clone o repo privado
-    # ao lado e aponte PLUGIN_MANAGER_IMAGE para uma imagem local (ex.:
-    # `docker build -t pm:dev .` no repo privado; PLUGIN_MANAGER_IMAGE=pm:dev).
-    image: ${PLUGIN_MANAGER_IMAGE:-ghcr.io/alltomatos/watink-plugin-manager:latest}
+    # (GHCR). O core NÃO builda do source e NÃO expõe forma de trocar a imagem
+    # ou o endpoint do Hub: é a trava real de licenciamento, fonte fechado, tag
+    # fixa. Desenvolvimento do plugin-manager em si acontece só dentro do
+    # próprio repo privado, fora deste compose.
+    image: ghcr.io/alltomatos/watink-plugin-manager:latest
     container_name: watink-plugin-manager
     ports:
       - "8081:8081"
@@ -243,26 +243,6 @@ services:
     restart: on-failure
     stop_grace_period: 10s
 
-  # Ollama — embedding self-hosted para a Base de Conhecimento (RAG). OPT-IN:
-  # só sobe com `docker compose --profile ollama up -d` (não no `up` padrão).
-  # Alternativa ao embedding via omniroute/naga: local, grátis, privado, sem créditos.
-  # Aponte o embedding via setting `aiEmbeddingBaseURL=http://ollama:11434/v1` (chat
-  # segue no omniroute). ⚠️ EM CPU é LENTO para modelos médios/grandes (medido:
-  # ~21s/chunk bge-m3, ~50s/chunk qwen3:4b num chunk de ~512 tok) — viável só com
-  # modelo pequeno (nomic-embed-text ~4s/chunk) ou, idealmente, com GPU. Modelos:
-  # `docker exec watink-ollama ollama pull <modelo>`.
-  ollama:
-    image: ollama/ollama:latest
-    container_name: watink-ollama
-    profiles: ["ollama"]
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_models:/root/.ollama
-    networks:
-      - watink_net
-    restart: unless-stopped
-
   minio:
     image: minio/minio:latest
     container_name: watink-minio
@@ -293,7 +273,6 @@ volumes:
   engine_go_cache:
   business_go_mod:
   business_go_cache:
-  ollama_models:
   minio_data:
   frontend_node_modules:
     # node_modules do frontend ficam isolados no container (binários Linux)

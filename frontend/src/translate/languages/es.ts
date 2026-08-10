@@ -601,6 +601,22 @@ const messages = {
           "Este color ya está en uso, elija otro.",
         ERR_WAPP_GREETING_REQUIRED:
           "El mensaje de saludo es obligatorio cuando hay más de una cola.",
+        plan_limit_reached: "Se alcanzó el límite de su plan.",
+      },
+      planLimitResources: {
+        users: "usuarios",
+        connections: "conexiones",
+        queues: "colas",
+        plugins: "plugins",
+      },
+      accountSuspended: {
+        suspendedTitle: "Cuenta suspendida",
+        suspendedMessage:
+          "El acceso a esta cuenta está temporalmente suspendido. Contacte al soporte para regularizar su situación y volver a usar la plataforma.",
+        canceledTitle: "Cuenta cancelada",
+        canceledMessage:
+          "Esta cuenta fue cancelada. Contacte al soporte si cree que esto es un error.",
+        backToLogin: "Volver al login",
       },
     },
   },

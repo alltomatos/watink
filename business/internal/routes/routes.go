@@ -5,6 +5,7 @@ import (
 	"github.com/alltomatos/watinkdev/business/internal/controllers"
 	"github.com/alltomatos/watinkdev/business/internal/domain"
 	"github.com/alltomatos/watinkdev/business/internal/flow"
+	"github.com/alltomatos/watinkdev/business/internal/mediawait"
 	"github.com/alltomatos/watinkdev/business/internal/middleware"
 	"github.com/alltomatos/watinkdev/business/internal/pluginlicense"
 	"github.com/alltomatos/watinkdev/business/internal/plugins"
@@ -26,13 +27,23 @@ type RouteRabbitMQ interface {
 // flow.Skeleton too, so the on-demand endpoints here and the real inbound
 // WhatsApp message path never disagree about which implementation answers a
 // query).
-func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *application.Container, s3Store domain.ObjectStore, build controllers.BuildInfo, ragRetriever flow.Retriever, ragResponder flow.AgentResponder) {
+func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *application.Container, s3Store domain.ObjectStore, build controllers.BuildInfo, ragRetriever flow.Retriever, ragResponder flow.AgentResponder, mediaWaiter *mediawait.Waiter) {
 	db := container.DB
-	messageController := controllers.NewMessageController(rabbitMQ, container.Broadcast, container.SessionService)
+	messageController := controllers.NewMessageController(rabbitMQ, container.Broadcast, container.SessionService).WithTranscription(db, mediaWaiter)
 	systemController := controllers.NewSystemController(container.SystemRepo, rabbitMQ)
 	setupService := services.NewSetupService(container.DB)
 	setupController := controllers.NewSetupController(setupService)
-	saasInternalController := controllers.NewSaaSInternalController(db, setupService)
+	// Onda 2/A.3 do watink-saas (docs/integration-core.md §2.1): gate real de
+	// suspensão/cancelamento comercial, tanto no login quanto em toda rota
+	// autenticada (TenantStatusGate abaixo). Cache TTL 60s, invalidado na hora
+	// pelo próprio SetStatus do control plane.
+	tenantStatusSvc := services.NewTenantStatusService(db)
+	saasInternalController := controllers.NewSaaSInternalController(db, setupService).WithTenantStatusService(tenantStatusSvc)
+	// Modo SaaS: contrato de pareamento resolvido do banco (InstancePolicy),
+	// com fallback para SAAS_INTERNAL_TOKEN (deploys auto-hospedados). Cache
+	// TTL 60s — ver middleware.SaaSTokenCache/services.SaaSContractService.
+	saasContractSvc := services.NewSaaSContractService(db)
+	saasTokenCache := middleware.NewSaaSTokenCache(saasContractSvc)
 	pluginManagerInternalController := controllers.NewPluginManagerInternalController(db, build)
 	registerController := controllers.NewRegisterController(saasclient.NewFromEnv(), saasclient.NewCaptchaVerifierFromEnv())
 	userController := controllers.NewUserController(container.UserRepo, container.PlanLimitSvc)
@@ -59,7 +70,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 	pluginCatalogFetcher := plugins.NewCatalogFetcher(pluginLicenseClient)
 	pluginRegistry := plugins.NewPluginRegistry(db, pluginLicenseFetcher, pluginCatalogFetcher)
 	pluginController := controllers.NewPluginController(container.PlanLimitSvc, db, pluginRegistry, pluginLicenseFetcher, pluginLicenseClient)
-	authController := controllers.NewAuthController(container.UserRepo)
+	authController := controllers.NewAuthController(container.UserRepo).WithTenantStatusService(tenantStatusSvc)
 	settingController := controllers.NewSettingController(container.SettingRepo, container.Broadcast)
 	tagController := controllers.NewTagController()
 	pipelineController := controllers.NewPipelineController()
@@ -80,12 +91,13 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 	// Wires the "Assistentes de IA" plugin's runtime into the synthetic Flow's
 	// "assistant" node (ADR 0027) — set post-construction since the
 	// implementation lives in the plugins package (DI pura, no global).
-	flowRuntime.SetAssistantRuntime(plugins.NewAssistantRuntime(container.DB))
+	flowRuntime.SetAssistantRuntime(plugins.NewAssistantRuntime(container.DB, rabbitMQ, mediaWaiter))
 	flowController := controllers.NewFlowController(flowRuntime)
 	quickAnswerController := controllers.NewQuickAnswerController(rabbitMQ, container.Broadcast, db, container.SessionService)
 	versionController := controllers.NewVersionController(container.VersionRepo)
 	swaggerController := controllers.NewSwaggerController(container.SwaggerPermRepo)
 	storageController := controllers.NewStorageController(s3Store)
+	saasModeController := controllers.NewSaaSModeController(saasContractSvc)
 
 	// Public Routes
 	group.POST("/auth/login", authController.Login)
@@ -115,7 +127,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 	// 503 quando ausente). Cross-tenant por natureza; montado FORA da cadeia
 	// protegida (IsAuth/TenantMiddleware). Ver docs/integration-core.md §1.
 	internalSaaS := group.Group("/internal/saas")
-	internalSaaS.Use(middleware.InternalSaaSOnly())
+	internalSaaS.Use(middleware.InternalSaaSOnly(saasTokenCache))
 	{
 		internalSaaS.GET("/ping", saasInternalController.Ping)
 		internalSaaS.POST("/tenants", saasInternalController.ProvisionTenant)
@@ -123,6 +135,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		internalSaaS.PATCH("/tenants/:tenantId/status", saasInternalController.SetStatus)
 		internalSaaS.PUT("/tenants/:tenantId/subscription", saasInternalController.PushSubscription)
 		internalSaaS.GET("/tenants/:tenantId/usage", saasInternalController.Usage)
+		internalSaaS.PUT("/instance/policy", saasInternalController.SetInstancePolicy)
 	}
 
 	// Internal control-plane (Watink Hub via plugin-manager local) — mesmo
@@ -142,6 +155,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 	protected.Use(controllers.MaintenanceMiddleware())
 	protected.Use(middleware.IsAuth(db))
 	protected.Use(middleware.TenantMiddleware())
+	protected.Use(middleware.TenantStatusGate(tenantStatusSvc))
 	{
 		// System (superadmin only — exposes cross-tenant stats and infrastructure)
 		system := protected.Group("/system")
@@ -149,6 +163,9 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		{
 			system.GET("/stats", systemController.GetSystemStats)
 			system.GET("/storage", storageController.Status)
+			system.GET("/saas-mode/status", saasModeController.Status)
+			system.GET("/saas-mode/precheck", saasModeController.Precheck)
+			system.POST("/saas-mode/register", saasModeController.Register)
 			system.GET("/rabbitmq/queues", systemController.GetRabbitMQQueues)
 			system.GET("/latest-release", controllers.GetLatestRelease)
 			system.GET("/version", versionController.GetVersion)
@@ -179,7 +196,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		pluginManager.Register(&plugins.HelpdeskPlugin{})
 		pluginManager.Register(&plugins.WebchatPlugin{})
 		pluginManager.Register(&plugins.AssistantPlugin{})
-		pluginManager.Register(&plugins.GroupsPlugin{Resolver: container.SessionService})
+		pluginManager.Register(&plugins.GroupsPlugin{Resolver: container.SessionService, Publisher: rabbitMQ, Redis: container.RedisSvc})
 
 		// Auth
 		protected.DELETE("/auth/logout", authController.Logout)
@@ -211,6 +228,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		// position with different wildcard names (":messageId" here vs the
 		// existing ":ticketId" under "/messages/:ticketId").
 		protected.POST("/message/:messageId/react", messageController.ReactToMessage)
+		protected.POST("/message/:messageId/transcribe", messageController.TranscribeAudio)
 
 		// WhatsApp Connections
 		protected.GET("/whatsapp", auth.RequirePermission("connections", "read"), whatsappController.ListWhatsapps)

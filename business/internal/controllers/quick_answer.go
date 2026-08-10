@@ -52,116 +52,12 @@ func isUniqueViolation(err error, indexName string) bool {
 	return strings.Contains(msg, indexName) || (strings.Contains(msg, "unique") && strings.Contains(msg, "shortcut"))
 }
 
-// buildInteractiveDataJSON monta o DataJson da mensagem persistida com a estrutura
-// interativa (botões/lista/enquete) sob a chave "interactive", para o frontend
-// renderizar os chips visuais na bolha do chat. Retorna "{}" para tipos sem
-// estrutura interativa (text, media) ou conteúdo ausente.
-func buildInteractiveDataJSON(qaType string, contentMap map[string]interface{}) string {
-	const empty = "{}"
-	var meta map[string]interface{}
-
-	switch qaType {
-	case "interactive_buttons":
-		btns := make([]map[string]interface{}, 0)
-		if rawBtns, ok := contentMap["buttons"].([]interface{}); ok {
-			for _, rb := range rawBtns {
-				bm, ok := rb.(map[string]interface{})
-				if !ok {
-					continue
-				}
-				b := map[string]interface{}{"label": bm["label"], "id": bm["id"]}
-				if t, ok := bm["type"].(string); ok && t != "" {
-					b["type"] = t
-				}
-				if u, ok := bm["url"].(string); ok && u != "" {
-					b["url"] = u
-				}
-				if p, ok := bm["phoneNumber"].(string); ok && p != "" {
-					b["phone"] = p
-				}
-				btns = append(btns, b)
-			}
-		}
-		if len(btns) == 0 {
-			return empty
-		}
-		meta = map[string]interface{}{"type": "buttons", "buttons": btns}
-		if f, ok := contentMap["footer"].(string); ok && f != "" {
-			meta["footer"] = f
-		}
-	case "list":
-		meta = map[string]interface{}{"type": "list", "sections": contentMap["sections"]}
-		if bt, ok := contentMap["button"].(string); ok && bt != "" {
-			meta["buttonText"] = bt
-		}
-		if f, ok := contentMap["footer"].(string); ok && f != "" {
-			meta["footer"] = f
-		}
-	case "poll":
-		opts := make([]interface{}, 0)
-		if rawOpts, ok := contentMap["options"].([]interface{}); ok {
-			opts = rawOpts
-		}
-		if len(opts) == 0 {
-			return empty
-		}
-		meta = map[string]interface{}{"type": "poll", "options": opts}
-		if ms, ok := contentMap["maxSelections"].(float64); ok {
-			meta["selectableCount"] = int(ms)
-		}
-	case "carousel":
-		cards := make([]map[string]interface{}, 0)
-		if rawCards, ok := contentMap["cards"].([]interface{}); ok {
-			for _, rc := range rawCards {
-				cm, ok := rc.(map[string]interface{})
-				if !ok {
-					continue
-				}
-				card := map[string]interface{}{
-					"image": cm["image"], "title": cm["title"], "footer": cm["footer"],
-				}
-				dispBtns := make([]map[string]interface{}, 0)
-				if rb, ok := cm["buttons"].([]interface{}); ok {
-					for _, b := range rb {
-						bm, ok := b.(map[string]interface{})
-						if !ok {
-							continue
-						}
-						db := map[string]interface{}{"label": bm["label"], "id": bm["id"]}
-						if t, ok := bm["type"].(string); ok && t != "" {
-							db["type"] = t
-						}
-						if u, ok := bm["url"].(string); ok && u != "" {
-							db["url"] = u
-						}
-						dispBtns = append(dispBtns, db)
-					}
-				}
-				card["buttons"] = dispBtns
-				cards = append(cards, card)
-			}
-		}
-		if len(cards) == 0 {
-			return empty
-		}
-		meta = map[string]interface{}{"type": "carousel", "cards": cards}
-	case "pix":
-		meta = map[string]interface{}{
-			"type":    "pix",
-			"pixKey":  contentMap["pixKey"],
-			"pixName": contentMap["pixName"],
-			"pixType": contentMap["pixType"],
-		}
-	default:
-		return empty
-	}
-
-	raw, err := json.Marshal(map[string]interface{}{"interactive": meta})
-	if err != nil {
-		return empty
-	}
-	return string(raw)
-}
+// buildInteractiveDataJSON foi movida para flow.BuildInteractiveDataJSON
+// (business/internal/flow/quickanswer_normalize.go) -- internal/plugins não
+// pode importar internal/controllers (controllers já importa plugins,
+// ciclo reverso), e internal/flow já é a casa compartilhada de
+// BuildQuickAnswerCommand para exatamente esse tipo de função. Ver issue
+// #592.
 
 // QuickAnswerController encapsulates quick answer operations with RLS-scoped DB from auth middleware.
 // All queries are automatically tenant-scoped via auth.GetDB(c).
@@ -485,12 +381,12 @@ func (qac *QuickAnswerController) Send(c *gin.Context) {
 		switch commandType {
 		case "message.send.text":
 			body, _ := payload["body"].(string)
-			err = engine.SendText(c.Request.Context(), whatsapp, to, msgID, body)
+			_, err = engine.SendText(c.Request.Context(), whatsapp, to, msgID, body)
 		case "message.send.media":
 			mediaURL, _ := payload["mediaUrl"].(string)
 			mediaType, _ := payload["mediaType"].(string)
 			mimeType, _ := payload["mimeType"].(string)
-			err = engine.SendMedia(c.Request.Context(), whatsapp, to, msgID, mediaType, mediaURL, mimeType)
+			_, err = engine.SendMedia(c.Request.Context(), whatsapp, to, msgID, mediaType, mediaURL, mimeType)
 		default:
 			richEngine, ok := engine.(domain.RichMessageEngine)
 			if !ok {
@@ -498,7 +394,7 @@ func (qac *QuickAnswerController) Send(c *gin.Context) {
 				break
 			}
 			req := flow.BuildRichMessageRequest(qaType, message, contentMap)
-			err = richEngine.SendInteractive(c.Request.Context(), whatsapp, to, msgID, req)
+			_, err = richEngine.SendInteractive(c.Request.Context(), whatsapp, to, msgID, req)
 		}
 		if err != nil {
 			utils.RespondWithInternalError(c, err, "SendQuickAnswer")
@@ -551,7 +447,7 @@ func (qac *QuickAnswerController) Send(c *gin.Context) {
 			msgBody = b
 		}
 	}
-	dataJSON := buildInteractiveDataJSON(qaType, contentMap)
+	dataJSON := flow.BuildInteractiveDataJSON(qaType, contentMap)
 
 	outgoing := models.Message{
 		ID:        msgID,

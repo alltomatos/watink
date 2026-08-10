@@ -12,14 +12,16 @@ var _ domain.RichMessageEngine = (*Provider)(nil)
 
 // SendInteractive dispatches a domain.RichMessageRequest (interactive/poll/
 // carousel — built by flow.BuildRichMessageRequest from a QuickAnswer) to the
-// matching izapia endpoint.
-func (p *Provider) SendInteractive(ctx context.Context, w models.Whatsapp, to, messageID string, req domain.RichMessageRequest) error {
+// matching izapia endpoint, returning izapia's OWN message_id (see
+// domain.RichMessageEngine's doc comment -- izapia assigns its own id
+// server-side, there's no way to force it like whatsmeow's SendRequestExtra).
+func (p *Provider) SendInteractive(ctx context.Context, w models.Whatsapp, to, messageID string, req domain.RichMessageRequest) (string, error) {
 	if w.IzapiaSessionID == nil || *w.IzapiaSessionID == "" {
-		return fmt.Errorf("izapia: conexão %d sem sessão izapia ativa", w.ID)
+		return "", fmt.Errorf("izapia: conexão %d sem sessão izapia ativa", w.ID)
 	}
 	client, err := p.clientFor(w)
 	if err != nil {
-		return err
+		return "", err
 	}
 	sid := *w.IzapiaSessionID
 
@@ -29,12 +31,10 @@ func (p *Provider) SendInteractive(ctx context.Context, w models.Whatsapp, to, m
 		for _, b := range req.Buttons {
 			buttons = append(buttons, toInteractiveButtonReq(b))
 		}
-		_, err = client.SendInteractive(ctx, sid, to, req.Body, buttons)
-		return err
+		return client.SendInteractive(ctx, sid, to, req.Body, buttons)
 
 	case "poll":
-		_, err = client.SendPoll(ctx, sid, to, req.PollQuestion, req.PollOptions, req.PollSelectableCount)
-		return err
+		return client.SendPoll(ctx, sid, to, req.PollQuestion, req.PollOptions, req.PollSelectableCount)
 
 	case "carousel":
 		cards := make([]CarouselCardReq, 0, len(req.Cards))
@@ -45,15 +45,15 @@ func (p *Provider) SendInteractive(ctx context.Context, w models.Whatsapp, to, m
 			}
 			imgURL, err := p.absoluteMediaURL(w, c.ImageURL)
 			if err != nil {
-				return err
+				return "", err
 			}
 			cards = append(cards, CarouselCardReq{ImageURL: imgURL, Mimetype: c.Mimetype, Title: c.Title, Buttons: buttons})
 		}
-		_, _, err = client.SendCarousel(ctx, sid, to, req.Body, cards)
-		return err
+		id, _, err := client.SendCarousel(ctx, sid, to, req.Body, cards)
+		return id, err
 
 	default:
-		return fmt.Errorf("izapia: RichMessageRequest.Kind %q não suportado", req.Kind)
+		return "", fmt.Errorf("izapia: RichMessageRequest.Kind %q não suportado", req.Kind)
 	}
 }
 

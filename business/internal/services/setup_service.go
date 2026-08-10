@@ -2,13 +2,18 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"log"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/alltomatos/watinkdev/business/internal/domain"
 	"github.com/alltomatos/watinkdev/business/internal/models"
+	"github.com/alltomatos/watinkdev/business/internal/plugins"
 	"github.com/google/uuid"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -81,7 +86,14 @@ func (s *SetupService) InitializeTenant(data TenantSeedData) error {
 			}
 		}
 
-		_, _, err = seedTenant(tx, data, &plan, nil)
+		// alcance="plataforma" (não "tenant"): quem roda o wizard local É o
+		// dono/operador desta instalação — precisa enxergar as seções
+		// superadmin-only de Configurações (Armazenamento, Modo SaaS) desde o
+		// primeiro login, sem promoção manual no banco depois. Distinto de
+		// ProvisionTenant (control plane SaaS): tenants registrados remotamente
+		// por um empreendedor via Modo SaaS NUNCA ganham alcance de plataforma
+		// deste core — só o dono físico da instalação, via este fluxo.
+		_, _, err = seedTenant(tx, data, &plan, nil, "plataforma")
 		return err
 	})
 }
@@ -121,7 +133,7 @@ func (s *SetupService) ProvisionTenant(data TenantSeedData, spec domain.Provisio
 		if idempotencyKey != "" {
 			key = &idempotencyKey
 		}
-		tenantID, ownerUserID, err := seedTenant(tx, data, plan, key)
+		tenantID, ownerUserID, err := seedTenant(tx, data, plan, key, "tenant")
 		if err != nil {
 			if isDuplicateKey(err) {
 				return ErrEmailAlreadyExists
@@ -166,13 +178,94 @@ func (s *SetupService) PushSubscription(tenantID uuid.UUID, spec domain.Provisio
 				Status:    status,
 				ExpiresAt: expiresAt,
 			}
-			return tx.Create(&sub).Error
+			if err := tx.Create(&sub).Error; err != nil {
+				return err
+			}
+			return reconcileDeactivations(tx, tenantID, spec.PluginEntitlements)
 		}
 		sub.PlanID = plan.ID
 		sub.Status = status
 		sub.ExpiresAt = expiresAt
-		return tx.Save(&sub).Error
+		if err := tx.Save(&sub).Error; err != nil {
+			return err
+		}
+		return reconcileDeactivations(tx, tenantID, spec.PluginEntitlements)
 	})
+}
+
+// reconcileDeactivations desativa em tempo real os plugins `pro` que o novo
+// plano não concede mais (downgrade, issue #622) -- sem isso, um tenant
+// continuaria com acesso a um plugin que o próprio Watink SaaS acabou de
+// remover do plano dele até a próxima ação manual. Só age em modo
+// plan_only (marketplaceMode): em catalog_visible/self_service, a licença
+// do Hub segue sendo a única autoridade de crescimento, e cortar um plugin
+// aqui derrubaria acesso que o dono da instância nunca delegou ao SaaS.
+//
+// active=false SEMPRE, nunca DELETE -- preserva ActivatedAt/histórico de
+// auditoria (mesmo invariante do PluginController.Deactivate).
+func reconcileDeactivations(tx *gorm.DB, tenantID uuid.UUID, entitlements []string) error {
+	if ResolveMarketplaceMode(tx) != "plan_only" {
+		return nil
+	}
+
+	entitled := make(map[string]bool, len(entitlements))
+	for _, slug := range entitlements {
+		entitled[slug] = true
+	}
+	proSlugs := plugins.KnownProSlugs()
+
+	var installations []models.PluginInstallation
+	if err := tx.Session(&gorm.Session{NewDB: true}).
+		Where(`"tenantId" = ? AND active = ?`, tenantID, true).
+		Find(&installations).Error; err != nil {
+		return err
+	}
+
+	var deactivated []string
+	for _, inst := range installations {
+		if !proSlugs[inst.PluginID] || entitled[inst.PluginID] {
+			continue
+		}
+		if err := tx.Session(&gorm.Session{NewDB: true}).
+			Model(&models.PluginInstallation{}).
+			Where(`"tenantId" = ? AND "pluginId" = ?`, tenantID, inst.PluginID).
+			Update("active", false).Error; err != nil {
+			return err
+		}
+		deactivated = append(deactivated, inst.PluginID)
+	}
+
+	if len(deactivated) > 0 {
+		log.Printf("[setup] reconcileDeactivations: tenant=%s desativou %d plugin(s) fora do plano novo: %v", tenantID, len(deactivated), deactivated)
+	}
+	return nil
+}
+
+// ResolveMarketplaceMode resolve o modo de marketplace desta instância (ADR
+// 0026), em ordem de precedência: (1) InstancePolicy gravada — sempre vence
+// quando existe; (2) env SAAS_INTERNAL_TOKEN setada (instância gerida por um
+// Watink SaaS auto-hospedado, mas sem política explícita gravada) →
+// "catalog_visible"; (3) nenhum dos dois → "self_service" (Checkout direto no
+// Hub, sem intermediação de plano).
+//
+// Fica em services (não em controllers) porque controllers já importa
+// services (saas_internal.go) — a direção inversa cicla o build. É a única
+// implementação: controllers.marketplaceMode e o reconciler de assinaturas
+// chamam esta função em vez de duplicar a lógica (issue #630).
+func ResolveMarketplaceMode(tx *gorm.DB) string {
+	var policy models.InstancePolicy
+	// Session(NewDB:true) obrigatório: tx aqui é tipicamente um handle já
+	// escopado por tenant (auth.GetScoped ou uma transação de provisionamento)
+	// — InstancePolicy não tem tenantId, e reusar o handle sem sessão nova
+	// acumula esse Where nas queries seguintes feitas no mesmo tx.
+	err := tx.Session(&gorm.Session{NewDB: true}).First(&policy).Error
+	if err == nil {
+		return policy.MarketplaceMode
+	}
+	if os.Getenv("SAAS_INTERNAL_TOKEN") != "" {
+		return "catalog_visible"
+	}
+	return "self_service"
 }
 
 func tenantToResult(t models.Tenant) domain.ProvisionResult {
@@ -190,20 +283,26 @@ func upsertProvisionPlan(tx *gorm.DB, spec domain.ProvisionPlanSpec) (*models.Pl
 	if strings.TrimSpace(name) == "" {
 		name = "Community"
 	}
+	entitlements, err := marshalPluginEntitlements(spec.PluginEntitlements)
+	if err != nil {
+		return nil, err
+	}
+
 	var plan models.Plan
-	err := tx.Where("name = ?", name).First(&plan).Error
+	err = tx.Where("name = ?", name).First(&plan).Error
 	if err != nil {
 		if err != gorm.ErrRecordNotFound {
 			return nil, err
 		}
 		plan = models.Plan{
-			Name:             name,
-			UsersLimit:       spec.UsersLimit,
-			ConnectionsLimit: spec.ConnectionsLimit,
-			QueuesLimit:      spec.QueuesLimit,
-			PluginQuota:      spec.PluginQuota,
-			Price:            spec.Price,
-			Active:           spec.Active,
+			Name:               name,
+			UsersLimit:         spec.UsersLimit,
+			ConnectionsLimit:   spec.ConnectionsLimit,
+			QueuesLimit:        spec.QueuesLimit,
+			PluginQuota:        spec.PluginQuota,
+			PluginEntitlements: entitlements,
+			Price:              spec.Price,
+			Active:             spec.Active,
 		}
 		if err := tx.Session(&gorm.Session{CreateBatchSize: 1}).Create(&plan).Error; err != nil {
 			return nil, err
@@ -214,12 +313,27 @@ func upsertProvisionPlan(tx *gorm.DB, spec domain.ProvisionPlanSpec) (*models.Pl
 	plan.ConnectionsLimit = spec.ConnectionsLimit
 	plan.QueuesLimit = spec.QueuesLimit
 	plan.PluginQuota = spec.PluginQuota
+	plan.PluginEntitlements = entitlements
 	plan.Price = spec.Price
 	plan.Active = spec.Active
 	if err := tx.Save(&plan).Error; err != nil {
 		return nil, err
 	}
 	return &plan, nil
+}
+
+// marshalPluginEntitlements converte a lista de slugs recebida do snapshot do
+// Watink SaaS em datatypes.JSON. nil/vazio vira "[]" (fail-closed: plano sem
+// entitlements explícitos não concede nenhum plugin em modo plan_only).
+func marshalPluginEntitlements(slugs []string) (datatypes.JSON, error) {
+	if slugs == nil {
+		slugs = []string{}
+	}
+	b, err := json.Marshal(slugs)
+	if err != nil {
+		return nil, err
+	}
+	return datatypes.JSON(b), nil
 }
 
 func isDuplicateKey(err error) bool {
@@ -238,7 +352,13 @@ func isDuplicateKey(err error) bool {
 // ao `plan` já resolvido. Retorna o id do tenant e o id do usuário dono. NÃO
 // aplica barreira single-tenant nem escolhe o plano — isso é do chamador
 // (InitializeTenant, one-shot público; ProvisionTenant, control plane SaaS).
-func seedTenant(tx *gorm.DB, data TenantSeedData, plan *models.Plan, provisionKey *string) (uuid.UUID, int, error) {
+//
+// ownerAlcance controla o alcance do usuário dono criado — "plataforma" só
+// para InitializeTenant (o dono físico desta instalação, que precisa das
+// seções superadmin-only de Configurações); "tenant" para ProvisionTenant
+// (tenants registrados remotamente por um empreendedor via Modo SaaS nunca
+// ganham acesso de plataforma deste core).
+func seedTenant(tx *gorm.DB, data TenantSeedData, plan *models.Plan, provisionKey *string, ownerAlcance string) (uuid.UUID, int, error) {
 	// 2. Tenant
 	tenant := models.Tenant{
 		Name:         data.CompanyName,
@@ -347,7 +467,7 @@ func seedTenant(tx *gorm.DB, data TenantSeedData, plan *models.Plan, provisionKe
 		Name:     data.FirstName + " " + data.LastName,
 		Email:    data.Email,
 		CargoID:  &adminCargo.ID,
-		Alcance:  "tenant",
+		Alcance:  ownerAlcance,
 		TenantID: tenant.ID,
 		Configs:  `{"dashboard":{"widgets":[{"id":"tickets_info","visible":true,"width":4,"order":1},{"id":"attendance_chart","visible":true,"width":8,"order":2}]}}`,
 	}

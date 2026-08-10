@@ -116,6 +116,10 @@ func TestGetTenantPlan_Found(t *testing.T) {
 
 	tenant := models.Tenant{ID: uuid.New(), Name: "Watink Corp"}
 	require.NoError(t, db.Create(&tenant).Error)
+	plan := models.Plan{Name: "Pro", Price: 199.90}
+	require.NoError(t, db.Create(&plan).Error)
+	subscription := models.TenantSubscription{TenantID: tenant.ID, PlanID: plan.ID, Status: "active"}
+	require.NoError(t, db.Create(&subscription).Error)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -126,9 +130,10 @@ func TestGetTenantPlan_Found(t *testing.T) {
 	GetTenantPlan(c)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	var result models.Tenant
+	var result models.TenantSubscription
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &result))
-	assert.Equal(t, tenant.Name, result.Name)
+	assert.Equal(t, tenant.ID, result.TenantID)
+	assert.Equal(t, "Pro", result.Plan.Name)
 }
 
 // =====================================================================

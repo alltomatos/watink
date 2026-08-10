@@ -39,6 +39,8 @@ const PluginDetail = lazy(() => import("../pages/Marketplace/PluginDetail"));
 const Clients = lazy(() => import("../pages/Clients"));
 const GroupsWhatsapp = lazy(() => import("../pages/GroupsWhatsapp"));
 const GroupDetail = lazy(() => import("../pages/Groups/GroupDetail"));
+const GroupCampaignEditor = lazy(() => import("../pages/GroupCampaigns/GroupCampaignEditor"));
+const GroupCampaignReport = lazy(() => import("../pages/GroupCampaigns/GroupCampaignReport"));
 const CommunityDetail = lazy(() => import("../pages/Communities/CommunityDetail"));
 const Helpdesk = lazy(() => import("../pages/Helpdesk"));
 const ProtocolDetails = lazy(() => import("../pages/Helpdesk/ProtocolDetails"));
@@ -50,6 +52,7 @@ const MonitorQueues = lazy(() => import("../pages/MonitorQueues"));
 const SaaSAdmin = lazy(() => import("../pages/SaaS"));
 const InitialSetup = lazy(() => import("../pages/InitialSetup"));
 const PublicProtocol = lazy(() => import("../pages/PublicProtocol"));
+const AccountSuspended = lazy(() => import("../pages/AccountSuspended"));
 import { AuthProvider } from "../context/Auth/AuthContext";
 import { WhatsAppsProvider } from "../context/WhatsApp/WhatsAppsContext";
 import { ThemeProvider } from "../context/DarkMode";
@@ -105,6 +108,9 @@ const PrivateRoutes = () => {
      <Route path="/grupos-whatsapp" element={<Navigate to="/grupos-whatsapp/grupos" replace />} />
      <Route path="/grupos-whatsapp/:tab" element={<PrivateRoute isPrivate><GroupsWhatsapp /></PrivateRoute>} />
      <Route path="/groups/:jid" element={<PrivateRoute isPrivate><GroupDetail /></PrivateRoute>} />
+     <Route path="/group-campaigns/new" element={<PrivateRoute isPrivate><GroupCampaignEditor /></PrivateRoute>} />
+     <Route path="/group-campaigns/:campaignId" element={<PrivateRoute isPrivate><GroupCampaignEditor /></PrivateRoute>} />
+     <Route path="/group-campaigns/:campaignId/report" element={<PrivateRoute isPrivate><GroupCampaignReport /></PrivateRoute>} />
      <Route path="/communities/:jid" element={<PrivateRoute isPrivate><CommunityDetail /></PrivateRoute>} />
      <Route path="/helpdesk" element={<PrivateRoute isPrivate><Helpdesk /></PrivateRoute>} />
      <Route path="/helpdesk/kanban" element={<PrivateRoute isPrivate><HelpdeskKanban /></PrivateRoute>} />
@@ -136,6 +142,7 @@ const Routes = () => {
      <Route path="/register" element={<PrivateRoute><Register /></PrivateRoute>} />
      <Route path="/planos" element={<PrivateRoute><Plans /></PrivateRoute>} />
      <Route path="/public/protocols/:token" element={<PrivateRoute isPublic><PublicProtocol /></PrivateRoute>} />
+     <Route path="/conta-suspensa" element={<PrivateRoute isPublic><AccountSuspended /></PrivateRoute>} />
      <Route path="/*" element={<PrivateRoute isPrivate><PrivateRoutes /></PrivateRoute>} />
      </RouterRoutes>
  </Suspense>

@@ -35,7 +35,15 @@ import {
     updateAiGateway,
 } from "../../../services/aiGatewayService";
 
-const emptyForm: AiGatewayInput = { name: "", provider: "openai", apiKey: "", baseUrl: "", model: "" };
+const emptyForm: AiGatewayInput = {
+    name: "",
+    provider: "openai",
+    apiKey: "",
+    baseUrl: "",
+    model: "",
+    transcriptionModel: "",
+    speechModel: "",
+};
 
 const AiGatewaysSection: React.FC = () => {
     const [gateways, setGateways] = useState<AiGateway[]>([]);
@@ -77,6 +85,8 @@ const AiGatewaysSection: React.FC = () => {
             apiKey: "",
             baseUrl: gateway.baseUrl ?? "",
             model: gateway.model,
+            transcriptionModel: gateway.transcriptionModel ?? "",
+            speechModel: gateway.speechModel ?? "",
         });
         setFormOpen(true);
     };
@@ -271,6 +281,30 @@ const AiGatewaysSection: React.FC = () => {
                                 onChange={(e) => setForm((f) => ({ ...f, baseUrl: e.target.value }))}
                                 placeholder="https://api.openai.com/v1"
                             />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="flex flex-col gap-1.5">
+                                <Label>Modelo de transcrição (opcional)</Label>
+                                <Input
+                                    value={form.transcriptionModel ?? ""}
+                                    onChange={(e) => setForm((f) => ({ ...f, transcriptionModel: e.target.value }))}
+                                    placeholder="whisper-1"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Áudio → texto. Necessário para Assistants com "Entende áudio" ligado.
+                                </p>
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <Label>Modelo de fala (opcional)</Label>
+                                <Input
+                                    value={form.speechModel ?? ""}
+                                    onChange={(e) => setForm((f) => ({ ...f, speechModel: e.target.value }))}
+                                    placeholder="tts-1"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Texto → áudio. Necessário para Assistants com "Responde com áudio" ligado.
+                                </p>
+                            </div>
                         </div>
                         <div className="flex flex-col gap-1.5">
                             <Label>

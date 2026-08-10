@@ -82,7 +82,7 @@ func (qc *QueueController) CreateQueue(c *gin.Context) {
 
 	limitService := services.NewPlanLimitService(db)
 	if err := limitService.CheckLimit(tenantID, "queues"); err != nil {
-		utils.RespondWithServiceError(c, 403, err, "Plan limit reached for queues")
+		respondPlanLimitError(c, err, "Plan limit reached for queues")
 		return
 	}
 

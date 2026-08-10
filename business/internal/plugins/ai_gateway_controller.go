@@ -28,15 +28,17 @@ func NewAiGatewayController() *AiGatewayController { return &AiGatewayController
 
 func toAiGatewayResponse(g models.AiGateway) gin.H {
 	return gin.H{
-		"id":        g.ID,
-		"tenantId":  g.TenantID,
-		"name":      g.Name,
-		"provider":  g.Provider,
-		"baseUrl":   g.BaseURL,
-		"model":     g.Model,
-		"hasApiKey": g.HasApiKey(),
-		"createdAt": g.CreatedAt,
-		"updatedAt": g.UpdatedAt,
+		"id":                 g.ID,
+		"tenantId":           g.TenantID,
+		"name":               g.Name,
+		"provider":           g.Provider,
+		"baseUrl":            g.BaseURL,
+		"model":              g.Model,
+		"transcriptionModel": g.TranscriptionModel,
+		"speechModel":        g.SpeechModel,
+		"hasApiKey":          g.HasApiKey(),
+		"createdAt":          g.CreatedAt,
+		"updatedAt":          g.UpdatedAt,
 	}
 }
 
@@ -74,11 +76,13 @@ func (ac *AiGatewayController) Get(c *gin.Context) {
 }
 
 type aiGatewayInput struct {
-	Name     string  `json:"name"`
-	Provider string  `json:"provider"`
-	ApiKey   string  `json:"apiKey"`
-	BaseURL  *string `json:"baseUrl"`
-	Model    string  `json:"model"`
+	Name               string  `json:"name"`
+	Provider           string  `json:"provider"`
+	ApiKey             string  `json:"apiKey"`
+	BaseURL            *string `json:"baseUrl"`
+	Model              string  `json:"model"`
+	TranscriptionModel *string `json:"transcriptionModel"`
+	SpeechModel        *string `json:"speechModel"`
 }
 
 func validateAiGatewayStrings(c *gin.Context, in aiGatewayInput) bool {
@@ -133,6 +137,7 @@ func (ac *AiGatewayController) Create(c *gin.Context) {
 	g := models.AiGateway{
 		TenantID: tenantID, Name: in.Name, Provider: in.Provider,
 		ApiKeyEnc: enc, BaseURL: in.BaseURL, Model: in.Model,
+		TranscriptionModel: in.TranscriptionModel, SpeechModel: in.SpeechModel,
 	}
 	if err := db.Create(&g).Error; err != nil {
 		utils.RespondWithInternalError(c, err, "CreateAiGateway")
@@ -164,10 +169,12 @@ func (ac *AiGatewayController) Update(c *gin.Context) {
 	}
 
 	fields := map[string]interface{}{
-		"name":     in.Name,
-		"provider": in.Provider,
-		"baseUrl":  in.BaseURL,
-		"model":    in.Model,
+		"name":               in.Name,
+		"provider":           in.Provider,
+		"baseUrl":            in.BaseURL,
+		"model":              in.Model,
+		"transcriptionModel": in.TranscriptionModel,
+		"speechModel":        in.SpeechModel,
 	}
 	if in.ApiKey != "" {
 		if !cryptobox.IsConfigured() {
@@ -266,6 +273,50 @@ func (ac *AiGatewayController) Test(c *gin.Context) {
 		"reply":     resp.Content,
 		"elapsedMs": elapsedMs,
 	})
+}
+
+// ListModels consulta {baseURL}/models do gateway com a chave já salva e
+// devolve os IDs de modelo disponíveis — usado pela UI para popular sugestões
+// reais nos campos de modelo (chat/transcrição/fala) em vez de só uma lista
+// estática. Nunca persiste nada; requer API Key já configurada.
+func (ac *AiGatewayController) ListModels(c *gin.Context) {
+	db, tenantID, ok := auth.GetScoped(c, "AiGateways")
+	if !ok {
+		return
+	}
+	id, _ := strconv.Atoi(c.Param("id"))
+	var g models.AiGateway
+	if err := db.Where(`id = ? AND "tenantId" = ?`, id, tenantID).First(&g).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "gateway de IA não encontrado"})
+		return
+	}
+	if !g.HasApiKey() {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "gateway sem API Key configurada"})
+		return
+	}
+
+	apiKey, err := cryptobox.Decrypt(g.ApiKeyEnc)
+	if err != nil {
+		utils.RespondWithInternalError(c, err, "DecryptAiGatewayApiKey")
+		return
+	}
+	baseURL := ""
+	if g.BaseURL != nil {
+		baseURL = *g.BaseURL
+	}
+	modelsList, err := aiclient.ListModels(aiclient.Config{
+		Provider: g.Provider,
+		Model:    g.Model,
+		APIKey:   apiKey,
+		BaseURL:  baseURL,
+	})
+	if err != nil {
+		// 200 de propósito, mesmo motivo do Test: não é erro de transporte da
+		// nossa API, é resultado de uma chamada real ao gateway do tenant.
+		c.JSON(http.StatusOK, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "models": modelsList})
 }
 
 // Delete removes an AiGateway of the tenant.

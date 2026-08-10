@@ -84,11 +84,11 @@ func (nonGroupEngine) StartSession(ctx context.Context, w models.Whatsapp, usePa
 }
 func (nonGroupEngine) StopSession(ctx context.Context, w models.Whatsapp) error   { return nil }
 func (nonGroupEngine) DeleteSession(ctx context.Context, w models.Whatsapp) error { return nil }
-func (nonGroupEngine) SendText(ctx context.Context, w models.Whatsapp, to, messageID, body string) error {
-	return nil
+func (nonGroupEngine) SendText(ctx context.Context, w models.Whatsapp, to, messageID, body string) (string, error) {
+	return messageID, nil
 }
-func (nonGroupEngine) SendMedia(ctx context.Context, w models.Whatsapp, to, messageID, mediaType, mediaURL, mimeType string) error {
-	return nil
+func (nonGroupEngine) SendMedia(ctx context.Context, w models.Whatsapp, to, messageID, mediaType, mediaURL, mimeType string) (string, error) {
+	return messageID, nil
 }
 
 var _ domain.WhatsAppEngine = nonGroupEngine{}
@@ -145,6 +145,19 @@ func TestGroupsPlugin_OnActivate_RegistersAllRoutes(t *testing.T) {
 		{Method: "PUT", Path: "/groups/watch-tags/:id"},
 		{Method: "DELETE", Path: "/groups/watch-tags/:id"},
 		{Method: "GET", Path: "/groups/watch-matches"},
+		{Method: "GET", Path: "/group-campaigns"},
+		{Method: "GET", Path: "/group-campaigns/:campaignId"},
+		{Method: "POST", Path: "/group-campaigns"},
+		{Method: "PUT", Path: "/group-campaigns/:campaignId"},
+		{Method: "DELETE", Path: "/group-campaigns/:campaignId"},
+		{Method: "GET", Path: "/group-campaigns/:campaignId/runs"},
+		{Method: "GET", Path: "/group-campaigns/:campaignId/runs/:runId/sends"},
+		{Method: "GET", Path: "/group-campaigns/:campaignId/replies"},
+		{Method: "POST", Path: "/group-campaigns/:campaignId/start"},
+		{Method: "POST", Path: "/group-campaigns/:campaignId/test"},
+		{Method: "POST", Path: "/group-campaigns/:campaignId/pause"},
+		{Method: "POST", Path: "/group-campaigns/:campaignId/resume"},
+		{Method: "POST", Path: "/group-campaigns/:campaignId/cancel"},
 	}
 	assert.Len(t, mockCore.registeredRoutes, len(expected))
 	for _, want := range expected {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/alltomatos/watinkdev/business/internal/domain"
 	"github.com/alltomatos/watinkdev/business/internal/models"
 	"github.com/alltomatos/watinkdev/business/internal/testutil"
 	"github.com/google/uuid"
@@ -82,8 +83,12 @@ func TestSetupServiceInitializeTenantCreatesAtomicDayZeroWorkspace(t *testing.T)
 	if user.TenantID != tenant.ID {
 		t.Fatalf("user tenantId mismatch: got %s, want %s", user.TenantID, tenant.ID)
 	}
-	if user.Alcance != "tenant" {
-		t.Fatalf("user alcance: got %q, want tenant", user.Alcance)
+	// alcance="plataforma": quem roda o wizard local é o dono/operador desta
+	// instalação, precisa das seções superadmin-only de Configurações
+	// (Armazenamento, Modo SaaS) desde o primeiro login — distinto de
+	// ProvisionTenant (control plane SaaS), que continua criando "tenant".
+	if user.Alcance != "plataforma" {
+		t.Fatalf("user alcance: got %q, want plataforma", user.Alcance)
 	}
 	if user.CargoID == nil {
 		t.Fatal("user cargoId must not be nil")
@@ -242,5 +247,92 @@ func TestSetupServiceDoubleSetupPrevention(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected error on duplicate setup (unique email)")
+	}
+}
+
+// =====================================================================
+// PushSubscription — reconcileDeactivations (issue #622)
+// =====================================================================
+
+func seedTenantForReconciliation(t *testing.T, db *gorm.DB) uuid.UUID {
+	t.Helper()
+	tenant := models.Tenant{Name: "Reconcile Co"}
+	if err := db.Create(&tenant).Error; err != nil {
+		t.Fatalf("seed tenant: %v", err)
+	}
+	return tenant.ID
+}
+
+func seedActiveInstallation(t *testing.T, db *gorm.DB, tenantID uuid.UUID, slug string) {
+	t.Helper()
+	if err := db.Exec(
+		`INSERT INTO "PluginInstallations" ("id","tenantId","pluginId","active","activatedAt","createdAt","updatedAt") VALUES (gen_random_uuid(), ?, ?, true, now(), now(), now())`,
+		tenantID, slug,
+	).Error; err != nil {
+		t.Fatalf("seed installation %s: %v", slug, err)
+	}
+}
+
+func installationActive(t *testing.T, db *gorm.DB, tenantID uuid.UUID, slug string) bool {
+	t.Helper()
+	var inst models.PluginInstallation
+	if err := db.Where(`"tenantId" = ? AND "pluginId" = ?`, tenantID, slug).First(&inst).Error; err != nil {
+		t.Fatalf("installation %s not found: %v", slug, err)
+	}
+	return inst.Active
+}
+
+func TestPushSubscription_PlanOnly_DeactivatesProPluginNotEntitled(t *testing.T) {
+	db := newSetupTestDB(t)
+	tenantID := seedTenantForReconciliation(t, db)
+	seedActiveInstallation(t, db, tenantID, "helpdesk")
+	if err := db.Create(&models.InstancePolicy{MarketplaceMode: "plan_only"}).Error; err != nil {
+		t.Fatalf("seed instance policy: %v", err)
+	}
+
+	svc := NewSetupService(db)
+	spec := domain.ProvisionPlanSpec{Name: "Basic", PluginEntitlements: []string{}}
+	if err := svc.PushSubscription(tenantID, spec, "active", nil); err != nil {
+		t.Fatalf("PushSubscription: %v", err)
+	}
+
+	if installationActive(t, db, tenantID, "helpdesk") {
+		t.Fatal("helpdesk should have been deactivated (pro, absent from new plan's entitlements)")
+	}
+}
+
+func TestPushSubscription_PlanOnly_KeepsEntitledPluginActive(t *testing.T) {
+	db := newSetupTestDB(t)
+	tenantID := seedTenantForReconciliation(t, db)
+	seedActiveInstallation(t, db, tenantID, "helpdesk")
+	if err := db.Create(&models.InstancePolicy{MarketplaceMode: "plan_only"}).Error; err != nil {
+		t.Fatalf("seed instance policy: %v", err)
+	}
+
+	svc := NewSetupService(db)
+	spec := domain.ProvisionPlanSpec{Name: "Pro", PluginEntitlements: []string{"helpdesk"}}
+	if err := svc.PushSubscription(tenantID, spec, "active", nil); err != nil {
+		t.Fatalf("PushSubscription: %v", err)
+	}
+
+	if !installationActive(t, db, tenantID, "helpdesk") {
+		t.Fatal("helpdesk should remain active (still in the new plan's entitlements)")
+	}
+}
+
+func TestPushSubscription_SelfService_NeverDeactivates(t *testing.T) {
+	db := newSetupTestDB(t)
+	tenantID := seedTenantForReconciliation(t, db)
+	seedActiveInstallation(t, db, tenantID, "helpdesk")
+	// Sem InstancePolicy nem SAAS_INTERNAL_TOKEN -> self_service (default).
+
+	svc := NewSetupService(db)
+	spec := domain.ProvisionPlanSpec{Name: "Basic", PluginEntitlements: []string{}}
+	if err := svc.PushSubscription(tenantID, spec, "active", nil); err != nil {
+		t.Fatalf("PushSubscription: %v", err)
+	}
+
+	if !installationActive(t, db, tenantID, "helpdesk") {
+		t.Fatal("self_service mode must never touch allocations via reconciliation")
 	}
 }
