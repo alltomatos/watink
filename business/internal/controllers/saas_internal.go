@@ -9,6 +9,7 @@ import (
 	"github.com/alltomatos/watinkdev/business/internal/domain"
 	"github.com/alltomatos/watinkdev/business/internal/models"
 	"github.com/alltomatos/watinkdev/business/internal/services"
+	"github.com/alltomatos/watinkdev/business/internal/usagestats"
 	"github.com/alltomatos/watinkdev/business/pkg/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -263,30 +264,12 @@ func (ctrl *SaaSInternalController) Usage(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tenant id"})
 		return
 	}
-	var users, connections, queues, pluginsActive int64
-	if err := ctrl.db.Model(&models.User{}).Where(`"tenantId" = ?`, tenantID).Count(&users).Error; err != nil {
-		utils.RespondWithInternalError(c, err, "SaaSUsageUsers")
+	usage, err := usagestats.Collect(ctrl.db, tenantID)
+	if err != nil {
+		utils.RespondWithInternalError(c, err, "SaaSUsageCollect")
 		return
 	}
-	if err := ctrl.db.Model(&models.Whatsapp{}).Where(`"tenantId" = ?`, tenantID).Count(&connections).Error; err != nil {
-		utils.RespondWithInternalError(c, err, "SaaSUsageConnections")
-		return
-	}
-	if err := ctrl.db.Model(&models.Queue{}).Where(`"tenantId" = ?`, tenantID).Count(&queues).Error; err != nil {
-		utils.RespondWithInternalError(c, err, "SaaSUsageQueues")
-		return
-	}
-	if err := ctrl.db.Model(&models.PluginInstallation{}).Where(`"tenantId" = ? AND active = ?`, tenantID, true).Count(&pluginsActive).Error; err != nil {
-		utils.RespondWithInternalError(c, err, "SaaSUsagePlugins")
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"users":         users,
-		"connections":   connections,
-		"queues":        queues,
-		"pluginsActive": pluginsActive,
-		"collectedAt":   time.Now().UTC(),
-	})
+	c.JSON(http.StatusOK, usage)
 }
 
 type tenantListRow struct {
