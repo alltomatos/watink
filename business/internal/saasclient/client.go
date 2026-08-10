@@ -47,16 +47,17 @@ func httpClient() *http.Client {
 		Timeout: 15 * time.Second,
 		Transport: &http.Transport{
 			Proxy:       http.ProxyFromEnvironment,
-			DialContext: dialContextFunc,
+			DialContext: DialContext,
 		},
 	}
 }
 
-// dialContextFunc é o dialer usado por httpClient — por padrão o guard de
-// SSRF (netguard.SafeDialContext). Testes deste pacote sobrescrevem para um
-// dialer comum, porque httptest.NewServer liga em 127.0.0.1 (loopback), que
-// o guard corretamente recusa em produção.
-var dialContextFunc = netguard.SafeDialContext
+// DialContext é o dialer usado por httpClient — por padrão o guard de SSRF
+// (netguard.SafeDialContext). Exportado só para testes (deste pacote e de
+// consumidores, ex. controllers.SaaSModeController) sobrescreverem por um
+// dialer comum: httptest.NewServer liga em 127.0.0.1 (loopback), que o guard
+// corretamente recusa em produção. Nenhum código de produção reatribui isto.
+var DialContext = netguard.SafeDialContext
 
 // NewFromEnv lê SAAS_BASE_URL, SAAS_INSTANCE_ID e SAAS_INTERNAL_TOKEN do
 // ambiente. Sem fallback hardcoded — instalações que não usam o Watink SaaS

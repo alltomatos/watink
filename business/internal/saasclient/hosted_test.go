@@ -23,9 +23,9 @@ func withHostedFixture(t *testing.T, handler http.HandlerFunc) {
 	// httptest.NewServer liga em 127.0.0.1 — o guard de SSRF (padrão em
 	// produção) recusaria; um dialer comum é o correto aqui, é fixture de
 	// teste, não input externo.
-	originalDialer := dialContextFunc
-	dialContextFunc = (&net.Dialer{Timeout: 10 * time.Second}).DialContext
-	t.Cleanup(func() { dialContextFunc = originalDialer })
+	originalDialer := DialContext
+	DialContext = (&net.Dialer{Timeout: 10 * time.Second}).DialContext
+	t.Cleanup(func() { DialContext = originalDialer })
 }
 
 func TestRegisterOperator_SucessoDecodificaToken(t *testing.T) {
