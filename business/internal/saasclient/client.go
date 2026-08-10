@@ -4,10 +4,15 @@
 // business/internal/flow.HTTPAgentClient (URL fixa do env, sem fallback de
 // segredo, timeout curto, nunca loga token nem corpo).
 //
-// Segurança: a URL é FIXA (lida do env, nunca do request) — elimina SSRF. O
-// token nunca sai deste processo rumo ao navegador; o handler público
-// (controllers.RegisterController) só repassa um allowlist estrito de campos
-// do formulário, nunca o token. Sem SAAS_BASE_URL/SAAS_INSTANCE_ID/
+// Segurança: para NewFromEnv, a URL é FIXA (lida do env, nunca do request).
+// controllers.SaaSModeController.Pair (pareamento manual de instância
+// adicional) é a única exceção — ali a baseURL vem de um admin autenticado
+// via formulário — por isso httpClient() sempre usa netguard.SafeDialContext
+// como defesa em profundidade, mesmo nos caminhos com URL fixa: nunca conecta
+// a IP privado/loopback/link-local, incluindo o endpoint de metadados de
+// nuvem. O token nunca sai deste processo rumo ao navegador; o handler
+// público (controllers.RegisterController) só repassa um allowlist estrito
+// de campos do formulário, nunca o token. Sem SAAS_BASE_URL/SAAS_INSTANCE_ID/
 // SAAS_INTERNAL_TOKEN no env, Enabled() é false e o registro fica desligado —
 // fail-closed, nenhuma instalação que não usa o Watink SaaS é afetada.
 package saasclient
@@ -21,6 +26,8 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/alltomatos/watinkdev/business/pkg/netguard"
 )
 
 // Client fala com o grupo /api/v1/instance/* do Watink SaaS.
@@ -37,10 +44,20 @@ type Client struct {
 // funcionar sem editar código, só configurando a env padrão do SO/container.
 func httpClient() *http.Client {
 	return &http.Client{
-		Timeout:   15 * time.Second,
-		Transport: &http.Transport{Proxy: http.ProxyFromEnvironment},
+		Timeout: 15 * time.Second,
+		Transport: &http.Transport{
+			Proxy:       http.ProxyFromEnvironment,
+			DialContext: DialContext,
+		},
 	}
 }
+
+// DialContext é o dialer usado por httpClient — por padrão o guard de SSRF
+// (netguard.SafeDialContext). Exportado só para testes (deste pacote e de
+// consumidores, ex. controllers.SaaSModeController) sobrescreverem por um
+// dialer comum: httptest.NewServer liga em 127.0.0.1 (loopback), que o guard
+// corretamente recusa em produção. Nenhum código de produção reatribui isto.
+var DialContext = netguard.SafeDialContext
 
 // NewFromEnv lê SAAS_BASE_URL, SAAS_INSTANCE_ID e SAAS_INTERNAL_TOKEN do
 // ambiente. Sem fallback hardcoded — instalações que não usam o Watink SaaS

@@ -3,9 +3,11 @@ package controllers
 import (
 	"bytes"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/alltomatos/watinkdev/business/internal/saasclient"
 	"github.com/alltomatos/watinkdev/business/internal/services"
@@ -64,6 +66,13 @@ func TestSaaSModeRegister_SucessoGravaContratoViaSaaSContractService(t *testing.
 	original := saasclient.SaaSHostedBaseURL
 	saasclient.SaaSHostedBaseURL = srv.URL
 	t.Cleanup(func() { saasclient.SaaSHostedBaseURL = original })
+
+	// httptest.NewServer liga em 127.0.0.1 — o guard de SSRF (padrão em
+	// produção) recusaria; um dialer comum é o correto aqui, é fixture de
+	// teste, não input externo.
+	originalDialer := saasclient.DialContext
+	saasclient.DialContext = (&net.Dialer{Timeout: 10 * time.Second}).DialContext
+	t.Cleanup(func() { saasclient.DialContext = originalDialer })
 
 	ctrl := NewSaaSModeController(contractSvc)
 	payload, _ := json.Marshal(map[string]string{

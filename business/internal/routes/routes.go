@@ -166,6 +166,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 			system.GET("/saas-mode/status", saasModeController.Status)
 			system.GET("/saas-mode/precheck", saasModeController.Precheck)
 			system.POST("/saas-mode/register", saasModeController.Register)
+			system.POST("/saas-mode/pair", saasModeController.Pair)
 			system.GET("/rabbitmq/queues", systemController.GetRabbitMQQueues)
 			system.GET("/latest-release", controllers.GetLatestRelease)
 			system.GET("/version", versionController.GetVersion)

@@ -37,7 +37,14 @@ interface RegisterForm {
   password: string;
 }
 
+interface PairForm {
+  baseUrl: string;
+  instanceId: string;
+  internalToken: string;
+}
+
 const EMPTY_FORM: RegisterForm = { name: "", email: "", whatsapp: "", document: "", password: "" };
+const EMPTY_PAIR_FORM: PairForm = { baseUrl: "", instanceId: "", internalToken: "" };
 
 // SaaSModeSection é o botão + página de registro do "Modo SaaS" em
 // Configurações (issue #632): grava o pareamento com o Watink SaaS
@@ -53,6 +60,9 @@ const SaaSModeSection: React.FC = () => {
   const [checkingConnectivity, setCheckingConnectivity] = useState(false);
   const [form, setForm] = useState<RegisterForm>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
+  const [mode, setMode] = useState<"register" | "pair">("register");
+  const [pairForm, setPairForm] = useState<PairForm>(EMPTY_PAIR_FORM);
+  const [pairing, setPairing] = useState(false);
 
   const loadStatus = () => {
     setLoading(true);
@@ -89,6 +99,20 @@ const SaaSModeSection: React.FC = () => {
       })
       .catch(toastError)
       .finally(() => setSubmitting(false));
+  };
+
+  const handlePairSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPairing(true);
+    api
+      .post("/system/saas-mode/pair", pairForm)
+      .then(() => {
+        toast.success("Instância pareada com o Watink SaaS com sucesso.");
+        setPairForm(EMPTY_PAIR_FORM);
+        loadStatus();
+      })
+      .catch(toastError)
+      .finally(() => setPairing(false));
   };
 
   return (
@@ -161,58 +185,122 @@ const SaaSModeSection: React.FC = () => {
               )}
             </div>
 
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4 max-w-md">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="saas-mode-name">Nome</Label>
-                <Input
-                  id="saas-mode-name"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="saas-mode-email">E-mail</Label>
-                <Input
-                  id="saas-mode-email"
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="saas-mode-whatsapp">WhatsApp</Label>
-                <Input
-                  id="saas-mode-whatsapp"
-                  value={form.whatsapp}
-                  onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="saas-mode-document">CPF/CNPJ</Label>
-                <Input
-                  id="saas-mode-document"
-                  value={form.document}
-                  onChange={(e) => setForm({ ...form, document: e.target.value })}
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="saas-mode-password">Senha</Label>
-                <Input
-                  id="saas-mode-password"
-                  type="password"
-                  value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  required
-                  minLength={8}
-                />
-              </div>
-              <Button type="submit" disabled={submitting} className="w-fit">
-                {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Registrar no Watink SaaS
+            <div className="flex w-fit gap-1 rounded-lg bg-muted p-1">
+              <Button
+                type="button"
+                size="sm"
+                variant={mode === "register" ? "default" : "ghost"}
+                onClick={() => setMode("register")}
+              >
+                Criar conta
               </Button>
-            </form>
+              <Button
+                type="button"
+                size="sm"
+                variant={mode === "pair" ? "default" : "ghost"}
+                onClick={() => setMode("pair")}
+              >
+                Parear instância existente
+              </Button>
+            </div>
+
+            {mode === "register" ? (
+              <form onSubmit={handleSubmit} className="flex flex-col gap-4 max-w-md">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="saas-mode-name">Nome</Label>
+                  <Input
+                    id="saas-mode-name"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="saas-mode-email">E-mail</Label>
+                  <Input
+                    id="saas-mode-email"
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="saas-mode-whatsapp">WhatsApp</Label>
+                  <Input
+                    id="saas-mode-whatsapp"
+                    value={form.whatsapp}
+                    onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="saas-mode-document">CPF/CNPJ</Label>
+                  <Input
+                    id="saas-mode-document"
+                    value={form.document}
+                    onChange={(e) => setForm({ ...form, document: e.target.value })}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="saas-mode-password">Senha</Label>
+                  <Input
+                    id="saas-mode-password"
+                    type="password"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    required
+                    minLength={8}
+                  />
+                </div>
+                <Button type="submit" disabled={submitting} className="w-fit">
+                  {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Registrar no Watink SaaS
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={handlePairSubmit} className="flex flex-col gap-4 max-w-md">
+                <p className="text-sm text-muted-foreground">
+                  Use quando você já tem uma conta no Watink SaaS e quer conectar esta
+                  instância (ex.: on-premise atrás de NAT/firewall, sem URL pública) a
+                  ela. Gere o pareamento no Console em Instâncias → "Parear nova
+                  instância" e cole os dados abaixo.
+                </p>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="saas-mode-pair-baseurl">Base URL do seu Watink SaaS</Label>
+                  <Input
+                    id="saas-mode-pair-baseurl"
+                    type="url"
+                    value={pairForm.baseUrl}
+                    onChange={(e) => setPairForm({ ...pairForm, baseUrl: e.target.value })}
+                    placeholder="https://saashomol.watink.com"
+                    required
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="saas-mode-pair-instanceid">Instance ID</Label>
+                  <Input
+                    id="saas-mode-pair-instanceid"
+                    value={pairForm.instanceId}
+                    onChange={(e) => setPairForm({ ...pairForm, instanceId: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="saas-mode-pair-token">Token interno</Label>
+                  <Input
+                    id="saas-mode-pair-token"
+                    type="password"
+                    value={pairForm.internalToken}
+                    onChange={(e) => setPairForm({ ...pairForm, internalToken: e.target.value })}
+                    required
+                  />
+                </div>
+                <Button type="submit" disabled={pairing} className="w-fit">
+                  {pairing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Parear instância
+                </Button>
+              </form>
+            )}
           </div>
         )}
       </CardContent>
