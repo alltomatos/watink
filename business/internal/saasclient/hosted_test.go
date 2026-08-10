@@ -3,9 +3,11 @@ package saasclient
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -17,6 +19,13 @@ func withHostedFixture(t *testing.T, handler http.HandlerFunc) {
 	original := SaaSHostedBaseURL
 	SaaSHostedBaseURL = srv.URL
 	t.Cleanup(func() { SaaSHostedBaseURL = original })
+
+	// httptest.NewServer liga em 127.0.0.1 — o guard de SSRF (padrão em
+	// produção) recusaria; um dialer comum é o correto aqui, é fixture de
+	// teste, não input externo.
+	originalDialer := DialContext
+	DialContext = (&net.Dialer{Timeout: 10 * time.Second}).DialContext
+	t.Cleanup(func() { DialContext = originalDialer })
 }
 
 func TestRegisterOperator_SucessoDecodificaToken(t *testing.T) {
