@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"testing"
@@ -65,4 +66,39 @@ func TestInventoryController_DeleteProduct_SoftDeletesWithoutHistory(t *testing.
 	var count int64
 	db.Model(&models.Product{}).Where("id = ?", product.ID).Count(&count)
 	assert.Equal(t, int64(0), count, "soft-deleted product must be excluded from default queries")
+}
+
+func TestInventoryController_ListProducts_ReturnsFlattenedSKUPriceAndBalance(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := setupPipelineTestDB(t)
+	tenantID := uuid.New()
+
+	svc := services.NewInventoryService(db, nil)
+	ctrl := NewInventoryController(svc)
+
+	c, w := setupPipelineContext(t, db, tenantID, "POST", "/inventory/products", []byte(`{
+		"name": "Refrigerante Lata",
+		"unit": "UN",
+		"skuCode": "SKU-REF-001",
+		"priceCents": 550,
+		"initialStock": 20
+	}`))
+	ctrl.CreateProduct(c)
+	require.Equal(t, http.StatusCreated, w.Code)
+
+	cList, wList := setupPipelineContext(t, db, tenantID, "GET", "/inventory/products", nil)
+	ctrl.ListProducts(cList)
+	require.Equal(t, http.StatusOK, wList.Code)
+
+	var body struct {
+		Products []productListItem `json:"products"`
+	}
+	require.NoError(t, json.Unmarshal(wList.Body.Bytes(), &body))
+	require.Len(t, body.Products, 1)
+
+	item := body.Products[0]
+	assert.Equal(t, "Refrigerante Lata", item.Name)
+	assert.Equal(t, "SKU-REF-001", item.SKUCode)
+	assert.Equal(t, int64(550), item.PriceCents)
+	assert.Equal(t, float64(20), item.CurrentBalance)
 }

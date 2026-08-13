@@ -315,6 +315,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		protected.GET("/inventory/products", auth.RequirePermission("inventory", "read"), inventoryController.ListProducts)
 		protected.POST("/inventory/products", auth.RequirePermission("inventory", "create"), inventoryController.CreateProduct)
 		protected.PUT("/inventory/products/:id", auth.RequirePermission("inventory", "update"), inventoryController.UpdateProduct)
+		protected.POST("/inventory/products/:id/image", auth.RequirePermission("inventory", "update"), inventoryController.UploadProductImage)
 		protected.DELETE("/inventory/products/:id", auth.RequirePermission("inventory", "delete"), inventoryController.DeleteProduct)
 		protected.POST("/inventory/movements/in", auth.RequirePermission("inventory", "manage"), inventoryController.RegisterEntry)
 		protected.POST("/inventory/movements/out", auth.RequirePermission("inventory", "manage"), inventoryController.RegisterExit)

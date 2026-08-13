@@ -18,6 +18,7 @@ import {
   Sparkles,
   Users,
   ListChecks,
+  Package,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AuthContext } from "../../../context/Auth/AuthContext";
@@ -178,6 +179,20 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed, isLightSidebar, acti
             to="/clients"
             label={i18n.t("mainDrawer.listItems.clients")}
             icon={<Briefcase size={20} />}
+            collapsed={collapsed}
+            activeColor="var(--nav-icon-orange)"
+          />
+        )}
+      />
+
+      <Can
+        user={user}
+        perform="inventory:read"
+        yes={() => (
+          <SidebarItem
+            to="/inventory"
+            label={i18n.t("mainDrawer.listItems.inventory")}
+            icon={<Package size={20} />}
             collapsed={collapsed}
             activeColor="var(--nav-icon-orange)"
           />
