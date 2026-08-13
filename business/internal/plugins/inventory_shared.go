@@ -28,17 +28,6 @@ type inventoryMovementInput struct {
 	OriginType   string
 }
 
-// getOrCreateDefaultWarehouse mirrors
-// InventoryService.GetOrCreateDefaultWarehouse.
-func getOrCreateDefaultWarehouse(db *gorm.DB, tenantID uuid.UUID) (*models.Warehouse, error) {
-	var wh models.Warehouse
-	err := db.Session(&gorm.Session{NewDB: true}).
-		Where(`"tenantId" = ? AND name = ?`, tenantID, "Armazém Principal").
-		Attrs(models.Warehouse{TenantID: tenantID, Name: "Armazém Principal", IsActive: true}).
-		FirstOrCreate(&wh).Error
-	return &wh, err
-}
-
 // registerInventoryMovement mirrors InventoryService.RegisterMovement: same
 // row-locked (SELECT ... FOR UPDATE) transaction, same append-only
 // InventoryMovements insert, same low-stock threshold check — emitted here
