@@ -491,6 +491,29 @@ definitions:
       walletUserId:
         type: integer
     type: object
+  models.InventoryMovement:
+    properties:
+      createdAt:
+        type: string
+      id:
+        type: integer
+      originId:
+        type: integer
+      originType:
+        description: OriginType is one of MANUAL, ORDER, OS.
+        type: string
+      quantity:
+        type: number
+      skuId:
+        type: integer
+      tenantId:
+        type: string
+      type:
+        description: Type is one of IN, OUT, TRANSFER.
+        type: string
+      warehouseId:
+        type: integer
+    type: object
   models.Message:
     properties:
       ack:
@@ -551,6 +574,25 @@ definitions:
       isSystem:
         type: boolean
       resource:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  models.Product:
+    properties:
+      categoryId:
+        type: integer
+      createdAt:
+        type: string
+      id:
+        type: integer
+      isComposite:
+        type: boolean
+      name:
+        type: string
+      tenantId:
+        type: string
+      unit:
         type: string
       updatedAt:
         type: string
@@ -2560,6 +2602,26 @@ paths:
       summary: Uso agregado da instância (plugin-manager)
       tags:
       - internal-plugin-manager
+  /internal/saas/instance/policy:
+    put:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Definir política de marketplace da instância (control plane SaaS)
+      tags:
+      - internal-saas
   /internal/saas/ping:
     get:
       produces:
@@ -2660,6 +2722,111 @@ paths:
       summary: Uso corrente do tenant (control plane SaaS)
       tags:
       - internal-saas
+  /inventory/movements/in:
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.InventoryMovement'
+      security:
+      - BearerAuth: []
+      summary: Registrar entrada de estoque (modo simples)
+      tags:
+      - inventory
+  /inventory/movements/out:
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.InventoryMovement'
+      security:
+      - BearerAuth: []
+      summary: Registrar saída de estoque (modo simples)
+      tags:
+      - inventory
+  /inventory/products:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Listar produtos
+      tags:
+      - inventory
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Product'
+      security:
+      - BearerAuth: []
+      summary: Criar produto (modo simples)
+      tags:
+      - inventory
+  /inventory/products/{id}:
+    delete:
+      parameters:
+      - description: ID do produto
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Remover produto
+      tags:
+      - inventory
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID do produto
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Product'
+      security:
+      - BearerAuth: []
+      summary: Atualizar produto
+      tags:
+      - inventory
   /izapia-config:
     get:
       produces:
@@ -4329,6 +4496,70 @@ paths:
       security:
       - BearerAuth: []
       summary: Filas RabbitMQ
+      tags:
+      - system
+  /system/saas-mode/pair:
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Parear esta instância com um Watink SaaS via instanceId+token existentes
+      tags:
+      - system
+  /system/saas-mode/precheck:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Pré-checagem de saída HTTPS para o Watink SaaS
+      tags:
+      - system
+  /system/saas-mode/register:
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Registrar esta instância no Watink SaaS hospedado (Modo SaaS)
+      tags:
+      - system
+  /system/saas-mode/status:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Status do pareamento com o Watink SaaS (Modo SaaS)
       tags:
       - system
   /system/stats:
