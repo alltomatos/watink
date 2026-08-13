@@ -186,6 +186,9 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		protected.POST("/plugins/:slug/activate", pluginController.Activate)
 		protected.POST("/plugins/:slug/deactivate", pluginController.Deactivate)
 		protected.POST("/plugins/:slug/checkout", pluginController.CreateCheckoutOrder)
+		protected.POST("/plugins/:slug/checkout/pix", pluginController.CreatePixCheckoutOrder)
+		protected.POST("/plugins/cart/checkout", pluginController.CreateCartCheckoutOrder)
+		protected.POST("/plugins/cart/checkout/pix", pluginController.CreateCartPixCheckoutOrder)
 
 		// Plugin CONTENT routes (helpdesk/webchat business routes, registered
 		// via WatinkCore.RegisterRoute inside each plugin's OnActivate). router

@@ -586,6 +586,12 @@ definitions:
         type: string
       id:
         type: integer
+      imageUrl:
+        description: |-
+          ImageURL points at a file saved via pkg/mediastore (local disk,
+          "/public/media/<hash>.<ext>") — same storage used for chat media.
+          Nullable: Modo Simples never requires a photo to create a product.
+        type: string
       isComposite:
         type: boolean
       name:
@@ -901,6 +907,36 @@ definitions:
       wid:
         type: string
     type: object
+  pluginlicense.CartCheckoutResponse:
+    properties:
+      allTrial:
+        type: boolean
+      amountCents:
+        type: integer
+      cartId:
+        type: string
+      checkoutUrl:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/pluginlicense.CartItemResult'
+        type: array
+      qrCode:
+        type: string
+      qrCodeBase64:
+        type: string
+    type: object
+  pluginlicense.CartItemResult:
+    properties:
+      amountCents:
+        type: integer
+      cycle:
+        type: string
+      pluginSlug:
+        type: string
+      trial:
+        type: boolean
+    type: object
   pluginlicense.CatalogPlugin:
     properties:
       category:
@@ -917,10 +953,26 @@ definitions:
         type: string
       price:
         type: number
+      pricingCycles:
+        description: |-
+          PricingCycles são os ciclos de recorrência cadastrados no Hub (mensal,
+          anual, o que o dono cadastrar) — o frontend usa isto pra deixar o
+          cliente escolher o ciclo antes de chamar Checkout(Card|Pix). Vazio
+          para plugin free.
+        items:
+          $ref: '#/definitions/pluginlicense.PricingCycleEntry'
+        type: array
       screenshots:
         items:
           type: string
         type: array
+      singlePaymentEnabled:
+        description: |-
+          SinglePaymentEnabled indica se o cliente pode comprar este plugin com
+          pagamento único (licença perpétua, Price) além de/ao invés dos
+          PricingCycles — as duas opções podem coexistir; o cliente escolhe no
+          checkout (cycle="" para pagamento único).
+        type: boolean
       slug:
         type: string
       taxRatePercent:
@@ -952,10 +1004,30 @@ definitions:
       orderId:
         type: integer
     type: object
+  pluginlicense.CheckoutPixResponse:
+    properties:
+      amountCents:
+        type: integer
+      orderId:
+        type: integer
+      qrCode:
+        type: string
+      qrCodeBase64:
+        type: string
+    type: object
   pluginlicense.InstanceResponse:
     properties:
       instanceId:
         type: string
+    type: object
+  pluginlicense.PricingCycleEntry:
+    properties:
+      cycle:
+        type: string
+      periodDays:
+        type: integer
+      priceCents:
+        type: integer
     type: object
 host: localhost:8082
 info:
@@ -2827,6 +2899,28 @@ paths:
       summary: Atualizar produto
       tags:
       - inventory
+  /inventory/products/{id}/image:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: ID do produto
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Product'
+      security:
+      - BearerAuth: []
+      summary: Enviar imagem do produto
+      tags:
+      - inventory
   /izapia-config:
     get:
       produces:
@@ -3452,8 +3546,9 @@ paths:
   /plugins/{slug}/checkout:
     post:
       description: Cria (ou reaproveita, idempotente) um pedido de compra pending
-        para o plugin `pro` indicado e devolve a URL de redirect pro Checkout Pro
-        do Mercado Pago — a licença só nasce quando o webhook confirma o pagamento.
+        para o ciclo (ou pagamento único) escolhido do plugin `pro` indicado e devolve
+        a URL de redirect pro Checkout Pro do Mercado Pago — a licença só nasce quando
+        o webhook confirma o pagamento.
       produces:
       - application/json
       responses:
@@ -3463,7 +3558,26 @@ paths:
             $ref: '#/definitions/pluginlicense.CheckoutOrderResponse'
       security:
       - BearerAuth: []
-      summary: Iniciar checkout de plugin pro (Checkout Pro — pagamento real)
+      summary: Iniciar checkout de plugin pro via Cartão (Checkout Pro — pagamento
+        real)
+      tags:
+      - plugins
+  /plugins/{slug}/checkout/pix:
+    post:
+      description: Cria (ou reaproveita, idempotente) um pedido de compra pending
+        para o ciclo (ou pagamento único) escolhido do plugin `pro` indicado e devolve
+        o QR code/copia-e-cola — a licença só nasce quando o webhook confirma o pagamento
+        (Pix não confirma na hora).
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/pluginlicense.CheckoutPixResponse'
+      security:
+      - BearerAuth: []
+      summary: Iniciar checkout de plugin pro via Pix
       tags:
       - plugins
   /plugins/{slug}/deactivate:
@@ -3479,6 +3593,39 @@ paths:
       security:
       - BearerAuth: []
       summary: Desativar plugin
+      tags:
+      - plugins
+  /plugins/cart/checkout:
+    post:
+      description: Resolve vários plugins pro (cada um com seu ciclo) e devolve UMA
+        URL de redirect pro Checkout Pro pela soma — a licença de cada item só nasce
+        quando o webhook confirma o pagamento.
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/pluginlicense.CartCheckoutResponse'
+      security:
+      - BearerAuth: []
+      summary: Iniciar checkout de carrinho via Cartão
+      tags:
+      - plugins
+  /plugins/cart/checkout/pix:
+    post:
+      description: Equivalente Pix de POST /plugins/cart/checkout — devolve UM QR
+        code/copia-e-cola pela soma dos itens pagos.
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/pluginlicense.CartCheckoutResponse'
+      security:
+      - BearerAuth: []
+      summary: Iniciar checkout de carrinho via Pix
       tags:
       - plugins
   /plugins/catalog:
