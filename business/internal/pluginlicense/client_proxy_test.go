@@ -134,6 +134,7 @@ func TestCheckout_PostsSlugAndReturnURLSucceedsOn200(t *testing.T) {
 	var gotMethod, gotPath, gotContentType string
 	var gotBody struct {
 		Slug      string `json:"slug"`
+		Cycle     string `json:"cycle"`
 		ReturnURL string `json:"returnUrl"`
 	}
 
@@ -149,7 +150,7 @@ func TestCheckout_PostsSlugAndReturnURLSucceedsOn200(t *testing.T) {
 	defer srv.Close()
 
 	c := NewClientWithBaseURL(srv.URL)
-	order, err := c.Checkout("helpdesk", "https://cliente.watink.com/marketplace/helpdesk")
+	order, err := c.CheckoutCard("helpdesk", "monthly", "https://cliente.watink.com/marketplace/helpdesk")
 	if err != nil {
 		t.Fatalf("Checkout returned error: %v", err)
 	}
@@ -160,14 +161,17 @@ func TestCheckout_PostsSlugAndReturnURLSucceedsOn200(t *testing.T) {
 	if gotMethod != http.MethodPost {
 		t.Errorf("method = %q, want POST", gotMethod)
 	}
-	if gotPath != "/api/v1/plugins/checkout" {
-		t.Errorf("path = %q, want /api/v1/plugins/checkout", gotPath)
+	if gotPath != "/api/v1/plugins/checkout/card" {
+		t.Errorf("path = %q, want /api/v1/plugins/checkout/card", gotPath)
 	}
 	if gotContentType != "application/json" {
 		t.Errorf("Content-Type = %q, want application/json", gotContentType)
 	}
 	if gotBody.Slug != "helpdesk" {
 		t.Errorf("body.slug = %q, want helpdesk", gotBody.Slug)
+	}
+	if gotBody.Cycle != "monthly" {
+		t.Errorf("body.cycle = %q, want monthly", gotBody.Cycle)
 	}
 	if gotBody.ReturnURL != "https://cliente.watink.com/marketplace/helpdesk" {
 		t.Errorf("body.returnUrl = %q, want repassado", gotBody.ReturnURL)
@@ -185,7 +189,7 @@ func TestCheckout_201Succeeds(t *testing.T) {
 	defer srv.Close()
 
 	c := NewClientWithBaseURL(srv.URL)
-	if _, err := c.Checkout("helpdesk", "https://cliente.watink.com/marketplace/helpdesk"); err != nil {
+	if _, err := c.CheckoutCard("helpdesk", "monthly", "https://cliente.watink.com/marketplace/helpdesk"); err != nil {
 		t.Fatalf("Checkout returned error on 201: %v", err)
 	}
 }
@@ -201,7 +205,7 @@ func TestCheckout_Non2xx_ReturnsDescriptiveError(t *testing.T) {
 		}))
 
 		c := NewClientWithBaseURL(srv.URL)
-		_, err := c.Checkout("helpdesk", "https://cliente.watink.com/marketplace/helpdesk")
+		_, err := c.CheckoutCard("helpdesk", "monthly", "https://cliente.watink.com/marketplace/helpdesk")
 		srv.Close()
 
 		if err == nil {
