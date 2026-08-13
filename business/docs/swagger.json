@@ -2975,42 +2975,6 @@
                 }
             }
         },
-        "/inventory/products/{id}/image": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "consumes": [
-                    "multipart/form-data"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "inventory"
-                ],
-                "summary": "Enviar imagem do produto",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID do produto",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/models.Product"
-                        }
-                    }
-                }
-            }
-        },
         "/izapia-config": {
             "get": {
                 "security": [
@@ -7843,10 +7807,6 @@
                 },
                 "id": {
                     "type": "integer"
-                },
-                "imageUrl": {
-                    "description": "ImageURL points at a file saved via pkg/mediastore (local disk,\n\"/public/media/\u003chash\u003e.\u003cext\u003e\") — same storage used for chat media.\nNullable: Modo Simples never requires a photo to create a product.",
-                    "type": "string"
                 },
                 "isComposite": {
                     "type": "boolean"

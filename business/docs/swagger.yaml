@@ -586,12 +586,6 @@ definitions:
         type: string
       id:
         type: integer
-      imageUrl:
-        description: |-
-          ImageURL points at a file saved via pkg/mediastore (local disk,
-          "/public/media/<hash>.<ext>") — same storage used for chat media.
-          Nullable: Modo Simples never requires a photo to create a product.
-        type: string
       isComposite:
         type: boolean
       name:
@@ -2897,28 +2891,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Atualizar produto
-      tags:
-      - inventory
-  /inventory/products/{id}/image:
-    post:
-      consumes:
-      - multipart/form-data
-      parameters:
-      - description: ID do produto
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.Product'
-      security:
-      - BearerAuth: []
-      summary: Enviar imagem do produto
       tags:
       - inventory
   /izapia-config:
