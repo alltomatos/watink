@@ -1,5 +1,5 @@
 import React from "react";
-import { CheckCircle2, ExternalLink } from "lucide-react";
+import { CheckCircle2, ExternalLink, ShoppingCart } from "lucide-react";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
 import {
@@ -15,9 +15,12 @@ import type { MarketplacePlugin } from "../marketplaceTypes";
 interface PluginGridProps {
   plugins: MarketplacePlugin[];
   onPluginClick: (plugin: MarketplacePlugin) => void;
+  /** Catalog tab only: lets the card offer "Adicionar ao carrinho" instead of just navigating to the detail page. */
+  onAddToCart?: (plugin: MarketplacePlugin) => void;
+  isInCart?: (slug: string) => boolean;
 }
 
-export function PluginGrid({ plugins, onPluginClick }: PluginGridProps) {
+export function PluginGrid({ plugins, onPluginClick, onAddToCart, isInCart }: PluginGridProps) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       {plugins.map((plugin) => (
@@ -64,11 +67,27 @@ export function PluginGrid({ plugins, onPluginClick }: PluginGridProps) {
               {plugin.description || "Nenhuma descrição fornecida para este plugin."}
             </p>
           </CardContent>
-          <CardFooter className="pt-4 border-t border-border/50">
-            <Button variant="ghost" className="w-full text-xs" size="sm">
-              Ver Detalhes
-              <ExternalLink size={14} className="ml-2" />
-            </Button>
+          <CardFooter className="pt-4 border-t border-border/50 gap-2">
+            {onAddToCart && plugin.type === "pro" && !plugin.installed ? (
+              <Button
+                variant={isInCart?.(plugin.slug) ? "secondary" : "default"}
+                className="w-full text-xs"
+                size="sm"
+                disabled={isInCart?.(plugin.slug)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddToCart(plugin);
+                }}
+              >
+                <ShoppingCart size={14} className="mr-2" />
+                {isInCart?.(plugin.slug) ? "No carrinho" : "Adicionar ao carrinho"}
+              </Button>
+            ) : (
+              <Button variant="ghost" className="w-full text-xs" size="sm">
+                Ver Detalhes
+                <ExternalLink size={14} className="ml-2" />
+              </Button>
+            )}
           </CardFooter>
         </Card>
       ))}

@@ -61,6 +61,17 @@ export interface CatalogPlugin {
   iconUrl?: string;
   /** Gallery images sourced from the plugin's Hub catalog registration. */
   screenshots?: string[];
+  /** Whether this plugin can be bought with a one-time payment (perpetual license, `price`) in addition to / instead of the recurring cycles below. */
+  singlePaymentEnabled?: boolean;
+  /** Recurring pricing cycles registered in the Hub (monthly/yearly/whatever the owner sets up) — can coexist with singlePaymentEnabled; the client picks one at checkout. Empty for free plugins. */
+  pricingCycles?: PricingCycleEntry[];
+}
+
+/** A single recurring pricing cycle offered for a `pro` plugin. */
+export interface PricingCycleEntry {
+  cycle: string;
+  priceCents: number;
+  periodDays: number;
 }
 
 /** Response shape of GET /plugins/catalog */
@@ -97,11 +108,43 @@ export interface PluginActivateUnlicensedResponse {
   message?: string;
 }
 
-/** Response shape of POST /plugins/:slug/checkout (Checkout Pro — Mercado Pago) */
+/** Response shape of POST /plugins/:slug/checkout (Checkout Pro — Mercado Pago, Cartão) */
 export interface CheckoutOrderResponse {
   orderId: number;
   /** Preço já com o imposto embutido (congelado pelo Hub), em centavos. */
   amountCents: number;
   /** URL de redirect para a página de pagamento hospedada pelo Mercado Pago. */
   checkoutUrl: string;
+}
+
+/** Response shape of POST /plugins/:slug/checkout/pix */
+export interface CheckoutPixResponse {
+  orderId: number;
+  amountCents: number;
+  /** Copia-e-cola Pix (EMV). */
+  qrCode: string;
+  /** Imagem do QR code, já em base64. */
+  qrCodeBase64: string;
+}
+
+/** One resolved item of a cart checkout — trial=true means it activated for free (no charge). */
+export interface CartItemResult {
+  pluginSlug: string;
+  cycle: string;
+  amountCents: number;
+  trial: boolean;
+}
+
+/** Response shape of POST /plugins/cart/checkout (+/pix) — sum of every paid item in a single MP charge. */
+export interface CartCheckoutResponse {
+  cartId: string;
+  amountCents: number;
+  /** Present for the card flow (redirect to Checkout Pro). */
+  checkoutUrl?: string;
+  /** Present for the pix flow. */
+  qrCode?: string;
+  qrCodeBase64?: string;
+  /** true when every item was resolved by trial — no charge, no checkoutUrl/qrCode. */
+  allTrial: boolean;
+  items: CartItemResult[];
 }
