@@ -586,6 +586,12 @@ definitions:
         type: string
       id:
         type: integer
+      imageUrl:
+        description: |-
+          ImageURL points at a file saved via pkg/mediastore (local disk,
+          "/public/media/<hash>.<ext>") — same storage used for chat media.
+          Nullable: Modo Simples never requires a photo to create a product.
+        type: string
       isComposite:
         type: boolean
       name:
@@ -917,6 +923,15 @@ definitions:
         type: string
       price:
         type: number
+      pricingCycles:
+        description: |-
+          PricingCycles são os ciclos de recorrência cadastrados no Hub (mensal,
+          anual, o que o dono cadastrar) — o frontend usa isto pra deixar o
+          cliente escolher o ciclo antes de chamar Checkout(Card|Pix). Vazio
+          para plugin free.
+        items:
+          $ref: '#/definitions/pluginlicense.PricingCycleEntry'
+        type: array
       screenshots:
         items:
           type: string
@@ -952,10 +967,30 @@ definitions:
       orderId:
         type: integer
     type: object
+  pluginlicense.CheckoutPixResponse:
+    properties:
+      amountCents:
+        type: integer
+      orderId:
+        type: integer
+      qrCode:
+        type: string
+      qrCodeBase64:
+        type: string
+    type: object
   pluginlicense.InstanceResponse:
     properties:
       instanceId:
         type: string
+    type: object
+  pluginlicense.PricingCycleEntry:
+    properties:
+      cycle:
+        type: string
+      periodDays:
+        type: integer
+      priceCents:
+        type: integer
     type: object
 host: localhost:8082
 info:
@@ -2827,6 +2862,28 @@ paths:
       summary: Atualizar produto
       tags:
       - inventory
+  /inventory/products/{id}/image:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: ID do produto
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Product'
+      security:
+      - BearerAuth: []
+      summary: Enviar imagem do produto
+      tags:
+      - inventory
   /izapia-config:
     get:
       produces:
@@ -3452,8 +3509,9 @@ paths:
   /plugins/{slug}/checkout:
     post:
       description: Cria (ou reaproveita, idempotente) um pedido de compra pending
-        para o plugin `pro` indicado e devolve a URL de redirect pro Checkout Pro
-        do Mercado Pago — a licença só nasce quando o webhook confirma o pagamento.
+        para o ciclo de recorrência `cycle` do plugin `pro` indicado e devolve a URL
+        de redirect pro Checkout Pro do Mercado Pago — a licença só nasce quando o
+        webhook confirma o pagamento.
       produces:
       - application/json
       responses:
@@ -3463,7 +3521,26 @@ paths:
             $ref: '#/definitions/pluginlicense.CheckoutOrderResponse'
       security:
       - BearerAuth: []
-      summary: Iniciar checkout de plugin pro (Checkout Pro — pagamento real)
+      summary: Iniciar checkout de plugin pro via Cartão (Checkout Pro — pagamento
+        real)
+      tags:
+      - plugins
+  /plugins/{slug}/checkout/pix:
+    post:
+      description: Cria (ou reaproveita, idempotente) um pedido de compra pending
+        para o ciclo de recorrência `cycle` do plugin `pro` indicado e devolve o QR
+        code/copia-e-cola — a licença só nasce quando o webhook confirma o pagamento
+        (Pix não confirma na hora).
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/pluginlicense.CheckoutPixResponse'
+      security:
+      - BearerAuth: []
+      summary: Iniciar checkout de plugin pro via Pix
       tags:
       - plugins
   /plugins/{slug}/deactivate:

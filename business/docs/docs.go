@@ -2981,6 +2981,42 @@ const docTemplate = `{
                 }
             }
         },
+        "/inventory/products/{id}/image": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "inventory"
+                ],
+                "summary": "Enviar imagem do produto",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID do produto",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Product"
+                        }
+                    }
+                }
+            }
+        },
         "/izapia-config": {
             "get": {
                 "security": [
@@ -4081,19 +4117,44 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Cria (ou reaproveita, idempotente) um pedido de compra pending para o plugin ` + "`" + `pro` + "`" + ` indicado e devolve a URL de redirect pro Checkout Pro do Mercado Pago — a licença só nasce quando o webhook confirma o pagamento.",
+                "description": "Cria (ou reaproveita, idempotente) um pedido de compra pending para o ciclo de recorrência ` + "`" + `cycle` + "`" + ` do plugin ` + "`" + `pro` + "`" + ` indicado e devolve a URL de redirect pro Checkout Pro do Mercado Pago — a licença só nasce quando o webhook confirma o pagamento.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "plugins"
                 ],
-                "summary": "Iniciar checkout de plugin pro (Checkout Pro — pagamento real)",
+                "summary": "Iniciar checkout de plugin pro via Cartão (Checkout Pro — pagamento real)",
                 "responses": {
                     "201": {
                         "description": "Created",
                         "schema": {
                             "$ref": "#/definitions/pluginlicense.CheckoutOrderResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/plugins/{slug}/checkout/pix": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cria (ou reaproveita, idempotente) um pedido de compra pending para o ciclo de recorrência ` + "`" + `cycle` + "`" + ` do plugin ` + "`" + `pro` + "`" + ` indicado e devolve o QR code/copia-e-cola — a licença só nasce quando o webhook confirma o pagamento (Pix não confirma na hora).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "plugins"
+                ],
+                "summary": "Iniciar checkout de plugin pro via Pix",
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/pluginlicense.CheckoutPixResponse"
                         }
                     }
                 }
@@ -7739,6 +7800,10 @@ const docTemplate = `{
                 "id": {
                     "type": "integer"
                 },
+                "imageUrl": {
+                    "description": "ImageURL points at a file saved via pkg/mediastore (local disk,\n\"/public/media/\u003chash\u003e.\u003cext\u003e\") — same storage used for chat media.\nNullable: Modo Simples never requires a photo to create a product.",
+                    "type": "string"
+                },
                 "isComposite": {
                     "type": "boolean"
                 },
@@ -8218,6 +8283,13 @@ const docTemplate = `{
                 "price": {
                     "type": "number"
                 },
+                "pricingCycles": {
+                    "description": "PricingCycles são os ciclos de recorrência cadastrados no Hub (mensal,\nanual, o que o dono cadastrar) — o frontend usa isto pra deixar o\ncliente escolher o ciclo antes de chamar Checkout(Card|Pix). Vazio\npara plugin free.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/pluginlicense.PricingCycleEntry"
+                    }
+                },
                 "screenshots": {
                     "type": "array",
                     "items": {
@@ -8267,11 +8339,42 @@ const docTemplate = `{
                 }
             }
         },
+        "pluginlicense.CheckoutPixResponse": {
+            "type": "object",
+            "properties": {
+                "amountCents": {
+                    "type": "integer"
+                },
+                "orderId": {
+                    "type": "integer"
+                },
+                "qrCode": {
+                    "type": "string"
+                },
+                "qrCodeBase64": {
+                    "type": "string"
+                }
+            }
+        },
         "pluginlicense.InstanceResponse": {
             "type": "object",
             "properties": {
                 "instanceId": {
                     "type": "string"
+                }
+            }
+        },
+        "pluginlicense.PricingCycleEntry": {
+            "type": "object",
+            "properties": {
+                "cycle": {
+                    "type": "string"
+                },
+                "periodDays": {
+                    "type": "integer"
+                },
+                "priceCents": {
+                    "type": "integer"
                 }
             }
         }

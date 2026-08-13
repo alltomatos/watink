@@ -491,6 +491,7 @@ const messages = {
           quickAnswers: "Respostas Rápidas",
           flowBuilder: "Flow Builder",
           clients: "Clientes",
+          inventory: "Estoque",
           helpdesk: "Helpdesk",
           whatsappGroupsHub: "Grupos WhatsApp",
           queues: "Filas",

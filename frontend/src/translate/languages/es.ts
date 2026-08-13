@@ -370,6 +370,7 @@ const messages = {
           quickAnswers: "Respuestas rápidas",
           flowBuilder: "Flow Builder",
           clients: "Clientes",
+          inventory: "Inventario",
           helpdesk: "Helpdesk",
           whatsappGroupsHub: "Grupos WhatsApp",
           administration: "Administración",

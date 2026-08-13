@@ -16,6 +16,10 @@ type Product struct {
 	CategoryID  *int           `gorm:"column:categoryId" json:"categoryId"`
 	Name        string         `gorm:"not null" json:"name"`
 	Unit        string         `gorm:"not null;default:'UN'" json:"unit"`
+	// ImageURL points at a file saved via pkg/mediastore (local disk,
+	// "/public/media/<hash>.<ext>") — same storage used for chat media.
+	// Nullable: Modo Simples never requires a photo to create a product.
+	ImageURL    *string        `gorm:"column:imageUrl" json:"imageUrl"`
 	IsComposite bool           `gorm:"column:isComposite;not null;default:false" json:"isComposite"`
 	CreatedAt   time.Time      `gorm:"column:createdAt" json:"createdAt"`
 	UpdatedAt   time.Time      `gorm:"column:updatedAt" json:"updatedAt"`
