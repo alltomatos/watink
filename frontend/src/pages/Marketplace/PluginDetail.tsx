@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useContext, useCallback, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router";
 import type { AxiosError } from "axios";
-import { ArrowLeft, CheckCircle, ChevronLeft, ChevronRight, Loader2, Puzzle } from "lucide-react";
+import { ArrowLeft, CheckCircle, ChevronLeft, ChevronRight, Copy, Loader2, Puzzle } from "lucide-react";
 import { toast } from "react-toastify";
 import DOMPurify from "dompurify";
 
@@ -16,6 +16,7 @@ import type {
   PluginInstalledResponse,
   PluginActivateUnlicensedResponse,
   CheckoutOrderResponse,
+  CheckoutPixResponse,
 } from "../../types/api";
 
 import { PageContainer, PageHeader, PageContent } from "../../components/ui/page-layout";
@@ -67,6 +68,10 @@ const PluginDetail: React.FC = () => {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkoutSubmitting, setCheckoutSubmitting] = useState(false);
+  const [selectedCycle, setSelectedCycle] = useState<string>("");
+  const [paymentMethod, setPaymentMethod] = useState<"card" | "pix">("card");
+  const [payerEmail, setPayerEmail] = useState("");
+  const [pixOrder, setPixOrder] = useState<CheckoutPixResponse | null>(null);
   const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Clears any in-flight checkout poll on unmount/slug change so it never
@@ -165,15 +170,17 @@ const PluginDetail: React.FC = () => {
 
   // "Prosseguir para pagamento" cria o pedido (PluginOrder pending no Hub,
   // valor já com imposto congelado) e redireciona pra página de pagamento
-  // hospedada pelo Mercado Pago (Checkout Pro) — o cartão/PIX nunca é
+  // hospedada pelo Mercado Pago (Checkout Pro) — o cartão nunca é
   // preenchido dentro do Watink. O retorno acontece via back_urls, tratado
-  // no efeito de status acima.
+  // no efeito de status acima. selectedCycle="" significa pagamento único
+  // (exige plugin.singlePaymentEnabled).
   const handleProceedToPayment = async () => {
     if (!plugin) return;
     setCheckoutSubmitting(true);
     try {
       const returnUrl = window.location.href.split("?")[0];
       const { data: order } = await pluginApi.post<CheckoutOrderResponse>(`/plugins/${plugin.slug}/checkout`, {
+        cycle: selectedCycle,
         returnUrl,
       });
       window.location.href = order.checkoutUrl;
@@ -183,8 +190,36 @@ const PluginDetail: React.FC = () => {
     }
   };
 
+  // Pix não passa pelo Checkout Pro — a Payments API devolve o QR code/
+  // copia-e-cola direto, e a confirmação chega depois via webhook (não é
+  // instantânea). Como não há redirect nem back_url pra tratar, o poll de
+  // ativação começa aqui mesmo, assim que o QR é exibido.
+  const handleGeneratePix = async () => {
+    if (!plugin || !payerEmail) return;
+    setCheckoutSubmitting(true);
+    try {
+      const { data: order } = await pluginApi.post<CheckoutPixResponse>(`/plugins/${plugin.slug}/checkout/pix`, {
+        cycle: selectedCycle,
+        payerEmail,
+      });
+      setPixOrder(order);
+      pollForActivation(plugin.slug, 0);
+    } catch {
+      toast.error("Não foi possível gerar o Pix. Tente novamente.");
+    } finally {
+      setCheckoutSubmitting(false);
+    }
+  };
+
+  const handleCopyPixCode = () => {
+    if (!pixOrder) return;
+    void navigator.clipboard.writeText(pixOrder.qrCode);
+    toast.success("Código Pix copiado!");
+  };
+
   const handleCloseCheckout = () => {
     setCheckoutOpen(false);
+    setPixOrder(null);
   };
 
   // Sempre tenta ativar direto primeiro -- o backend (/plugins/:slug/activate)
@@ -206,6 +241,12 @@ const PluginDetail: React.FC = () => {
         if (plugin.type === "pro") {
           // Genuinamente sem licença (nem admin grant, nem compra prévia) --
           // só agora faz sentido oferecer o checkout pago interativo.
+          // Pré-seleciona um ciclo se houver; senão, cai no pagamento único
+          // (cycle="") se o plugin oferecer essa opção.
+          setSelectedCycle(plugin.pricingCycles?.[0]?.cycle ?? "");
+          setPaymentMethod("card");
+          setPayerEmail("");
+          setPixOrder(null);
           setCheckoutOpen(true);
         } else {
           toast.info(body?.message || "Licença solicitada — aguardando confirmação, tentando novamente...");
@@ -380,32 +421,142 @@ const PluginDetail: React.FC = () => {
                 página segura do Mercado Pago (cartão ou PIX).
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-2 py-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Preço</span>
-                <span>R$ {plugin.price}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Imposto ({plugin.taxRatePercent ?? 8}%)</span>
-                <span>
-                  R$ {((Number(plugin.price) || 0) * ((plugin.taxRatePercent ?? 8) / 100)).toFixed(2)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-base font-semibold pt-2 border-t">
-                <span>Total</span>
-                <span>
-                  R${" "}
-                  {((Number(plugin.price) || 0) * (1 + (plugin.taxRatePercent ?? 8) / 100)).toFixed(2)}
-                </span>
-              </div>
+            <div className="space-y-3 py-2">
+              {(plugin.pricingCycles?.length ?? 0) > 0 || plugin.singlePaymentEnabled ? (
+                <div className="space-y-2">
+                  <span className="text-sm text-muted-foreground">Forma de contratação</span>
+                  <div className="flex flex-wrap gap-2">
+                    {plugin.singlePaymentEnabled && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={selectedCycle === "" ? "default" : "outline"}
+                        onClick={() => setSelectedCycle("")}
+                      >
+                        Pagamento único — R$ {(Number(plugin.price) || 0).toFixed(2)}
+                      </Button>
+                    )}
+                    {plugin.pricingCycles?.map((pc) => (
+                      <Button
+                        key={pc.cycle}
+                        type="button"
+                        size="sm"
+                        variant={selectedCycle === pc.cycle ? "default" : "outline"}
+                        onClick={() => setSelectedCycle(pc.cycle)}
+                      >
+                        {pc.cycle} — R$ {(pc.priceCents / 100).toFixed(2)}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-destructive">
+                  Nenhuma opção de compra cadastrada para este plugin — fale com o administrador.
+                </p>
+              )}
+              {(() => {
+                const cyclePriceReais =
+                  selectedCycle === ""
+                    ? Number(plugin.price) || 0
+                    : (plugin.pricingCycles?.find((pc) => pc.cycle === selectedCycle)?.priceCents ?? 0) / 100;
+                const taxRate = plugin.taxRatePercent ?? 8;
+                return (
+                  <>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Preço</span>
+                      <span>R$ {cyclePriceReais.toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Imposto ({taxRate}%)</span>
+                      <span>R$ {(cyclePriceReais * (taxRate / 100)).toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-base font-semibold pt-2 border-t">
+                      <span>Total</span>
+                      <span>R$ {(cyclePriceReais * (1 + taxRate / 100)).toFixed(2)}</span>
+                    </div>
+                  </>
+                );
+              })()}
+
+              {!pixOrder && (
+                <div className="space-y-2 pt-2 border-t">
+                  <span className="text-sm text-muted-foreground">Forma de pagamento</span>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={paymentMethod === "card" ? "default" : "outline"}
+                      onClick={() => setPaymentMethod("card")}
+                    >
+                      Cartão
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={paymentMethod === "pix" ? "default" : "outline"}
+                      onClick={() => setPaymentMethod("pix")}
+                    >
+                      Pix
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {!pixOrder && paymentMethod === "pix" && (
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="payerEmail" className="text-sm text-muted-foreground">
+                    E-mail do pagador
+                  </label>
+                  <input
+                    id="payerEmail"
+                    type="email"
+                    value={payerEmail}
+                    onChange={(e) => setPayerEmail(e.target.value)}
+                    placeholder="voce@empresa.com"
+                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    required
+                  />
+                </div>
+              )}
+
+              {pixOrder && (
+                <div className="flex flex-col items-center gap-3 pt-2 border-t">
+                  <img
+                    src={`data:image/png;base64,${pixOrder.qrCodeBase64}`}
+                    alt="QR Code Pix"
+                    className="h-48 w-48 rounded-md border"
+                  />
+                  <div className="flex w-full items-center gap-2">
+                    <input
+                      readOnly
+                      value={pixOrder.qrCode}
+                      className="h-9 flex-1 truncate rounded-md border border-input bg-muted px-3 text-xs"
+                    />
+                    <Button type="button" size="sm" variant="outline" onClick={handleCopyPixCode}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Escaneie o QR code ou copie o código Pix no app do seu banco. A ativação é
+                    confirmada automaticamente assim que o pagamento cair.
+                  </p>
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={handleCloseCheckout} disabled={checkoutSubmitting}>
-                Cancelar
+                {pixOrder ? "Fechar" : "Cancelar"}
               </Button>
-              <Button onClick={() => void handleProceedToPayment()} disabled={checkoutSubmitting}>
-                {checkoutSubmitting ? "Abrindo pagamento…" : "Prosseguir para pagamento"}
-              </Button>
+              {!pixOrder && paymentMethod === "card" && (
+                <Button onClick={() => void handleProceedToPayment()} disabled={checkoutSubmitting}>
+                  {checkoutSubmitting ? "Abrindo pagamento…" : "Prosseguir para pagamento"}
+                </Button>
+              )}
+              {!pixOrder && paymentMethod === "pix" && (
+                <Button onClick={() => void handleGeneratePix()} disabled={checkoutSubmitting || !payerEmail}>
+                  {checkoutSubmitting ? "Gerando…" : "Gerar QR Code"}
+                </Button>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>

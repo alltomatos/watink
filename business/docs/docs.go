@@ -3938,6 +3938,56 @@ const docTemplate = `{
                 }
             }
         },
+        "/plugins/cart/checkout": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Resolve vários plugins pro (cada um com seu ciclo) e devolve UMA URL de redirect pro Checkout Pro pela soma — a licença de cada item só nasce quando o webhook confirma o pagamento.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "plugins"
+                ],
+                "summary": "Iniciar checkout de carrinho via Cartão",
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/pluginlicense.CartCheckoutResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/plugins/cart/checkout/pix": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Equivalente Pix de POST /plugins/cart/checkout — devolve UM QR code/copia-e-cola pela soma dos itens pagos.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "plugins"
+                ],
+                "summary": "Iniciar checkout de carrinho via Pix",
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/pluginlicense.CartCheckoutResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/plugins/catalog": {
             "get": {
                 "security": [
@@ -4081,19 +4131,44 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Cria (ou reaproveita, idempotente) um pedido de compra pending para o plugin ` + "`" + `pro` + "`" + ` indicado e devolve a URL de redirect pro Checkout Pro do Mercado Pago — a licença só nasce quando o webhook confirma o pagamento.",
+                "description": "Cria (ou reaproveita, idempotente) um pedido de compra pending para o ciclo (ou pagamento único) escolhido do plugin ` + "`" + `pro` + "`" + ` indicado e devolve a URL de redirect pro Checkout Pro do Mercado Pago — a licença só nasce quando o webhook confirma o pagamento.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "plugins"
                 ],
-                "summary": "Iniciar checkout de plugin pro (Checkout Pro — pagamento real)",
+                "summary": "Iniciar checkout de plugin pro via Cartão (Checkout Pro — pagamento real)",
                 "responses": {
                     "201": {
                         "description": "Created",
                         "schema": {
                             "$ref": "#/definitions/pluginlicense.CheckoutOrderResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/plugins/{slug}/checkout/pix": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cria (ou reaproveita, idempotente) um pedido de compra pending para o ciclo (ou pagamento único) escolhido do plugin ` + "`" + `pro` + "`" + ` indicado e devolve o QR code/copia-e-cola — a licença só nasce quando o webhook confirma o pagamento (Pix não confirma na hora).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "plugins"
+                ],
+                "summary": "Iniciar checkout de plugin pro via Pix",
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/pluginlicense.CheckoutPixResponse"
                         }
                     }
                 }
@@ -8194,6 +8269,52 @@ const docTemplate = `{
                 }
             }
         },
+        "pluginlicense.CartCheckoutResponse": {
+            "type": "object",
+            "properties": {
+                "allTrial": {
+                    "type": "boolean"
+                },
+                "amountCents": {
+                    "type": "integer"
+                },
+                "cartId": {
+                    "type": "string"
+                },
+                "checkoutUrl": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/pluginlicense.CartItemResult"
+                    }
+                },
+                "qrCode": {
+                    "type": "string"
+                },
+                "qrCodeBase64": {
+                    "type": "string"
+                }
+            }
+        },
+        "pluginlicense.CartItemResult": {
+            "type": "object",
+            "properties": {
+                "amountCents": {
+                    "type": "integer"
+                },
+                "cycle": {
+                    "type": "string"
+                },
+                "pluginSlug": {
+                    "type": "string"
+                },
+                "trial": {
+                    "type": "boolean"
+                }
+            }
+        },
         "pluginlicense.CatalogPlugin": {
             "type": "object",
             "properties": {
@@ -8218,11 +8339,22 @@ const docTemplate = `{
                 "price": {
                     "type": "number"
                 },
+                "pricingCycles": {
+                    "description": "PricingCycles são os ciclos de recorrência cadastrados no Hub (mensal,\nanual, o que o dono cadastrar) — o frontend usa isto pra deixar o\ncliente escolher o ciclo antes de chamar Checkout(Card|Pix). Vazio\npara plugin free.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/pluginlicense.PricingCycleEntry"
+                    }
+                },
                 "screenshots": {
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
+                },
+                "singlePaymentEnabled": {
+                    "description": "SinglePaymentEnabled indica se o cliente pode comprar este plugin com\npagamento único (licença perpétua, Price) além de/ao invés dos\nPricingCycles — as duas opções podem coexistir; o cliente escolhe no\ncheckout (cycle=\"\" para pagamento único).",
+                    "type": "boolean"
                 },
                 "slug": {
                     "type": "string"
@@ -8267,11 +8399,42 @@ const docTemplate = `{
                 }
             }
         },
+        "pluginlicense.CheckoutPixResponse": {
+            "type": "object",
+            "properties": {
+                "amountCents": {
+                    "type": "integer"
+                },
+                "orderId": {
+                    "type": "integer"
+                },
+                "qrCode": {
+                    "type": "string"
+                },
+                "qrCodeBase64": {
+                    "type": "string"
+                }
+            }
+        },
         "pluginlicense.InstanceResponse": {
             "type": "object",
             "properties": {
                 "instanceId": {
                     "type": "string"
+                }
+            }
+        },
+        "pluginlicense.PricingCycleEntry": {
+            "type": "object",
+            "properties": {
+                "cycle": {
+                    "type": "string"
+                },
+                "periodDays": {
+                    "type": "integer"
+                },
+                "priceCents": {
+                    "type": "integer"
                 }
             }
         }

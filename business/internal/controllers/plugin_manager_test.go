@@ -95,11 +95,32 @@ func (f *fakePMProxy) GetInstance() (pluginlicense.InstanceResponse, error) {
 	return f.instance, nil
 }
 
-func (f *fakePMProxy) Checkout(_, _ string) (pluginlicense.CheckoutOrderResponse, error) {
+func (f *fakePMProxy) CheckoutCard(_, _, _ string) (pluginlicense.CheckoutOrderResponse, error) {
 	if f.checkoutErr != nil {
 		return pluginlicense.CheckoutOrderResponse{}, f.checkoutErr
 	}
 	return pluginlicense.CheckoutOrderResponse{OrderID: 1, AmountCents: 100, CheckoutURL: "https://mp/x"}, nil
+}
+
+func (f *fakePMProxy) CheckoutPix(_, _, _ string) (pluginlicense.CheckoutPixResponse, error) {
+	if f.checkoutErr != nil {
+		return pluginlicense.CheckoutPixResponse{}, f.checkoutErr
+	}
+	return pluginlicense.CheckoutPixResponse{OrderID: 1, AmountCents: 100, QRCode: "00020126...", QRCodeBase64: "aGVsbG8="}, nil
+}
+
+func (f *fakePMProxy) CartCheckoutCard(items []pluginlicense.CartItem, _ string) (pluginlicense.CartCheckoutResponse, error) {
+	if f.checkoutErr != nil {
+		return pluginlicense.CartCheckoutResponse{}, f.checkoutErr
+	}
+	return pluginlicense.CartCheckoutResponse{CartID: "cart-1", AmountCents: 100 * int64(len(items)), CheckoutURL: "https://mp/cart"}, nil
+}
+
+func (f *fakePMProxy) CartCheckoutPix(items []pluginlicense.CartItem, _ string) (pluginlicense.CartCheckoutResponse, error) {
+	if f.checkoutErr != nil {
+		return pluginlicense.CartCheckoutResponse{}, f.checkoutErr
+	}
+	return pluginlicense.CartCheckoutResponse{CartID: "cart-1", AmountCents: 100 * int64(len(items)), QRCode: "00020126...", QRCodeBase64: "aGVsbG8="}, nil
 }
 
 func TestPluginController_Instance_NilProxy_ReturnsEmpty(t *testing.T) {
@@ -339,44 +360,20 @@ func TestPluginController_Activate_Unlicensed_NilProxy_Returns402(t *testing.T) 
 	assert.Equal(t, int64(0), count, "no allocation should be created without a valid license")
 }
 
-func TestPluginController_Activate_Unlicensed_ChecksOutSuccessfully_Returns402WithRequestedTrue(t *testing.T) {
+func TestPluginController_Activate_Unlicensed_WithProxy_NeverAutoCheckouts(t *testing.T) {
+	// Desde a introdução de ciclos de recorrência/pagamento único (dados que
+	// só o cliente escolhe) e Pix (payerEmail obrigatório), /activate não
+	// pode mais disparar um checkout fire-and-forget sozinho. Mesmo com um
+	// pmProxy funcional, checkoutRequested é sempre false e
+	// CheckoutCard/CheckoutPix nunca são chamados; o cliente precisa
+	// completar o checkout explicitamente no Marketplace.
 	db := testutil.NewTestDB(t)
 	tenantID := uuid.New()
 	fetcher := &fakeLicenseFetcher{info: map[string]plugins.LicenseInfo{
 		"helpdesk": {Status: "unlicensed"},
 	}}
 	registry := plugins.NewPluginRegistry(db, fetcher, nil)
-	proxy := &fakePMProxy{} // checkoutErr nil -> Checkout succeeds
-	ctrl := NewPluginController(&mockPlanLimitSvc{}, db, registry, fetcher, proxy)
-
-	c, w := newTestPluginContext("POST", "/plugins/helpdesk/activate", nil, db, tenantID)
-	c.Params = gin.Params{{Key: "slug", Value: "helpdesk"}}
-
-	ctrl.Activate(c)
-
-	// Still 402 -- the Hub only creates the license record; the token only
-	// lands on the plugin-manager on the next heartbeat, so this request
-	// never grants activation synchronously.
-	assert.Equal(t, http.StatusPaymentRequired, w.Code)
-	var resp map[string]interface{}
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
-	assert.Equal(t, "plugin_unlicensed", resp["error"])
-	assert.Equal(t, true, resp["checkoutRequested"])
-	assert.NotEmpty(t, resp["message"])
-
-	var count int64
-	db.Model(&models.PluginInstallation{}).Where(`"tenantId" = ? AND "pluginId" = ?`, tenantID, "helpdesk").Count(&count)
-	assert.Equal(t, int64(0), count, "no allocation should be created without a valid license, even after a successful checkout request")
-}
-
-func TestPluginController_Activate_Unlicensed_CheckoutFails_Returns402WithRequestedFalse(t *testing.T) {
-	db := testutil.NewTestDB(t)
-	tenantID := uuid.New()
-	fetcher := &fakeLicenseFetcher{info: map[string]plugins.LicenseInfo{
-		"helpdesk": {Status: "unlicensed"},
-	}}
-	registry := plugins.NewPluginRegistry(db, fetcher, nil)
-	proxy := &fakePMProxy{checkoutErr: errors.New("plugin-manager indisponível")}
+	proxy := &fakePMProxy{}
 	ctrl := NewPluginController(&mockPlanLimitSvc{}, db, registry, fetcher, proxy)
 
 	c, w := newTestPluginContext("POST", "/plugins/helpdesk/activate", nil, db, tenantID)
@@ -556,11 +553,11 @@ func TestPluginController_Activate_CatalogVisible_Unlicensed_ReturnsManagedBySaa
 	assert.Equal(t, int64(0), count)
 }
 
-func TestPluginController_Activate_SelfService_Unlicensed_StillAttemptsCheckout(t *testing.T) {
+func TestPluginController_Activate_SelfService_Unlicensed_NeverAutoCheckouts(t *testing.T) {
 	// self_service é o default sem InstancePolicy nem SAAS_INTERNAL_TOKEN --
-	// comportamento pré-existente preservado byte-por-byte (mesmo teste que
-	// TestPluginController_Activate_Unlicensed_ChecksOutSuccessfully_Returns402WithRequestedTrue,
-	// mas explícito quanto ao modo pra travar a regressão do gate 4).
+	// explícito quanto ao modo pra travar a regressão do gate 4. checkout
+	// automático foi removido (ver
+	// TestPluginController_Activate_Unlicensed_WithProxy_NeverAutoCheckouts).
 	db := testutil.NewTestDB(t)
 	tenantID := uuid.New()
 
@@ -580,7 +577,7 @@ func TestPluginController_Activate_SelfService_Unlicensed_StillAttemptsCheckout(
 	var resp map[string]interface{}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.Equal(t, "plugin_unlicensed", resp["error"])
-	assert.Equal(t, true, resp["checkoutRequested"])
+	assert.Equal(t, false, resp["checkoutRequested"])
 }
 
 func TestPluginController_Deactivate_MarksInactive(t *testing.T) {
