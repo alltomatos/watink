@@ -162,5 +162,13 @@ func allModels() []interface{} {
 		&models.GroupCampaignSend{},
 		&models.GroupCampaignReply{},
 		&models.InstancePolicy{},
+		&models.Product{},
+		&models.ProductSKU{},
+		&models.ProductComposition{},
+		&models.PriceTable{},
+		&models.SKUPrice{},
+		&models.Warehouse{},
+		&models.WarehouseBalance{},
+		&models.InventoryMovement{},
 	}
 }

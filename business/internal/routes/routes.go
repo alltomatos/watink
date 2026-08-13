@@ -50,6 +50,8 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 	queueController := controllers.NewQueueController()
 	contactController := controllers.NewContactController(container.ContactRepo, container.ChannelSessionRepo, rabbitMQ, container.Broadcast, container.IzapiaProvider)
 	clientController := controllers.NewClientController()
+	inventoryService := services.NewInventoryService(db, container.Broadcast)
+	inventoryController := controllers.NewInventoryController(inventoryService)
 	addressLookupController := controllers.NewAddressLookupController()
 	activityController := controllers.NewActivityController(s3Store)
 	sessionController := controllers.NewSessionController(container.ChannelSessionRepo, container.Broadcast, container.SessionService)
@@ -198,6 +200,7 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		pluginManager.Register(&plugins.WebchatPlugin{})
 		pluginManager.Register(&plugins.AssistantPlugin{})
 		pluginManager.Register(&plugins.GroupsPlugin{Resolver: container.SessionService, Publisher: rabbitMQ, Redis: container.RedisSvc})
+		pluginManager.Register(&plugins.InventoryAdvancedPlugin{})
 
 		// Auth
 		protected.DELETE("/auth/logout", authController.Logout)
@@ -305,6 +308,16 @@ func SetupRoutes(group *gin.RouterGroup, rabbitMQ RouteRabbitMQ, container *appl
 		protected.DELETE("/clients/:id/addresses/:addressId", auth.RequirePermission("clients", "manage"), clientController.DeleteAddress)
 		protected.POST("/clients/:id/contacts/:contactId/link", auth.RequirePermission("clients", "manage"), clientController.LinkContact)
 		protected.DELETE("/clients/:id/contacts/:contactId", auth.RequirePermission("clients", "manage"), clientController.UnlinkContact)
+
+		// Inventário (WMS core, Modo Simples — sempre ativo, grátis). Modo
+		// Avançado (múltiplos armazéns, transferências, BOM, tabelas de preço
+		// extras) é o plugin PRO "inventory-advanced" registrado abaixo.
+		protected.GET("/inventory/products", auth.RequirePermission("inventory", "read"), inventoryController.ListProducts)
+		protected.POST("/inventory/products", auth.RequirePermission("inventory", "create"), inventoryController.CreateProduct)
+		protected.PUT("/inventory/products/:id", auth.RequirePermission("inventory", "update"), inventoryController.UpdateProduct)
+		protected.DELETE("/inventory/products/:id", auth.RequirePermission("inventory", "delete"), inventoryController.DeleteProduct)
+		protected.POST("/inventory/movements/in", auth.RequirePermission("inventory", "manage"), inventoryController.RegisterEntry)
+		protected.POST("/inventory/movements/out", auth.RequirePermission("inventory", "manage"), inventoryController.RegisterExit)
 		protected.GET("/addresses/lookup", auth.RequirePermission("clients", "read"), addressLookupController.Lookup)
 
 		// Activities (Ordens de Serviço) — ADR 0029. Todas as rotas irmãs sob
