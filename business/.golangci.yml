@@ -79,3 +79,13 @@ linters:
         # ("suspension") — não é typo.
         - suspenso
         - Suspenso
+        # "anual" é português comum (pluginlicense.CatalogPlugin — ciclos de
+        # recorrência mensal/anual do catálogo do Hub) e colide com o
+        # dicionário en-US do misspell ("annual") — não é typo.
+        - anual
+        - Anual
+        # "promocional" é português comum (checkout de carrinho — vaga de
+        # trial promocional) e colide com o dicionário en-US do misspell
+        # ("promotional") — não é typo.
+        - promocional
+        - Promocional
