@@ -495,6 +495,44 @@ era uma condição de exibição de menu, nunca uma dependência arquitetural re
 **Referência:** [`docs/agents/activities.md`](docs/agents/activities.md) · ADR 0029 ·
 [`docs/frontend/activities/OVERVIEW.md`](docs/frontend/activities/OVERVIEW.md)
 
+## Módulo: Inventário (WMS)
+
+**Responsabilidade:** Motor de estoque core (`Product`/`ProductSKU`/`Warehouse`/
+`InventoryMovement`) — base matemática para qualquer vertical física do Watink. Estratégia de
+Divulgação Progressiva de Complexidade (PRD original): schema sempre unificado; Modo Simples
+(core, grátis, sempre ligado) resolve Armazém/Tabela de Preço "padrão" automaticamente; Modo
+Avançado (plugin PRO `inventory-advanced`) libera múltiplos armazéns, transferências, fichas
+técnicas (BOM) e tabelas de preço extras via licença do Marketplace.
+
+**Invariants:**
+- Sempre `auth.GetScoped(c, "Inventory")` — nunca `c.Get("tenantId")` bruto.
+- Único caminho de escrita de estoque é `InventoryService.RegisterMovement` (core) —
+  transação com `SELECT ... FOR UPDATE` na `WarehouseBalance`, nunca deixa saldo negativo.
+- `InventoryMovements` é append-only — corrigir um erro é lançar um novo movimento de
+  compensação, nunca `UPDATE` na linha antiga.
+- `Product`/`ProductSKU`/`Warehouse` são sempre soft-delete; excluir um Produto com SKU que já
+  tem `InventoryMovement` é bloqueado (`409`), nunca cascata silenciosa.
+- `SKUPrice.priceCents` é `int64` (centavos) — não copiar o padrão `float64 decimal(10,2)` de
+  `Plan.Price`/`Deal.Value` (dívida técnica antiga) em código novo deste módulo.
+- Saldo abaixo de `SKU.MinQuantity` emite `inventory.low_stock` via `EmitToTenantRoom`/
+  `core.EmitSocketEvent("tenant:"+id, ...)` — nunca `EmitToNamespace("/")`.
+- O plugin `inventory-advanced` **não importa** `internal/services` (import cycle via
+  `internal/application/usecases`) — a lógica de locking é deliberadamente duplicada em
+  `internal/plugins/inventory_shared.go`, mesmo precedente de `coreImpl.CreateActivity`
+  (módulo Atividades). Mudar o contrato de um lado exige replicar manualmente no outro.
+
+**O que NÃO fazer:**
+- Não expor escolha de Warehouse/PriceTable nas rotas de Modo Simples — sempre resolvido
+  server-side ("Armazém Principal"/"Base").
+- Não recalcular `WarehouseBalance.currentBalance` somando o histórico de
+  `InventoryMovements` — é sempre o valor mantido atomicamente pela última escrita.
+- Não modelar `tenant_settings.inventory_mode` como coluna própria — o Modo Avançado é
+  decidido pelo status de licença do plugin `inventory-advanced`, mesma autoridade usada por
+  Helpdesk/Webchat/Grupos.
+- Não remover o "Armazém Principal" nem um armazém com saldo diferente de zero.
+
+**Referência:** [`docs/agents/inventory.md`](docs/agents/inventory.md)
+
 ## Módulo: Plugins (Marketplace + Licenciamento)
 
 **Responsabilidade:** Ativação **opt-in por tenant** de features (plugins) via Marketplace, com gating real de licença para as pagas. O core é **cliente** do licenciamento; a autoridade de catálogo/licença é o **Watink Hub** (`watink-ecosistema/hub`), alcançado sempre pelo `plugin-manager` local — nunca direto. Substitui o modelo "flag no banco" (ADR 0024, supera 0003).

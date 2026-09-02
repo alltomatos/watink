@@ -103,6 +103,14 @@ func Migrate() {
 		&models.GroupCampaignSend{},
 		&models.GroupCampaignReply{},
 		&models.InstancePolicy{},
+		&models.Product{},
+		&models.ProductSKU{},
+		&models.ProductComposition{},
+		&models.PriceTable{},
+		&models.SKUPrice{},
+		&models.Warehouse{},
+		&models.WarehouseBalance{},
+		&models.InventoryMovement{},
 	)
 
 	if err != nil {
@@ -186,6 +194,13 @@ func Seed() {
 		{Resource: "activities", Action: "update", Description: "Editar/executar Atividades"},
 		{Resource: "activities", Action: "delete", Description: "Excluir Atividades"},
 		{Resource: "activities", Action: "manage", Description: "Gerenciar SLA e atribuição de Atividades"},
+		// inventory (WMS — catálogo, movimentações; Modo Avançado usa o mesmo
+		// recurso via o plugin inventory-advanced, gate de licença é dele)
+		{Resource: "inventory", Action: "read", Description: "Visualizar Estoque"},
+		{Resource: "inventory", Action: "create", Description: "Criar Produtos"},
+		{Resource: "inventory", Action: "update", Description: "Editar Produtos"},
+		{Resource: "inventory", Action: "delete", Description: "Excluir Produtos"},
+		{Resource: "inventory", Action: "manage", Description: "Registrar movimentações de estoque"},
 		// connections (WhatsApp/Conexões)
 		{Resource: "connections", Action: "read", Description: "Visualizar Conexões"},
 		{Resource: "connections", Action: "create", Description: "Criar Conexões"},
@@ -385,6 +400,19 @@ func addCustomIndexes() error {
 		`CREATE INDEX IF NOT EXISTS idx_activity_checklist_items_activity ON "ActivityChecklistItems" ("activityId")`,
 		`CREATE INDEX IF NOT EXISTS idx_activity_materials_activity ON "ActivityMaterials" ("activityId")`,
 		`CREATE INDEX IF NOT EXISTS idx_activity_occurrences_activity ON "ActivityOccurrences" ("activityId")`,
+		// Inventory (WMS core): CurrentBalance é lido/travado por (warehouseId,
+		// skuId) em toda saída (SELECT ... FOR UPDATE) -- índice único cobre a
+		// PK composta e o hot-path de leitura. Movements varrem por
+		// (tenantId, skuId, warehouseId) na trilha de auditoria; SKUPrices
+		// resolve por (skuId, priceTableId) no lookup de preço vigente.
+		`CREATE INDEX IF NOT EXISTS idx_products_tenant ON "Products" ("tenantId")`,
+		`CREATE INDEX IF NOT EXISTS idx_product_skus_product ON "ProductSKUs" ("productId")`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_product_skus_code ON "ProductSKUs" ("productId", "skuCode") WHERE "deletedAt" IS NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_product_compositions_parent_child ON "ProductCompositions" ("parentSkuId", "childSkuId")`,
+		`CREATE INDEX IF NOT EXISTS idx_price_tables_tenant ON "PriceTables" ("tenantId")`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_sku_prices_sku_table ON "SKUPrices" ("skuId", "priceTableId")`,
+		`CREATE INDEX IF NOT EXISTS idx_warehouses_tenant ON "Warehouses" ("tenantId")`,
+		`CREATE INDEX IF NOT EXISTS idx_movements_tenant_sku_warehouse ON "InventoryMovements" ("tenantId", "skuId", "warehouseId")`,
 		// GroupCache (plugin Grupos e Comunidades): uma linha por
 		// (conexão, grupo) -- o sync de background faz delete+reinsert por
 		// conexão (groups_cache_sync.go), a leitura de GET /groups filtra por

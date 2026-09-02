@@ -6,16 +6,27 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/streadway/amqp"
 	"go.opentelemetry.io/otel"
 )
 
+type consumerRegistration struct {
+	exchange    string
+	queueName   string
+	routingKeys []string
+	handler     func(amqp.Delivery) error
+}
+
 type RabbitMQService struct {
 	conn    *amqp.Connection
 	channel *amqp.Channel
 	url     string
+
+	mu        sync.Mutex
+	consumers []consumerRegistration
 }
 
 func NewRabbitMQProvider(url string) *RabbitMQService {
@@ -40,8 +51,15 @@ func (s *RabbitMQService) Connect() error {
 	go func() {
 		<-s.conn.NotifyClose(make(chan *amqp.Error))
 		log.Println("[RabbitMQ] Connection closed. Reconnecting...")
-		time.Sleep(5 * time.Second)
-		s.Connect()
+		for {
+			time.Sleep(5 * time.Second)
+			if err := s.Connect(); err != nil {
+				log.Printf("[RabbitMQ] Reconnect failed, retrying: %v", err)
+				continue
+			}
+			s.resubscribeConsumers()
+			return
+		}
 	}()
 
 	s.channel, err = s.conn.Channel()
@@ -128,56 +146,14 @@ func (s *RabbitMQService) publishWithTrace(exchange, routingKey string, payload 
 }
 
 func (s *RabbitMQService) ConsumeEvents(queueName string, routingKeys []string, handler func(amqp.Delivery) error) error {
-	if err := s.declareQueueWithDLQ(queueName, "wbot.events", routingKeys); err != nil {
-		return err
-	}
-
-	msgs, err := s.channel.Consume(queueName, "", false, false, false, false, nil)
-	if err != nil {
-		return err
-	}
-
-	go func() {
-		for d := range msgs {
-			if err := handler(d); err != nil {
-				s.handleFailedMessage(d, err)
-			} else {
-				if err := d.Ack(false); err != nil {
-					log.Printf("[RabbitMQ] Ack failed: %v", err)
-				}
-			}
-		}
-	}()
-
-	return nil
+	return s.registerConsumer("wbot.events", queueName, routingKeys, handler)
 }
 
 // ConsumeKnowledgeEvents binds a queue to the knowledge.events exchange (with
 // DLQ) and dispatches each delivery to handler. Mirrors ConsumeEvents but for
 // the knowledge status stream.
 func (s *RabbitMQService) ConsumeKnowledgeEvents(queueName string, routingKeys []string, handler func(amqp.Delivery) error) error {
-	if err := s.declareQueueWithDLQ(queueName, "knowledge.events", routingKeys); err != nil {
-		return err
-	}
-
-	msgs, err := s.channel.Consume(queueName, "", false, false, false, false, nil)
-	if err != nil {
-		return err
-	}
-
-	go func() {
-		for d := range msgs {
-			if err := handler(d); err != nil {
-				s.handleFailedMessage(d, err)
-			} else {
-				if err := d.Ack(false); err != nil {
-					log.Printf("[RabbitMQ] Ack failed: %v", err)
-				}
-			}
-		}
-	}()
-
-	return nil
+	return s.registerConsumer("knowledge.events", queueName, routingKeys, handler)
 }
 
 // ConsumeKnowledgeJobs binds a queue to the knowledge.jobs exchange (with DLQ)
@@ -186,7 +162,32 @@ func (s *RabbitMQService) ConsumeKnowledgeEvents(queueName string, routingKeys [
 // service (which never declared a DLQ on this queue), a job that keeps
 // failing lands in the dead-letter queue instead of vanishing.
 func (s *RabbitMQService) ConsumeKnowledgeJobs(queueName string, routingKeys []string, handler func(amqp.Delivery) error) error {
-	if err := s.declareQueueWithDLQ(queueName, "knowledge.jobs", routingKeys); err != nil {
+	return s.registerConsumer("knowledge.jobs", queueName, routingKeys, handler)
+}
+
+// registerConsumer records the (exchange, queue, routingKeys, handler) tuple
+// so resubscribeConsumers can re-attach it after a reconnect, then starts
+// consuming immediately. Without this registry, a dropped AMQP connection
+// silently kills the consumer goroutine (its `range msgs` channel closes)
+// while Connect()'s auto-reconnect brings the connection back healthy —
+// leaving the queue with 0 consumers and an unbounded backlog with no error
+// in the logs (diagnosed live in prod: api.events.process.go stuck at 22k+
+// messages, WhatsApp connections stuck in OPENING forever).
+func (s *RabbitMQService) registerConsumer(exchange, queueName string, routingKeys []string, handler func(amqp.Delivery) error) error {
+	s.mu.Lock()
+	s.consumers = append(s.consumers, consumerRegistration{
+		exchange:    exchange,
+		queueName:   queueName,
+		routingKeys: routingKeys,
+		handler:     handler,
+	})
+	s.mu.Unlock()
+
+	return s.consume(exchange, queueName, routingKeys, handler)
+}
+
+func (s *RabbitMQService) consume(exchange, queueName string, routingKeys []string, handler func(amqp.Delivery) error) error {
+	if err := s.declareQueueWithDLQ(queueName, exchange, routingKeys); err != nil {
 		return err
 	}
 
@@ -205,9 +206,28 @@ func (s *RabbitMQService) ConsumeKnowledgeJobs(queueName string, routingKeys []s
 				}
 			}
 		}
+		log.Printf("[RabbitMQ] Consumer loop for queue %q stopped (channel closed)", queueName)
 	}()
 
 	return nil
+}
+
+// resubscribeConsumers re-attaches every previously registered consumer to
+// the freshly reconnected channel. Called by Connect()'s reconnect goroutine
+// after a successful reconnect.
+func (s *RabbitMQService) resubscribeConsumers() {
+	s.mu.Lock()
+	regs := make([]consumerRegistration, len(s.consumers))
+	copy(regs, s.consumers)
+	s.mu.Unlock()
+
+	for _, reg := range regs {
+		if err := s.consume(reg.exchange, reg.queueName, reg.routingKeys, reg.handler); err != nil {
+			log.Printf("[RabbitMQ] Failed to resubscribe consumer for queue %q: %v", reg.queueName, err)
+		} else {
+			log.Printf("[RabbitMQ] Resubscribed consumer for queue %q", reg.queueName)
+		}
+	}
 }
 
 func (s *RabbitMQService) Close() error {

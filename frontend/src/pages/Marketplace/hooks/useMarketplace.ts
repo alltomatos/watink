@@ -69,6 +69,8 @@ export function useMarketplace(): UseMarketplaceReturn {
         category: p.category,
         price: p.price,
         taxRatePercent: p.taxRatePercent,
+        singlePaymentEnabled: p.singlePaymentEnabled,
+        pricingCycles: p.pricingCycles,
         iconUrl: p.iconUrl || `/public/plugins/${p.slug}.png`,
         installed: activeSlugs.has(p.slug),
         active: activeSlugs.has(p.slug),

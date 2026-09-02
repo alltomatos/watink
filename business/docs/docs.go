@@ -2626,6 +2626,36 @@ const docTemplate = `{
                 }
             }
         },
+        "/internal/saas/instance/policy": {
+            "put": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "internal-saas"
+                ],
+                "summary": "Definir política de marketplace da instância (control plane SaaS)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/internal/saas/ping": {
             "get": {
                 "produces": [
@@ -2772,6 +2802,180 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/inventory/movements/in": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "inventory"
+                ],
+                "summary": "Registrar entrada de estoque (modo simples)",
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.InventoryMovement"
+                        }
+                    }
+                }
+            }
+        },
+        "/inventory/movements/out": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "inventory"
+                ],
+                "summary": "Registrar saída de estoque (modo simples)",
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.InventoryMovement"
+                        }
+                    }
+                }
+            }
+        },
+        "/inventory/products": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "inventory"
+                ],
+                "summary": "Listar produtos",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "inventory"
+                ],
+                "summary": "Criar produto (modo simples)",
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.Product"
+                        }
+                    }
+                }
+            }
+        },
+        "/inventory/products/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "inventory"
+                ],
+                "summary": "Atualizar produto",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID do produto",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Product"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "inventory"
+                ],
+                "summary": "Remover produto",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID do produto",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -3734,6 +3938,56 @@ const docTemplate = `{
                 }
             }
         },
+        "/plugins/cart/checkout": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Resolve vários plugins pro (cada um com seu ciclo) e devolve UMA URL de redirect pro Checkout Pro pela soma — a licença de cada item só nasce quando o webhook confirma o pagamento.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "plugins"
+                ],
+                "summary": "Iniciar checkout de carrinho via Cartão",
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/pluginlicense.CartCheckoutResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/plugins/cart/checkout/pix": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Equivalente Pix de POST /plugins/cart/checkout — devolve UM QR code/copia-e-cola pela soma dos itens pagos.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "plugins"
+                ],
+                "summary": "Iniciar checkout de carrinho via Pix",
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/pluginlicense.CartCheckoutResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/plugins/catalog": {
             "get": {
                 "security": [
@@ -3877,19 +4131,44 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Cria (ou reaproveita, idempotente) um pedido de compra pending para o plugin ` + "`" + `pro` + "`" + ` indicado e devolve a URL de redirect pro Checkout Pro do Mercado Pago — a licença só nasce quando o webhook confirma o pagamento.",
+                "description": "Cria (ou reaproveita, idempotente) um pedido de compra pending para o ciclo (ou pagamento único) escolhido do plugin ` + "`" + `pro` + "`" + ` indicado e devolve a URL de redirect pro Checkout Pro do Mercado Pago — a licença só nasce quando o webhook confirma o pagamento.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "plugins"
                 ],
-                "summary": "Iniciar checkout de plugin pro (Checkout Pro — pagamento real)",
+                "summary": "Iniciar checkout de plugin pro via Cartão (Checkout Pro — pagamento real)",
                 "responses": {
                     "201": {
                         "description": "Created",
                         "schema": {
                             "$ref": "#/definitions/pluginlicense.CheckoutOrderResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/plugins/{slug}/checkout/pix": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cria (ou reaproveita, idempotente) um pedido de compra pending para o ciclo (ou pagamento único) escolhido do plugin ` + "`" + `pro` + "`" + ` indicado e devolve o QR code/copia-e-cola — a licença só nasce quando o webhook confirma o pagamento (Pix não confirma na hora).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "plugins"
+                ],
+                "summary": "Iniciar checkout de plugin pro via Pix",
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/pluginlicense.CheckoutPixResponse"
                         }
                     }
                 }
@@ -5440,6 +5719,112 @@ const docTemplate = `{
                                 "type": "object",
                                 "additionalProperties": true
                             }
+                        }
+                    }
+                }
+            }
+        },
+        "/system/saas-mode/pair": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Parear esta instância com um Watink SaaS via instanceId+token existentes",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/system/saas-mode/precheck": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Pré-checagem de saída HTTPS para o Watink SaaS",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/system/saas-mode/register": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Registrar esta instância no Watink SaaS hospedado (Modo SaaS)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/system/saas-mode/status": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Status do pareamento com o Watink SaaS (Modo SaaS)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -7289,6 +7674,40 @@ const docTemplate = `{
                 }
             }
         },
+        "models.InventoryMovement": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "originId": {
+                    "type": "integer"
+                },
+                "originType": {
+                    "description": "OriginType is one of MANUAL, ORDER, OS.",
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "number"
+                },
+                "skuId": {
+                    "type": "integer"
+                },
+                "tenantId": {
+                    "type": "string"
+                },
+                "type": {
+                    "description": "Type is one of IN, OUT, TRANSFER.",
+                    "type": "string"
+                },
+                "warehouseId": {
+                    "type": "integer"
+                }
+            }
+        },
         "models.Message": {
             "type": "object",
             "properties": {
@@ -7376,6 +7795,35 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "resource": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Product": {
+            "type": "object",
+            "properties": {
+                "categoryId": {
+                    "type": "integer"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "isComposite": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "tenantId": {
+                    "type": "string"
+                },
+                "unit": {
                     "type": "string"
                 },
                 "updatedAt": {
@@ -7821,6 +8269,52 @@ const docTemplate = `{
                 }
             }
         },
+        "pluginlicense.CartCheckoutResponse": {
+            "type": "object",
+            "properties": {
+                "allTrial": {
+                    "type": "boolean"
+                },
+                "amountCents": {
+                    "type": "integer"
+                },
+                "cartId": {
+                    "type": "string"
+                },
+                "checkoutUrl": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/pluginlicense.CartItemResult"
+                    }
+                },
+                "qrCode": {
+                    "type": "string"
+                },
+                "qrCodeBase64": {
+                    "type": "string"
+                }
+            }
+        },
+        "pluginlicense.CartItemResult": {
+            "type": "object",
+            "properties": {
+                "amountCents": {
+                    "type": "integer"
+                },
+                "cycle": {
+                    "type": "string"
+                },
+                "pluginSlug": {
+                    "type": "string"
+                },
+                "trial": {
+                    "type": "boolean"
+                }
+            }
+        },
         "pluginlicense.CatalogPlugin": {
             "type": "object",
             "properties": {
@@ -7845,11 +8339,22 @@ const docTemplate = `{
                 "price": {
                     "type": "number"
                 },
+                "pricingCycles": {
+                    "description": "PricingCycles são os ciclos de recorrência cadastrados no Hub (mensal,\nanual, o que o dono cadastrar) — o frontend usa isto pra deixar o\ncliente escolher o ciclo antes de chamar Checkout(Card|Pix). Vazio\npara plugin free.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/pluginlicense.PricingCycleEntry"
+                    }
+                },
                 "screenshots": {
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
+                },
+                "singlePaymentEnabled": {
+                    "description": "SinglePaymentEnabled indica se o cliente pode comprar este plugin com\npagamento único (licença perpétua, Price) além de/ao invés dos\nPricingCycles — as duas opções podem coexistir; o cliente escolhe no\ncheckout (cycle=\"\" para pagamento único).",
+                    "type": "boolean"
                 },
                 "slug": {
                     "type": "string"
@@ -7894,11 +8399,42 @@ const docTemplate = `{
                 }
             }
         },
+        "pluginlicense.CheckoutPixResponse": {
+            "type": "object",
+            "properties": {
+                "amountCents": {
+                    "type": "integer"
+                },
+                "orderId": {
+                    "type": "integer"
+                },
+                "qrCode": {
+                    "type": "string"
+                },
+                "qrCodeBase64": {
+                    "type": "string"
+                }
+            }
+        },
         "pluginlicense.InstanceResponse": {
             "type": "object",
             "properties": {
                 "instanceId": {
                     "type": "string"
+                }
+            }
+        },
+        "pluginlicense.PricingCycleEntry": {
+            "type": "object",
+            "properties": {
+                "cycle": {
+                    "type": "string"
+                },
+                "periodDays": {
+                    "type": "integer"
+                },
+                "priceCents": {
+                    "type": "integer"
                 }
             }
         }
